@@ -45,7 +45,7 @@ pipeline {
       parallel {
         /*************** PROD: Backend Blue/Green ***************/
         stage('Deploy Backend (prod)') {
-          when { allOf { expression { env.BACKEND_CHANGED }, expression { env.DO_PROD } } }
+          when { expression { env.BACKEND_CHANGED && env.DO_PROD } }
           environment { PROD_TAG = "${IMAGE_PREFIX}/impresser-backend:${env.BUILD_NUMBER}" }
           stages {
             stage('Build') {
@@ -95,7 +95,7 @@ pipeline {
 
         /*************** DEV: Backend 단일 교체 ***************/
         stage('Deploy Backend (dev)') {
-          when { allOf { expression { env.BACKEND_CHANGED }, expression { env.DO_DEV } } }
+          when { expression { env.BACKEND_CHANGED && env.DO_DEV } }
           environment { DEV_TAG = "${IMAGE_PREFIX}/impresser-backend-dev:${env.BUILD_NUMBER}" }
           steps {
             sh 'docker build -t ${DEV_TAG} -f backend/Dockerfile backend'
