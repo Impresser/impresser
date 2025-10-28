@@ -11,12 +11,6 @@ pipeline {
     LINK_NAME  = "${CONF_DIR}/upstream.backend.prod.conf"
     DOMAIN     = 'k13s404.p.ssafy.io'
     IMAGE_PREFIX = 'khs5860'
-
-    PROD_ENV_FILE_BACKEND = credentials('prod-env-file-backend')
-    DEV_ENV_FILE_BACKEND  = credentials('dev-env-file-backend')
-    PROD_ENV_FILE_FRONTEND = credentials('prod-env-file-frontend')
-    DEV_ENV_FILE_FRONTEND = credentials('dev-env-file-frontend')
-    DOCKER_HUB_CREDS = credentials('dockerhub-creds')
   }
 
   stages {
@@ -53,27 +47,29 @@ pipeline {
             }
             stage('Run Target Slot') {
               steps {
-                sh '''
-                  set -euo pipefail
-                  for i in $(seq 1 60); do
-                    if [ "$(docker inspect -f '{{.State.Health.Status}}' mysql-prod 2>/dev/null)" = "healthy" ] && \
-                       [ "$(docker inspect -f '{{.State.Health.Status}}' redis-prod 2>/dev/null)" = "healthy" ]; then break; fi
-                    sleep 2
-                  done
+                withCredentials([file(credentialsId: 'prod-env-file-backend', variable: 'PROD_ENV_FILE_PATH')]) {
+                  sh '''
+                    set -euo pipefail
+                    for i in $(seq 1 60); do
+                      if [ "$(docker inspect -f '{{.State.Health.Status}}' mysql-prod 2>/dev/null)" = "healthy" ] && \
+                         [ "$(docker inspect -f '{{.State.Health.Status}}' redis-prod 2>/dev/null)" = "healthy" ]; then break; fi
+                      sleep 2
+                    done
 
-                  CUR=$(readlink -f "${LINK_NAME}" || true)
-                  TARGET_CONT=$([[ "${CUR:-}" =~ blue ]] && echo "backend-prod-green" || echo "backend-prod-blue")
-                  OLD_CONT=$([[ "${CUR:-}" =~ blue ]] && echo "backend-prod-blue" || echo "backend-prod-green")
-                  echo "OLD_CONT=$OLD_CONT" > /tmp/prod.slot
+                    CUR=$(readlink -f "${LINK_NAME}" || true)
+                    TARGET_CONT=$([[ "${CUR:-}" =~ blue ]] && echo "backend-prod-green" || echo "backend-prod-blue")
+                    OLD_CONT=$([[ "${CUR:-}" =~ blue ]] && echo "backend-prod-blue" || echo "backend-prod-green")
+                    echo "OLD_CONT=$OLD_CONT" > /tmp/prod.slot
 
-                  docker rm -f "${TARGET_CONT}" || true
-                  docker run -d --name "${TARGET_CONT}" --network ${PROD_NET} --env-file ${PROD_ENV_FILE_BACKEND} ${PROD_TAG}
+                    docker rm -f "${TARGET_CONT}" || true
+                    docker run -d --name "${TARGET_CONT}" --network ${PROD_NET} --env-file ${PROD_ENV_FILE_PATH} ${PROD_TAG}
 
-                  for i in $(seq 1 60); do
-                    if docker exec "${TARGET_CONT}" wget -qO- http://127.0.0.1:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
-                    sleep 1
-                  done; exit 1
-                '''
+                    for i in $(seq 1 60); do
+                      if docker exec "${TARGET_CONT}" wget -qO- http://127.0.0.1:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
+                      sleep 1
+                    done; exit 1
+                  '''
+                }
               }
             }
             stage('Switch & Cleanup') {
@@ -98,23 +94,25 @@ pipeline {
           when { expression { env.BACKEND_CHANGED && env.DO_DEV } }
           environment { DEV_TAG = "${IMAGE_PREFIX}/impresser-backend-dev:${env.BUILD_NUMBER}" }
           steps {
-            sh 'docker build -t ${DEV_TAG} -f backend/Dockerfile backend'
-            sh '''
-              set -euo pipefail
-              for i in $(seq 1 60); do
-                if [ "$(docker inspect -f '{{.State.Health.Status}}' mysql-dev 2>/dev/null)" = "healthy" ] && \
-                   [ "$(docker inspect -f '{{.State.Health.Status}}' redis-dev 2>/dev/null)" = "healthy" ]; then break; fi
-                sleep 2
-              done
+            withCredentials([file(credentialsId: 'dev-env-file-backend', variable: 'DEV_ENV_FILE_PATH')]) {
+              sh 'docker build -t ${DEV_TAG} -f backend/Dockerfile backend'
+              sh '''
+                set -euo pipefail
+                for i in $(seq 1 60); do
+                  if [ "$(docker inspect -f '{{.State.Health.Status}}' mysql-dev 2>/dev/null)" = "healthy" ] && \
+                     [ "$(docker inspect -f '{{.State.Health.Status}}' redis-dev 2>/dev/null)" = "healthy" ]; then break; fi
+                  sleep 2
+                done
 
-              docker rm -f backend-dev || true
-              docker run -d --name backend-dev --network ${DEV_NET} --env-file ${DEV_ENV_FILE_BACKEND} ${DEV_TAG}
+                docker rm -f backend-dev || true
+                docker run -d --name backend-dev --network ${DEV_NET} --env-file ${DEV_ENV_FILE_PATH} ${DEV_TAG}
 
-              for i in $(seq 1 30); do
-                if docker exec backend-dev wget -qO- http://127.0.0.1:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
-                sleep 1
-              done; exit 1
-            '''
+                for i in $(seq 1 30); do
+                  if docker exec backend-dev wget -qO- http://127.0.0.1:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
+                  sleep 1
+                done; exit 1
+              '''
+            }
           }
         }
 
@@ -126,18 +124,22 @@ pipeline {
               when { expression { env.DO_PROD } }
               environment { PROD_TAG = "${IMAGE_PREFIX}/impresser-frontend:${env.BUILD_NUMBER}" }
               steps {
-                sh 'docker build -t ${PROD_TAG} -f frontend/Dockerfile frontend'
-                sh 'docker rm -f frontend-prod || true'
-                sh 'docker run -d --name frontend-prod --network ${PROD_NET} --env-file ${PROD_ENV_FILE_FRONTEND} ${PROD_TAG}'
+                withCredentials([file(credentialsId: 'prod-env-file-frontend', variable: 'PROD_ENV_FILE_PATH')]) {
+                  sh 'docker build -t ${PROD_TAG} -f frontend/Dockerfile frontend'
+                  sh 'docker rm -f frontend-prod || true'
+                  sh 'docker run -d --name frontend-prod --network ${PROD_NET} --env-file ${PROD_ENV_FILE_PATH} ${PROD_TAG}'
+                }
               }
             }
             stage('DEV') {
               when { expression { env.DO_DEV } }
               environment { DEV_TAG = "${IMAGE_PREFIX}/impresser-frontend-dev:${env.BUILD_NUMBER}" }
               steps {
-                sh 'docker build -t ${DEV_TAG} -f frontend/Dockerfile frontend'
-                sh 'docker rm -f frontend-dev || true'
-                sh 'docker run -d --name frontend-dev --network ${DEV_NET} --env-file ${DEV_ENV_FILE_FRONTEND} ${DEV_TAG}'
+                withCredentials([file(credentialsId: 'dev-env-file-frontend', variable: 'DEV_ENV_FILE_PATH')]) {
+                  sh 'docker build -t ${DEV_TAG} -f frontend/Dockerfile frontend'
+                  sh 'docker rm -f frontend-dev || true'
+                  sh 'docker run -d --name frontend-dev --network ${DEV_NET} --env-file ${DEV_ENV_FILE_PATH} ${DEV_TAG}'
+                }
               }
             }
           }
