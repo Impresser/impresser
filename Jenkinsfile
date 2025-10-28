@@ -48,27 +48,34 @@ pipeline {
             stage('Run Target Slot') {
               steps {
                 withCredentials([file(credentialsId: 'prod-env-file-backend', variable: 'PROD_ENV_FILE_PATH')]) {
-                  sh '''
+                  sh """
                     set -euo pipefail
-                    for i in $(seq 1 60); do
-                      if [ "$(docker inspect -f '{{.State.Health.Status}}' mysql-prod 2>/dev/null)" = "healthy" ] && \
-                         [ "$(docker inspect -f '{{.State.Health.Status}}' redis-prod 2>/dev/null)" = "healthy" ]; then break; fi
+                    for i in \$(seq 1 60); do
+                      if [ "\$(docker inspect -f '{{.State.Health.Status}}' mysql-prod 2>/dev/null)" = "healthy" ] && \
+                         [ "\$(docker inspect -f '{{.State.Health.Status}}' redis-prod 2>/dev/null)" = "healthy" ]; then break; fi
                       sleep 2
                     done
 
-                    CUR=$(readlink -f "${LINK_NAME}" || true)
-                    TARGET_CONT=$([[ "${CUR:-}" =~ blue ]] && echo "backend-prod-green" || echo "backend-prod-blue")
-                    OLD_CONT=$([[ "${CUR:-}" =~ blue ]] && echo "backend-prod-blue" || echo "backend-prod-green")
-                    echo "OLD_CONT=$OLD_CONT" > /tmp/prod.slot
+                    CUR=\$(readlink -f "${LINK_NAME}" || true)
+                    
+                    if echo "\${CUR:-}" | grep -q "blue"; then
+                      TARGET_CONT="backend-prod-green"
+                      OLD_CONT="backend-prod-blue"
+                    else
+                      TARGET_CONT="backend-prod-blue"
+                      OLD_CONT="backend-prod-green"
+                    fi
+                    
+                    echo "OLD_CONT=\$OLD_CONT" > /tmp/prod.slot
 
-                    docker rm -f "${TARGET_CONT}" || true
-                    docker run -d --name "${TARGET_CONT}" --network ${PROD_NET} --env-file ${PROD_ENV_FILE_PATH} ${PROD_TAG}
+                    docker rm -f "\${TARGET_CONT}" || true
+                    docker run -d --name "\${TARGET_CONT}" --network ${PROD_NET} --env-file ${PROD_ENV_FILE_PATH} ${PROD_TAG}
 
-                    for i in $(seq 1 60); do
-                      if docker exec "${TARGET_CONT}" wget -qO- http://127.0.0.1:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
+                    for i in \$(seq 1 60); do
+                      if docker exec "\${TARGET_CONT}" wget -qO- http://127.0.0.1:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
                       sleep 1
                     done; exit 1
-                  '''
+                  """
                 }
               }
             }
@@ -96,22 +103,22 @@ pipeline {
           steps {
             withCredentials([file(credentialsId: 'dev-env-file-backend', variable: 'DEV_ENV_FILE_PATH')]) {
               sh 'docker build -t ${DEV_TAG} -f backend/Dockerfile backend'
-              sh '''
+              sh """
                 set -euo pipefail
-                for i in $(seq 1 60); do
-                  if [ "$(docker inspect -f '{{.State.Health.Status}}' mysql-dev 2>/dev/null)" = "healthy" ] && \
-                     [ "$(docker inspect -f '{{.State.Health.Status}}' redis-dev 2>/dev/null)" = "healthy" ]; then break; fi
+                for i in \$(seq 1 60); do
+                  if [ "\$(docker inspect -f '{{.State.Health.Status}}' mysql-dev 2>/dev/null)" = "healthy" ] && \
+                     [ "\$(docker inspect -f '{{.State.Health.Status}}' redis-dev 2>/dev/null)" = "healthy" ]; then break; fi
                   sleep 2
                 done
 
                 docker rm -f backend-dev || true
                 docker run -d --name backend-dev --network ${DEV_NET} --env-file ${DEV_ENV_FILE_PATH} ${DEV_TAG}
 
-                for i in $(seq 1 30); do
+                for i in \$(seq 1 30); do
                   if docker exec backend-dev wget -qO- http://127.0.0.1:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
                   sleep 1
                 done; exit 1
-              '''
+              """
             }
           }
         }
@@ -127,7 +134,7 @@ pipeline {
                 withCredentials([file(credentialsId: 'prod-env-file-frontend', variable: 'PROD_ENV_FILE_PATH')]) {
                   sh 'docker build -t ${PROD_TAG} -f frontend/Dockerfile frontend'
                   sh 'docker rm -f frontend-prod || true'
-                  sh 'docker run -d --name frontend-prod --network ${PROD_NET} --env-file ${PROD_ENV_FILE_PATH} ${PROD_TAG}'
+                  sh "docker run -d --name frontend-prod --network ${PROD_NET} --env-file ${PROD_ENV_FILE_PATH} ${PROD_TAG}"
                 }
               }
             }
@@ -138,7 +145,7 @@ pipeline {
                 withCredentials([file(credentialsId: 'dev-env-file-frontend', variable: 'DEV_ENV_FILE_PATH')]) {
                   sh 'docker build -t ${DEV_TAG} -f frontend/Dockerfile frontend'
                   sh 'docker rm -f frontend-dev || true'
-                  sh 'docker run -d --name frontend-dev --network ${DEV_NET} --env-file ${DEV_ENV_FILE_PATH} ${DEV_TAG}'
+                  sh "docker run -d --name frontend-dev --network ${DEV_NET} --env-file ${DEV_ENV_FILE_PATH} ${DEV_TAG}"
                 }
               }
             }
@@ -149,15 +156,14 @@ pipeline {
         stage('Build & Push GPU Worker') {
           when { expression { env.IMAGE_WORKER_CHANGED } }
           steps {
-            script {
-              def imageName = "${IMAGE_PREFIX}/impresser-image-worker:${env.BUILD_NUMBER}"
-              docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-creds') {
-                dir('image') {
-                  sh "docker build -t ${imageName} ."
-                  sh "docker push ${imageName}"
-                }
+            withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+              script {
+                def imageName = "${IMAGE_PREFIX}/impresser-image-worker:${env.BUILD_NUMBER}"
+                sh "docker build -t ${imageName} -f image/Dockerfile image"
+                sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin"
+                sh "docker push ${imageName}"
+                sh "docker logout"
               }
-              echo "Successfully pushed GPU Worker image to Docker Hub: ${imageName}"
             }
           }
         }
