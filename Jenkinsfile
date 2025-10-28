@@ -121,16 +121,20 @@ pipeline {
         /*************** FRONTEND ***************/
         stage('Deploy Frontend') {
           when { expression { env.FRONTEND_CHANGED } }
-          steps {
-            script {
-              if (env.DO_PROD) {
-                def PROD_TAG = "${IMAGE_PREFIX}/impresser-frontend:${env.BUILD_NUMBER}"
+          stages {
+            stage('PROD') {
+              when { expression { env.DO_PROD } }
+              environment { PROD_TAG = "${IMAGE_PREFIX}/impresser-frontend:${env.BUILD_NUMBER}" }
+              steps {
                 sh 'docker build -t ${PROD_TAG} -f frontend/Dockerfile frontend'
                 sh 'docker rm -f frontend-prod || true'
                 sh 'docker run -d --name frontend-prod --network ${PROD_NET} --env-file ${PROD_ENV_FILE_FRONTEND} ${PROD_TAG}'
               }
-              if (env.DO_DEV) {
-                def DEV_TAG = "${IMAGE_PREFIX}/impresser-frontend-dev:${env.BUILD_NUMBER}"
+            }
+            stage('DEV') {
+              when { expression { env.DO_DEV } }
+              environment { DEV_TAG = "${IMAGE_PREFIX}/impresser-frontend-dev:${env.BUILD_NUMBER}" }
+              steps {
                 sh 'docker build -t ${DEV_TAG} -f frontend/Dockerfile frontend'
                 sh 'docker rm -f frontend-dev || true'
                 sh 'docker run -d --name frontend-dev --network ${DEV_NET} --env-file ${DEV_ENV_FILE_FRONTEND} ${DEV_TAG}'
