@@ -149,7 +149,7 @@ pipeline {
           steps {
             script {
               def imageName = "${IMAGE_PREFIX}/impresser-image-worker:${env.BUILD_NUMBER}"
-              docker.withRegistry('https://registry.hub.docker.com', DOCKER_HUB_CREDS) {
+              docker.withRegistry('https://registry.hub.docker.com', 'dockerhub-creds') {
                 dir('image') {
                   sh "docker build -t ${imageName} ."
                   sh "docker push ${imageName}"
