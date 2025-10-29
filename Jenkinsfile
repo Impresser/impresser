@@ -1,7 +1,10 @@
 pipeline {
   agent any
   parameters {
-    choice(name: 'TARGET', choices: ['auto', 'dev', 'prod'], description: '배포 대상 선택 (auto: 브랜치 기반)')
+    booleanParam(name: 'BUILD_BACKEND', defaultValue: false, description: '백엔드를 수동으로 배포합니다.')
+    booleanParam(name: 'BUILD_FRONTEND', defaultValue: false, description: '프론트엔드를 수동으로 배포합니다.')
+    booleanParam(name: 'BUILD_IMAGE_WORKER', defaultValue: false, description: 'GPU 워커 이미지만 수동으로 빌드 & 푸시합니다.')
+    choice(name: 'MANUAL_TARGET_BRANCH', choices: ['develop', 'master'], description: '수동 배포 시 대상 환경을 선택하세요.')
   }
   environment {
     PROD_NET   = 'prod_net'
@@ -14,23 +17,44 @@ pipeline {
   }
 
   stages {
-    stage('Decide target') {
+    stage('Determine Build Actions') {
       steps {
         script {
-          def branch = env.BRANCH_NAME ?: sh(returnStdout:true, script:'git rev-parse --abbrev-ref HEAD').trim()
-          env.DO_PROD = (params.TARGET == 'prod') || (params.TARGET == 'auto' && (branch == 'master' || branch == 'main'))
-          env.DO_DEV  = (params.TARGET == 'dev')  || (params.TARGET == 'auto' && branch == 'develop')
-        }
-      }
-    }
+          env.DO_PROD = false
+          env.DO_DEV = false
+          env.BACKEND_CHANGED = false
+          env.FRONTEND_CHANGED = false
+          env.IMAGE_WORKER_CHANGED = false
 
-    stage('Detect Changes') {
-      steps {
-        script {
-          def changedFiles = sh(returnStdout: true, script: 'git diff --name-only HEAD~1 HEAD').trim()
-          env.BACKEND_CHANGED = changedFiles.contains('backend/')
-          env.FRONTEND_CHANGED = changedFiles.contains('frontend/')
-          env.IMAGE_WORKER_CHANGED = changedFiles.contains('image/')
+          // 자동 배포
+          if (env.gitlabMergeRequestState == 'merged') {
+            echo "Running in automatic mode (MR merged)."
+            def targetBranch = env.gitlabTargetBranch
+            
+            if (targetBranch == 'master') { env.DO_PROD = true }
+            else if (targetBranch == 'develop') { env.DO_DEV = true }
+
+            def changedFiles = sh(returnStdout: true, script: "git diff --name-only origin/${targetBranch}...${env.gitlabMergeRequestLastCommitSha}").trim()
+            echo "Changed files in this MR:\n${changedFiles}"
+            
+            if (changedFiles.contains('backend/')) { env.BACKEND_CHANGED = true }
+            if (changedFiles.contains('frontend/')) { env.FRONTEND_CHANGED = true }
+            if (changedFiles.contains('image/')) { env.IMAGE_WORKER_CHANGED = true }
+
+          // 수동 배포
+          } else {
+            echo "Running in manual mode."
+            def targetBranch = params.MANUAL_TARGET_BRANCH
+
+            if (targetBranch == 'master') { env.DO_PROD = true }
+            else if (targetBranch == 'develop') { env.DO_DEV = true }
+
+            if (params.BUILD_BACKEND) { env.BACKEND_CHANGED = true }
+            if (params.BUILD_FRONTEND) { env.FRONTEND_CHANGED = true }
+            if (params.BUILD_IMAGE_WORKER) { env.IMAGE_WORKER_CHANGED = true }
+          }
+          
+          echo "Build decisions: DO_PROD=${env.DO_PROD}, DO_DEV=${env.DO_DEV}, BACKEND=${env.BACKEND_CHANGED}, FRONTEND=${env.FRONTEND_CHANGED}, IMAGE_WORKER=${env.IMAGE_WORKER_CHANGED}"
         }
       }
     }
@@ -57,7 +81,6 @@ pipeline {
                     done
 
                     CUR=\$(readlink -f "${LINK_NAME}" || true)
-                    
                     if echo "\${CUR:-}" | grep -q "blue"; then
                       TARGET_CONT="backend-prod-green"
                       OLD_CONT="backend-prod-blue"
@@ -65,14 +88,14 @@ pipeline {
                       TARGET_CONT="backend-prod-blue"
                       OLD_CONT="backend-prod-green"
                     fi
-                    
                     echo "OLD_CONT=\$OLD_CONT" > /tmp/prod.slot
 
                     docker rm -f "\${TARGET_CONT}" || true
                     docker run -d --name "\${TARGET_CONT}" --network ${PROD_NET} --env-file ${PROD_ENV_FILE_PATH} ${PROD_TAG}
 
+                    CONTEXT_PATH=\$(grep 'SERVER_CONTEXT_PATH=' ${PROD_ENV_FILE_PATH} | cut -d'=' -f2-)
                     for i in \$(seq 1 60); do
-                      if docker exec "\${TARGET_CONT}" wget -qO- http://127.0.0.1:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
+                      if docker exec "\${TARGET_CONT}" wget -qO- http://127.0.0.1:8080\${CONTEXT_PATH}/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
                       sleep 1
                     done; exit 1
                   """
@@ -83,11 +106,11 @@ pipeline {
               steps {
                 script {
                   try {
-                    sh 'NGINX_CONT=${NGINX_CONT} CONF_DIR=${CONF_DIR} bash infra/scripts/switch_backend.sh'
-                    sh 'curl -fsS https://${DOMAIN}/actuator/health | grep UP'
+                    sh "NGINX_CONT=${NGINX_CONT} CONF_DIR=${CONF_DIR} bash infra/scripts/switch_backend.sh"
+                    sh "curl -fsS https://${DOMAIN}/actuator/health | grep UP"
                     sh '. /tmp/prod.slot && docker rm -f "${OLD_CONT}" || true'
                   } catch (e) {
-                    sh 'NGINX_CONT=${NGINX_CONT} CONF_DIR=${CONF_DIR} bash infra/scripts/switch_backend.sh'
+                    sh "NGINX_CONT=${NGINX_CONT} CONF_DIR=${CONF_DIR} bash infra/scripts/switch_backend.sh"
                     error "Prod smoke test failed. Rolled back successfully."
                   }
                 }
@@ -114,8 +137,9 @@ pipeline {
                 docker rm -f backend-dev || true
                 docker run -d --name backend-dev --network ${DEV_NET} --env-file ${DEV_ENV_FILE_PATH} ${DEV_TAG}
 
+                CONTEXT_PATH=\$(grep 'SERVER_CONTEXT_PATH=' ${DEV_ENV_FILE_PATH} | cut -d'=' -f2-)
                 for i in \$(seq 1 30); do
-                  if docker exec backend-dev wget -qO- http://127.0.0.1:8080/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
+                  if docker exec backend-dev wget -qO- http://127.0.0.1:8080\${CONTEXT_PATH}/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
                   sleep 1
                 done; exit 1
               """
