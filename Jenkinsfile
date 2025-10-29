@@ -36,7 +36,6 @@ pipeline {
 
             def changedFiles = sh(returnStdout: true, script: """
               set -eu
-              git fetch --all --prune
               BASE=\$(git merge-base origin/${targetBranch} HEAD)
               git diff --name-only "\${BASE}"..HEAD
             """).trim()
