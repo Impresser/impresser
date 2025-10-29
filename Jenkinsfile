@@ -20,28 +20,28 @@ pipeline {
     stage('Determine Build Actions') {
       steps {
         script {
-          env.DO_PROD = false
-          env.DO_DEV = false
-          env.BACKEND_CHANGED = false
-          env.FRONTEND_CHANGED = false
-          env.IMAGE_WORKER_CHANGED = false
+          env.DO_PROD = "false"
+          env.DO_DEV = "false"
+          env.BACKEND_CHANGED = "false"
+          env.FRONTEND_CHANGED = "false"
+          env.IMAGE_WORKER_CHANGED = "false"
 
           if (env.gitlabMergeRequestState == 'merged') {
             echo "Running in automatic mode (MR merged)."
             def targetBranch = env.gitlabTargetBranch
             
-            if (targetBranch == 'master') { env.DO_PROD = true }
-            else if (targetBranch == 'develop') { env.DO_DEV = true }
+            if (targetBranch == 'master') { env.DO_PROD = "true" }
+            else if (targetBranch == 'develop') { env.DO_DEV = "true" }
           } else {
             echo "Running in manual mode."
             def targetBranch = params.MANUAL_TARGET_BRANCH
 
-            if (targetBranch == 'master') { env.DO_PROD = true }
-            else if (targetBranch == 'develop') { env.DO_DEV = true }
+            if (targetBranch == 'master') { env.DO_PROD = "true" }
+            else if (targetBranch == 'develop') { env.DO_DEV = "true" }
 
-            if (params.BUILD_BACKEND) { env.BACKEND_CHANGED = true }
-            if (params.BUILD_FRONTEND) { env.FRONTEND_CHANGED = true }
-            if (params.BUILD_IMAGE_WORKER) { env.IMAGE_WORKER_CHANGED = true }
+            if (params.BUILD_BACKEND) { env.BACKEND_CHANGED = "true" }
+            if (params.BUILD_FRONTEND) { env.FRONTEND_CHANGED = "true" }
+            if (params.BUILD_IMAGE_WORKER) { env.IMAGE_WORKER_CHANGED = "true" }
           }
           
           echo "Build decisions: DO_PROD=${env.DO_PROD}, DO_DEV=${env.DO_DEV}, BACKEND=${env.BACKEND_CHANGED}, FRONTEND=${env.FRONTEND_CHANGED}, IMAGE_WORKER=${env.IMAGE_WORKER_CHANGED}"
@@ -55,14 +55,14 @@ pipeline {
         stage('Deploy Backend (prod)') {
           when {
             anyOf {
-              expression { env.BACKEND_CHANGED && env.DO_PROD }
+              expression { (env.BACKEND_CHANGED ?: "false").toBoolean() && (env.DO_PROD ?: "false").toBoolean() }
               changeset pattern: 'backend/**', comparator: 'ANT'
             }
           }
           environment { PROD_TAG = "${IMAGE_PREFIX}/impresser-backend:${env.BUILD_NUMBER}" }
           stages {
             stage('Build') {
-              steps { sh 'docker build -t ${PROD_TAG} -f backend/Dockerfile backend' }
+              steps { sh "docker build -t ${PROD_TAG} -f backend/Dockerfile backend" }
             }
             stage('Run Target Slot') {
               steps {
@@ -88,9 +88,18 @@ pipeline {
                     docker rm -f "\${TARGET_CONT}" || true
                     docker run -d --name "\${TARGET_CONT}" --network ${PROD_NET} --env-file ${PROD_ENV_FILE_PATH} ${PROD_TAG}
 
-                    CONTEXT_PATH=\$(grep 'SERVER_CONTEXT_PATH=' ${PROD_ENV_FILE_PATH} | cut -d'=' -f2-)
+                    RAW=\$(grep -E '^SERVER_CONTEXT_PATH=' "${PROD_ENV_FILE_PATH}" | tail -n1 | cut -d'=' -f2- | tr -d '\\r')
+                    RAW=\$(echo "\$RAW" | tr -d '[:space:]')
+                    if [ -z "\$RAW" ] || [ "\$RAW" = "/" ]; then
+                      HEALTH_URL="http://127.0.0.1:8080/actuator/health"
+                    else
+                      STRIP=\$(echo "\$RAW" | sed 's#^/*##; s#/*\$##')
+                      HEALTH_URL="http://127.0.0.1:8080/\${STRIP}/actuator/health"
+                    fi
+                    echo "[prod] health: \$HEALTH_URL"
+
                     for i in \$(seq 1 60); do
-                      if docker exec "\${TARGET_CONT}" wget -qO- http://127.0.0.1:8080\${CONTEXT_PATH}/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
+                      if docker exec "\${TARGET_CONT}" sh -lc "wget -qO- \\"\$HEALTH_URL\\"" 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
                       sleep 1
                     done; exit 1
                   """
@@ -102,7 +111,20 @@ pipeline {
                 script {
                   try {
                     sh "NGINX_CONT=${NGINX_CONT} CONF_DIR=${CONF_DIR} bash infra/scripts/switch_backend.sh"
-                    sh "curl -fsS https://${DOMAIN}/actuator/health | grep UP"
+                    withCredentials([file(credentialsId: 'prod-env-file-backend', variable: 'PROD_ENV_FILE_PATH')]) {
+                      sh """
+                        set -euo pipefail
+                        RAW=\$(grep -E '^SERVER_CONTEXT_PATH=' "${PROD_ENV_FILE_PATH}" | tail -n1 | cut -d'=' -f2- | tr -d '\\r')
+                        RAW=\$(echo "\$RAW" | tr -d '[:space:]')
+                        if [ -z "\$RAW" ] || [ "\$RAW" = "/" ]; then
+                          EXT="/actuator/health"
+                        else
+                          STRIP=\$(echo "\$RAW" | sed 's#^/*##; s#/*\$##')
+                          EXT="/\${STRIP}/actuator/health"
+                        fi
+                        curl -fsS "https://${DOMAIN}\${EXT}" | grep UP
+                      """
+                    }
                     sh '. /tmp/prod.slot && docker rm -f "${OLD_CONT}" || true'
                   } catch (e) {
                     sh "NGINX_CONT=${NGINX_CONT} CONF_DIR=${CONF_DIR} bash infra/scripts/switch_backend.sh"
@@ -118,14 +140,14 @@ pipeline {
         stage('Deploy Backend (dev)') {
           when {
             anyOf {
-              expression { env.BACKEND_CHANGED && env.DO_DEV }
+              expression { (env.BACKEND_CHANGED ?: "false").toBoolean() && (env.DO_DEV ?: "false").toBoolean() }
               changeset pattern: 'backend/**', comparator: 'ANT'
             }
           }
           environment { DEV_TAG = "${IMAGE_PREFIX}/impresser-backend-dev:${env.BUILD_NUMBER}" }
           steps {
             withCredentials([file(credentialsId: 'dev-env-file-backend', variable: 'DEV_ENV_FILE_PATH')]) {
-              sh 'docker build -t ${DEV_TAG} -f backend/Dockerfile backend'
+              sh "docker build -t ${DEV_TAG} -f backend/Dockerfile backend"
               sh """
                 set -euo pipefail
                 for i in \$(seq 1 60); do
@@ -137,9 +159,17 @@ pipeline {
                 docker rm -f backend-dev || true
                 docker run -d --name backend-dev --network ${DEV_NET} --env-file ${DEV_ENV_FILE_PATH} ${DEV_TAG}
 
-                CONTEXT_PATH=\$(grep 'SERVER_CONTEXT_PATH=' ${DEV_ENV_FILE_PATH} | cut -d'=' -f2-)
+                RAW=\$(grep -E '^SERVER_CONTEXT_PATH=' "${DEV_ENV_FILE_PATH}" | tail -n1 | cut -d'=' -f2- | tr -d '\\r')
+                RAW=\$(echo "\$RAW" | tr -d '[:space:]')
+                if [ -z "\$RAW" ] || [ "\$RAW" = "/" ]; then
+                  HEALTH_URL="http://127.0.0.1:8080/actuator/health"
+                else
+                  STRIP=\$(echo "\$RAW" | sed 's#^/*##; s#/*\$##')
+                  HEALTH_URL="http://127.0.0.1:8080/\${STRIP}/actuator/health"
+                fi
+
                 for i in \$(seq 1 30); do
-                  if docker exec backend-dev wget -qO- http://127.0.0.1:8080\${CONTEXT_PATH}/actuator/health 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
+                  if docker exec backend-dev sh -lc "wget -qO- \\"\$HEALTH_URL\\"" 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
                   sleep 1
                 done; exit 1
               """
@@ -151,29 +181,29 @@ pipeline {
         stage('Deploy Frontend') {
           when {
             anyOf {
-              expression { env.FRONTEND_CHANGED }
+              expression { (env.FRONTEND_CHANGED ?: "false").toBoolean() }
               changeset pattern: 'frontend/**', comparator: 'ANT'
             }
           }
           stages {
             stage('PROD') {
-              when { expression { env.DO_PROD } }
+              when { expression { (env.DO_PROD ?: "false").toBoolean() } }
               environment { PROD_TAG = "${IMAGE_PREFIX}/impresser-frontend:${env.BUILD_NUMBER}" }
               steps {
                 withCredentials([file(credentialsId: 'prod-env-file-frontend', variable: 'PROD_ENV_FILE_PATH')]) {
-                  sh 'docker build -t ${PROD_TAG} -f frontend/Dockerfile frontend'
-                  sh 'docker rm -f frontend-prod || true'
+                  sh "docker build -t ${PROD_TAG} -f frontend/Dockerfile frontend"
+                  sh "docker rm -f frontend-prod || true"
                   sh "docker run -d --name frontend-prod --network ${PROD_NET} --env-file ${PROD_ENV_FILE_PATH} ${PROD_TAG}"
                 }
               }
             }
             stage('DEV') {
-              when { expression { env.DO_DEV } }
+              when { expression { (env.DO_DEV ?: "false").toBoolean() } }
               environment { DEV_TAG = "${IMAGE_PREFIX}/impresser-frontend-dev:${env.BUILD_NUMBER}" }
               steps {
                 withCredentials([file(credentialsId: 'dev-env-file-frontend', variable: 'DEV_ENV_FILE_PATH')]) {
-                  sh 'docker build -t ${DEV_TAG} -f frontend/Dockerfile frontend'
-                  sh 'docker rm -f frontend-dev || true'
+                  sh "docker build -t ${DEV_TAG} -f frontend/Dockerfile frontend"
+                  sh "docker rm -f frontend-dev || true"
                   sh "docker run -d --name frontend-dev --network ${DEV_NET} --env-file ${DEV_ENV_FILE_PATH} ${DEV_TAG}"
                 }
               }
@@ -185,7 +215,7 @@ pipeline {
         stage('Build & Push GPU Worker') {
           when {
             anyOf {
-              expression { env.IMAGE_WORKER_CHANGED }
+              expression { (env.IMAGE_WORKER_CHANGED ?: "false").toBoolean() }
               changeset pattern: 'image/**', comparator: 'ANT'
             }
           }
