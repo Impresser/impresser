@@ -26,26 +26,12 @@ pipeline {
           env.FRONTEND_CHANGED = false
           env.IMAGE_WORKER_CHANGED = false
 
-          // 자동 배포
           if (env.gitlabMergeRequestState == 'merged') {
             echo "Running in automatic mode (MR merged)."
             def targetBranch = env.gitlabTargetBranch
             
             if (targetBranch == 'master') { env.DO_PROD = true }
             else if (targetBranch == 'develop') { env.DO_DEV = true }
-
-            def changedFiles = sh(returnStdout: true, script: """
-              set -eu
-              BASE=\$(git merge-base origin/${targetBranch} HEAD)
-              git diff --name-only "\${BASE}"..HEAD
-            """).trim()
-            echo "Changed files in this MR:\n${changedFiles}"
-            
-            if (changedFiles.contains('backend/')) { env.BACKEND_CHANGED = true }
-            if (changedFiles.contains('frontend/')) { env.FRONTEND_CHANGED = true }
-            if (changedFiles.contains('image/')) { env.IMAGE_WORKER_CHANGED = true }
-
-          // 수동 배포
           } else {
             echo "Running in manual mode."
             def targetBranch = params.MANUAL_TARGET_BRANCH
@@ -67,7 +53,12 @@ pipeline {
       parallel {
         /*************** PROD: Backend Blue/Green ***************/
         stage('Deploy Backend (prod)') {
-          when { expression { env.BACKEND_CHANGED && env.DO_PROD } }
+          when {
+            anyOf {
+              expression { env.BACKEND_CHANGED && env.DO_PROD }
+              changeset pattern: 'backend/**', comparator: 'ANT'
+            }
+          }
           environment { PROD_TAG = "${IMAGE_PREFIX}/impresser-backend:${env.BUILD_NUMBER}" }
           stages {
             stage('Build') {
@@ -125,7 +116,12 @@ pipeline {
 
         /*************** DEV: Backend 단일 교체 ***************/
         stage('Deploy Backend (dev)') {
-          when { expression { env.BACKEND_CHANGED && env.DO_DEV } }
+          when {
+            anyOf {
+              expression { env.BACKEND_CHANGED && env.DO_DEV }
+              changeset pattern: 'backend/**', comparator: 'ANT'
+            }
+          }
           environment { DEV_TAG = "${IMAGE_PREFIX}/impresser-backend-dev:${env.BUILD_NUMBER}" }
           steps {
             withCredentials([file(credentialsId: 'dev-env-file-backend', variable: 'DEV_ENV_FILE_PATH')]) {
@@ -153,7 +149,12 @@ pipeline {
 
         /*************** FRONTEND ***************/
         stage('Deploy Frontend') {
-          when { expression { env.FRONTEND_CHANGED } }
+          when {
+            anyOf {
+              expression { env.FRONTEND_CHANGED }
+              changeset pattern: 'frontend/**', comparator: 'ANT'
+            }
+          }
           stages {
             stage('PROD') {
               when { expression { env.DO_PROD } }
@@ -182,7 +183,12 @@ pipeline {
 
         /*************** C++ GPU WORKER (For RunPod) ***************/
         stage('Build & Push GPU Worker') {
-          when { expression { env.IMAGE_WORKER_CHANGED } }
+          when {
+            anyOf {
+              expression { env.IMAGE_WORKER_CHANGED }
+              changeset pattern: 'image/**', comparator: 'ANT'
+            }
+          }
           steps {
             withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
               script {
