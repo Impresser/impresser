@@ -34,7 +34,12 @@ pipeline {
             if (targetBranch == 'master') { env.DO_PROD = true }
             else if (targetBranch == 'develop') { env.DO_DEV = true }
 
-            def changedFiles = sh(returnStdout: true, script: "git diff --name-only origin/${targetBranch}...${env.gitlabMergeRequestLastCommitSha}").trim()
+            def changedFiles = sh(returnStdout: true, script: """
+              set -eu
+              git fetch --all --prune
+              BASE=\$(git merge-base origin/${targetBranch} HEAD)
+              git diff --name-only "\${BASE}"..HEAD
+            """).trim()
             echo "Changed files in this MR:\n${changedFiles}"
             
             if (changedFiles.contains('backend/')) { env.BACKEND_CHANGED = true }
