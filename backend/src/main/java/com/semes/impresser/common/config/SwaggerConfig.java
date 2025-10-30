@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class SwaggerConfig {
 
-    @Value("${spring.mvc.servlet.path:/}")
+    @Value("${server.servlet.context-path:/}")
     private String servletPath;
 
     @Bean
