@@ -112,18 +112,18 @@ pipeline {
             stage('Switch & Cleanup') {
               steps {
                 script {
-                  try {
-                    def cur = sh(
-                      script: "docker exec ${NGINX_CONT} /bin/sh -lc 'readlink -f /etc/nginx/conf.d/upstream.backend.prod.conf' || true",
-                      returnStdout: true
-                    ).trim()
-                    def targetSlot = cur.contains('blue') ? 'green' : 'blue'
-                    def rollbackSlot = cur.contains('blue') ? 'blue' : 'green'
+                  def cur = sh(
+                    script: "docker exec ${NGINX_CONT} /bin/sh -lc 'readlink -f /etc/nginx/conf.d/upstream.backend.prod.conf' || true",
+                    returnStdout: true
+                  ).trim()
+                  def targetSlot = cur.contains('blue') ? 'green' : 'blue'
+                  def rollbackSlot = cur.contains('blue') ? 'blue' : 'green'
 
+                  try {
                     sh "NGINX_CONT=${NGINX_CONT} TARGET=${targetSlot} bash infra/scripts/switch_backend.sh"
 
                     withCredentials([file(credentialsId: 'prod-env-file-backend', variable: 'PROD_ENV_FILE_PATH')]) {
-                      sh """
+                      sh '''
                         set -euo pipefail
                         RAW=$(grep -E '^SERVER_CONTEXT_PATH=' "$PROD_ENV_FILE_PATH" | tail -n1 | cut -d'=' -f2- | tr -d '\\r[:space:]')
                         if [ -z "$RAW" ] || [ "$RAW" = "/" ]; then
@@ -140,7 +140,7 @@ pipeline {
                           sleep 1
                         done
                         exit 1
-                      """
+                      '''
                     }
 
                     sh """
