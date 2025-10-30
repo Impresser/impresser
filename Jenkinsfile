@@ -68,6 +68,7 @@ pipeline {
             stage('Run Target Slot') {
               steps {
                 withCredentials([file(credentialsId: 'prod-env-file-backend', variable: 'PROD_ENV_FILE_PATH')]) {
+                script {
                   def CUR = sh(
                     script: "docker exec ${NGINX_CONT} /bin/sh -lc 'readlink -f /etc/nginx/conf.d/upstream.backend.prod.conf' 2>/dev/null || true",
                     returnStdout: true
@@ -75,34 +76,36 @@ pipeline {
 
                   def TARGET_CONT = CUR.contains('blue') ? 'backend-prod-green' : 'backend-prod-blue'
                   def OLD_CONT    = CUR.contains('blue') ? 'backend-prod-blue'  : 'backend-prod-green'
+                  env.TARGET_CONT = TARGET_CONT
                   writeFile file: "${env.WORKSPACE}/prod.slot", text: "OLD_CONT=${OLD_CONT}\n"
+                }
 
-                  sh """
-                    set -euo pipefail
-                    for i in \$(seq 1 60); do
-                      if [ "\$(docker inspect -f '{{.State.Health.Status}}' mysql-prod 2>/dev/null)" = "healthy" ] && \
-                         [ "\$(docker inspect -f '{{.State.Health.Status}}' redis-prod 2>/dev/null)" = "healthy" ]; then break; fi
-                      sleep 2
-                    done
-                    
-                    docker rm -f ${TARGET_CONT} || true
-                    docker run -d --name ${TARGET_CONT} --network ${PROD_NET} --env-file ${PROD_ENV_FILE_PATH} ${PROD_TAG}
+                sh """
+                  set -euo pipefail
+                  for i in \$(seq 1 60); do
+                    if [ "\$(docker inspect -f '{{.State.Health.Status}}' mysql-prod 2>/dev/null)" = "healthy" ] && \
+                        [ "\$(docker inspect -f '{{.State.Health.Status}}' redis-prod 2>/dev/null)" = "healthy" ]; then break; fi
+                    sleep 2
+                  done
+                  
+                  docker rm -f ${env.TARGET_CONT} || true
+                  docker run -d --name ${env.TARGET_CONT} --network ${PROD_NET} --env-file ${PROD_ENV_FILE_PATH} ${PROD_TAG}
 
-                    RAW=\$(grep -E '^SERVER_CONTEXT_PATH=' "${PROD_ENV_FILE_PATH}" | tail -n1 | cut -d'=' -f2- | tr -d '\\r')
-                    RAW=\$(echo "\$RAW" | tr -d '[:space:]')
-                    if [ -z "\$RAW" ] || [ "\$RAW" = "/" ]; then
-                      HEALTH_URL="http://127.0.0.1:8080/actuator/health"
-                    else
-                      STRIP=\$(echo "\$RAW" | sed 's#^/*##; s#/*\$##')
-                      HEALTH_URL="http://127.0.0.1:8080/\${STRIP}/actuator/health"
-                    fi
-                    echo "[prod] health: \$HEALTH_URL"
+                  RAW=\$(grep -E '^SERVER_CONTEXT_PATH=' "${PROD_ENV_FILE_PATH}" | tail -n1 | cut -d'=' -f2- | tr -d '\\r')
+                  RAW=\$(echo "\$RAW" | tr -d '[:space:]')
+                  if [ -z "\$RAW" ] || [ "\$RAW" = "/" ]; then
+                    HEALTH_URL="http://127.0.0.1:8080/actuator/health"
+                  else
+                    STRIP=\$(echo "\$RAW" | sed 's#^/*##; s#/*\$##')
+                    HEALTH_URL="http://127.0.0.1:8080/\${STRIP}/actuator/health"
+                  fi
+                  echo "[prod] health: \$HEALTH_URL"
 
-                    for i in \$(seq 1 60); do
-                      if docker exec ${TARGET_CONT} sh -lc "wget -qO- \\"\$HEALTH_URL\\"" 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
-                      sleep 1
-                    done; exit 1
-                  """
+                  for i in \$(seq 1 60); do
+                    if docker exec ${env.TARGET_CONT} sh -lc "wget -qO- \\"\$HEALTH_URL\\"" 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
+                    sleep 1
+                  done; exit 1
+                """
                 }
               }
             }
@@ -234,11 +237,11 @@ pipeline {
             }
           }
         }
-      }
 
-      stage('Cleanup Docker') {
-        steps {
-          sh 'docker image prune -af --filter "until=24h" || true'
+        stage('Cleanup Docker') {
+          steps {
+            sh 'docker image prune -af --filter "until=24h" || true'
+          }
         }
       }
     }
