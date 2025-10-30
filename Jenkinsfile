@@ -68,6 +68,15 @@ pipeline {
             stage('Run Target Slot') {
               steps {
                 withCredentials([file(credentialsId: 'prod-env-file-backend', variable: 'PROD_ENV_FILE_PATH')]) {
+                  def CUR = sh(
+                    script: "docker exec ${NGINX_CONT} /bin/sh -lc 'readlink -f /etc/nginx/conf.d/upstream.backend.prod.conf' 2>/dev/null || true",
+                    returnStdout: true
+                  ).trim()
+
+                  def TARGET_CONT = CUR.contains('blue') ? 'backend-prod-green' : 'backend-prod-blue'
+                  def OLD_CONT    = CUR.contains('blue') ? 'backend-prod-blue'  : 'backend-prod-green'
+                  writeFile file: "${env.WORKSPACE}/prod.slot", text: "OLD_CONT=${OLD_CONT}\n"
+
                   sh """
                     set -euo pipefail
                     for i in \$(seq 1 60); do
@@ -75,21 +84,9 @@ pipeline {
                          [ "\$(docker inspect -f '{{.State.Health.Status}}' redis-prod 2>/dev/null)" = "healthy" ]; then break; fi
                       sleep 2
                     done
-
-                    CUR=$(docker exec "${NGINX_CONT}" /bin/sh -lc \
-                      'readlink -f /etc/nginx/conf.d/upstream.backend.prod.conf' 2>/dev/null || true)
-
-                    if echo "${CUR:-}" | grep -q "blue"; then
-                      TARGET_CONT="backend-prod-green"
-                      OLD_CONT="backend-prod-blue"
-                    else
-                      TARGET_CONT="backend-prod-blue"
-                      OLD_CONT="backend-prod-green"
-                    fi
-                    echo "OLD_CONT=\$OLD_CONT" > /tmp/prod.slot
-
-                    docker rm -f "\${TARGET_CONT}" || true
-                    docker run -d --name "\${TARGET_CONT}" --network ${PROD_NET} --env-file ${PROD_ENV_FILE_PATH} ${PROD_TAG}
+                    
+                    docker rm -f ${TARGET_CONT} || true
+                    docker run -d --name ${TARGET_CONT} --network ${PROD_NET} --env-file ${PROD_ENV_FILE_PATH} ${PROD_TAG}
 
                     RAW=\$(grep -E '^SERVER_CONTEXT_PATH=' "${PROD_ENV_FILE_PATH}" | tail -n1 | cut -d'=' -f2- | tr -d '\\r')
                     RAW=\$(echo "\$RAW" | tr -d '[:space:]')
@@ -102,7 +99,7 @@ pipeline {
                     echo "[prod] health: \$HEALTH_URL"
 
                     for i in \$(seq 1 60); do
-                      if docker exec "\${TARGET_CONT}" sh -lc "wget -qO- \\"\$HEALTH_URL\\"" 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
+                      if docker exec ${TARGET_CONT} sh -lc "wget -qO- \\"\$HEALTH_URL\\"" 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
                       sleep 1
                     done; exit 1
                   """
@@ -128,7 +125,7 @@ pipeline {
                         curl -fsS "https://${DOMAIN}\${EXT}" | grep UP
                       """
                     }
-                    sh '. /tmp/prod.slot && docker rm -f "${OLD_CONT}" || true'
+                    sh ". ${env.WORKSPACE}/prod.slot && docker rm -f \"${OLD_CONT}\" || true"
                   } catch (e) {
                     sh "NGINX_CONT=${NGINX_CONT} bash infra/scripts/switch_backend.sh"
                     error "Prod smoke test failed. Rolled back successfully."
@@ -236,6 +233,12 @@ pipeline {
               }
             }
           }
+        }
+      }
+
+      stage('Cleanup Docker') {
+        steps {
+          sh 'docker image prune -af --filter "until=24h" || true'
         }
       }
     }
