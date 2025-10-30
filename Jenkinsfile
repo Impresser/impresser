@@ -113,24 +113,47 @@ pipeline {
               steps {
                 script {
                   try {
-                    sh "NGINX_CONT=${NGINX_CONT} bash infra/scripts/switch_backend.sh"
+                    def cur = sh(
+                      script: "docker exec ${NGINX_CONT} /bin/sh -lc 'readlink -f /etc/nginx/conf.d/upstream.backend.prod.conf' || true",
+                      returnStdout: true
+                    ).trim()
+                    def targetSlot = cur.contains('blue') ? 'green' : 'blue'
+                    def rollbackSlot = cur.contains('blue') ? 'blue' : 'green'
+
+                    sh "NGINX_CONT=${NGINX_CONT} TARGET=${targetSlot} bash infra/scripts/switch_backend.sh"
+
                     withCredentials([file(credentialsId: 'prod-env-file-backend', variable: 'PROD_ENV_FILE_PATH')]) {
                       sh """
                         set -euo pipefail
-                        RAW=\$(grep -E '^SERVER_CONTEXT_PATH=' "${PROD_ENV_FILE_PATH}" | tail -n1 | cut -d'=' -f2- | tr -d '\\r')
-                        RAW=\$(echo "\$RAW" | tr -d '[:space:]')
-                        if [ -z "\$RAW" ] || [ "\$RAW" = "/" ]; then
+                        RAW=$(grep -E '^SERVER_CONTEXT_PATH=' "$PROD_ENV_FILE_PATH" | tail -n1 | cut -d'=' -f2- | tr -d '\\r[:space:]')
+                        if [ -z "$RAW" ] || [ "$RAW" = "/" ]; then
                           EXT="/actuator/health"
                         else
-                          STRIP=\$(echo "\$RAW" | sed 's#^/*##; s#/*\$##')
-                          EXT="/\${STRIP}/actuator/health"
+                          STRIP=$(echo "$RAW" | sed 's#^/*##; s#/*$##')
+                          EXT="/${STRIP}/actuator/health"
                         fi
-                        curl -fsS "https://${DOMAIN}\${EXT}" | grep UP
+                        # 재시도 포함 스모크
+                        for i in $(seq 1 10); do
+                          if curl -fsS --max-time 3 "https://${DOMAIN}${EXT}" | grep -q '"status":"UP"'; then
+                            exit 0
+                          fi
+                          sleep 1
+                        done
+                        exit 1
                       """
                     }
-                    sh ". ${env.WORKSPACE}/prod.slot && docker rm -f \"${OLD_CONT}\" || true"
+
+                    sh """
+                      set -euo pipefail
+                      if [ -f "${env.WORKSPACE}/prod.slot" ]; then
+                        . "${env.WORKSPACE}/prod.slot" || true
+                        if [ -n "\${OLD_CONT:-}" ]; then
+                          docker rm -f "\${OLD_CONT}" || true
+                        fi
+                      fi
+                    """
                   } catch (e) {
-                    sh "NGINX_CONT=${NGINX_CONT} bash infra/scripts/switch_backend.sh"
+                    sh "NGINX_CONT=${NGINX_CONT} TARGET=${rollbackSlot} bash infra/scripts/switch_backend.sh"
                     error "Prod smoke test failed. Rolled back successfully."
                   }
                 }
