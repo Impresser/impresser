@@ -24,7 +24,6 @@ export default function Button({
     shadow-[0_4px_10px_rgba(0,0,0,0.2)]
     transition-all duration-200
     focus:outline-none
-    [text-shadow:0_1px_2px_rgba(0,0,0,0.25)]
     hover:scale-103
     active:scale-95
     cursor-pointer
@@ -32,7 +31,7 @@ export default function Button({
 
   const colorStyles = {
     blue: `
-      bg-[#0059FF]/80
+      bg-[#0059FF]
       hover:bg-[#0062CC]/90
     `,
     gray: `

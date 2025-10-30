@@ -3,99 +3,36 @@
 import React from 'react';
 import Sidebar from '@/components/layout/sidebar';
 import Navbar from '@/components/layout/navbar';
+import PatternGenerator from './components/PatternGenerator';
+import PatternList from './components/PatternList';
+import Button from '@/components/ui/Button';
+import { usePatternJobs } from '@/app/imagegenerator/hooks/usePatternJobs';
 
-export default function ImageGeneratorPage() {
+export default function PatternGeneratorPage() {
+  const { generatedCount, addJob } = usePatternJobs();
   return (
     <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
+      {/* 🔹 Sidebar */}
       <Sidebar />
 
-      {/* Main Content */}
+      {/* 🔹 Main Content */}
       <div className="flex-1 flex flex-col">
-        {/* Navigation Bar */}
         <Navbar userName="홍길동" />
 
-        {/* Page Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">패턴 생성</h1>
-          <p className="text-gray-600 mt-1">
-            새로운 패턴을 생성하고 관리할 수 있습니다.
-          </p>
-        </header>
-
-        {/* Content */}
-        <main className="flex-1 p-6 overflow-y-auto">
-          <div className="max-w-4xl mx-auto">
-            {/* 생성 폼 */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                새 패턴 생성
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    패턴 이름
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="패턴 이름을 입력하세요"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    패턴 설명
-                  </label>
-                  <textarea
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="패턴에 대한 설명을 입력하세요"
-                  />
-                </div>
-                <div className="flex space-x-4">
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                    패턴 생성
-                  </button>
-                  <button className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
-                    취소
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 패턴 목록 */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                생성된 패턴
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Array.from({ length: 6 }, (_, i) => (
-                  <div
-                    key={i}
-                    className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
-                  >
-                    <div className="w-full h-32 bg-gray-100 rounded-md mb-3 flex items-center justify-center">
-                      <span className="text-gray-500">패턴 미리보기</span>
-                    </div>
-                    <h3 className="font-medium text-gray-900 mb-1">
-                      패턴 {i + 1}
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-3">
-                      생성된 패턴 설명입니다.
-                    </p>
-                    <div className="flex space-x-2">
-                      <button className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200 transition-colors">
-                        편집
-                      </button>
-                      <button className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200 transition-colors">
-                        삭제
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        <main className="flex-1 p-8 overflow-y-auto">
+          {/* 상단: 입력 영역 - 전체 폭 사용 */}
+          <div className="mb-4">
+            <PatternGenerator />
           </div>
+
+          {/* 하단 정보 및 버튼 - 반응형 정렬 */}
+          <div className="flex flex-row justify-end items-center gap-2 md:gap-4">
+            <span className="text-gray-600 text-sm">생성된 이미지 수: {generatedCount}</span>
+            <Button variant="blue" onClick={() => addJob()}>생성하기</Button>
+          </div>
+
+          {/* 하단: 목록 테이블 */}
+          <PatternList />
         </main>
       </div>
     </div>
