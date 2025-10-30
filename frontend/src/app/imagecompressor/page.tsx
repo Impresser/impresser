@@ -14,15 +14,7 @@ export default function ImageCompressorPage() {
       <div className="flex-1 flex flex-col">
         {/* Navigation Bar */}
         <Navbar userName="홍길동" />
-
-        {/* Page Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">패턴 압축</h1>
-          <p className="text-gray-600 mt-1">
-            패턴 파일을 압축하여 용량을 줄일 수 있습니다.
-          </p>
-        </header>
-
+        
         {/* Content */}
         <main className="flex-1 p-6 overflow-y-auto">
           <div className="max-w-4xl mx-auto">

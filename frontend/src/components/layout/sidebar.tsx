@@ -209,7 +209,9 @@ export default function Sidebar() {
               <div
                 className={`flex items-center ${isCollapsed ? 'justify-center w-full' : 'space-x-3'}`}
               >
-                <IconComponent />
+                <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                  <IconComponent />
+                </div>
                 {!isCollapsed && <span className="text-sm">{item.name}</span>}
               </div>
             </a>

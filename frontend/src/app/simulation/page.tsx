@@ -15,14 +15,6 @@ export default function SimulationPage() {
         {/* Navigation Bar */}
         <Navbar userName="홍길동" />
 
-        {/* Page Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">시뮬레이션</h1>
-          <p className="text-gray-600 mt-1">
-            패턴 시뮬레이션을 실행하고 결과를 확인할 수 있습니다.
-          </p>
-        </header>
-
         {/* Content */}
         <main className="flex-1 p-6 overflow-y-auto">
           <div className="max-w-6xl mx-auto">

@@ -15,14 +15,6 @@ export default function DashboardPage() {
         {/* Navigation Bar */}
         <Navbar userName="홍길동" />
 
-        {/* Page Header */}
-        <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">대시보드</h1>
-          <p className="text-gray-600 mt-1">
-            전체 시스템 현황을 확인할 수 있습니다.
-          </p>
-        </header>
-
         {/* Content */}
         <main className="flex-1 p-6 overflow-y-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
