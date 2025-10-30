@@ -3,15 +3,13 @@ pipeline {
   parameters {
     booleanParam(name: 'BUILD_BACKEND', defaultValue: false, description: '백엔드를 수동으로 배포합니다.')
     booleanParam(name: 'BUILD_FRONTEND', defaultValue: false, description: '프론트엔드를 수동으로 배포합니다.')
-    booleanParam(name: 'BUILD_IMAGE_WORKER', defaultValue: false, description: 'GPU 워커 이미지만 수동으로 빌드 & 푸시합니다.')
+    booleanParam(name: 'BUILD_IMAGE_WORKER', defaultValue: false, description: 'GPU 워커 이미지를 수동으로 빌드 & 푸시합니다.')
     choice(name: 'MANUAL_TARGET_BRANCH', choices: ['develop', 'master'], description: '수동 배포 시 대상 환경을 선택하세요.')
   }
   environment {
     PROD_NET   = 'prod_net'
     DEV_NET    = 'dev_net'
     NGINX_CONT = 'nginx'
-    CONF_DIR   = '/opt/impresser/infra/nginx/conf.d'
-    LINK_NAME  = "${CONF_DIR}/upstream.backend.prod.conf"
     DOMAIN     = 'k13s404.p.ssafy.io'
     IMAGE_PREFIX = 'khs5860'
   }
@@ -54,9 +52,12 @@ pipeline {
         /*************** PROD: Backend Blue/Green ***************/
         stage('Deploy Backend (prod)') {
           when {
-            anyOf {
-              expression { (env.BACKEND_CHANGED ?: "false").toBoolean() && (env.DO_PROD ?: "false").toBoolean() }
-              changeset pattern: 'backend/**', comparator: 'ANT'
+            allOf {
+              expression { (env.DO_PROD ?: "false").toBoolean() }
+              anyOf {
+                expression { (env.BACKEND_CHANGED ?: "false").toBoolean() }
+                changeset pattern: 'backend/**', comparator: 'ANT'
+              }
             }
           }
           environment { PROD_TAG = "${IMAGE_PREFIX}/impresser-backend:${env.BUILD_NUMBER}" }
@@ -67,42 +68,44 @@ pipeline {
             stage('Run Target Slot') {
               steps {
                 withCredentials([file(credentialsId: 'prod-env-file-backend', variable: 'PROD_ENV_FILE_PATH')]) {
-                  sh """
-                    set -euo pipefail
-                    for i in \$(seq 1 60); do
-                      if [ "\$(docker inspect -f '{{.State.Health.Status}}' mysql-prod 2>/dev/null)" = "healthy" ] && \
-                         [ "\$(docker inspect -f '{{.State.Health.Status}}' redis-prod 2>/dev/null)" = "healthy" ]; then break; fi
-                      sleep 2
-                    done
+                script {
+                  def CUR = sh(
+                    script: "docker exec ${NGINX_CONT} /bin/sh -lc 'readlink -f /etc/nginx/conf.d/upstream.backend.prod.conf' 2>/dev/null || true",
+                    returnStdout: true
+                  ).trim()
 
-                    CUR=\$(readlink -f "${LINK_NAME}" || true)
-                    if echo "\${CUR:-}" | grep -q "blue"; then
-                      TARGET_CONT="backend-prod-green"
-                      OLD_CONT="backend-prod-blue"
-                    else
-                      TARGET_CONT="backend-prod-blue"
-                      OLD_CONT="backend-prod-green"
-                    fi
-                    echo "OLD_CONT=\$OLD_CONT" > /tmp/prod.slot
+                  def TARGET_CONT = CUR.contains('blue') ? 'backend-prod-green' : 'backend-prod-blue'
+                  def OLD_CONT    = CUR.contains('blue') ? 'backend-prod-blue'  : 'backend-prod-green'
+                  env.TARGET_CONT = TARGET_CONT
+                  writeFile file: "${env.WORKSPACE}/prod.slot", text: "OLD_CONT=${OLD_CONT}\n"
+                }
 
-                    docker rm -f "\${TARGET_CONT}" || true
-                    docker run -d --name "\${TARGET_CONT}" --network ${PROD_NET} --env-file ${PROD_ENV_FILE_PATH} ${PROD_TAG}
+                sh """
+                  set -euo pipefail
+                  for i in \$(seq 1 60); do
+                    if [ "\$(docker inspect -f '{{.State.Health.Status}}' mysql-prod 2>/dev/null)" = "healthy" ] && \
+                        [ "\$(docker inspect -f '{{.State.Health.Status}}' redis-prod 2>/dev/null)" = "healthy" ]; then break; fi
+                    sleep 2
+                  done
+                  
+                  docker rm -f ${env.TARGET_CONT} || true
+                  docker run -d --name ${env.TARGET_CONT} --network ${PROD_NET} --env-file ${PROD_ENV_FILE_PATH} ${PROD_TAG}
 
-                    RAW=\$(grep -E '^SERVER_CONTEXT_PATH=' "${PROD_ENV_FILE_PATH}" | tail -n1 | cut -d'=' -f2- | tr -d '\\r')
-                    RAW=\$(echo "\$RAW" | tr -d '[:space:]')
-                    if [ -z "\$RAW" ] || [ "\$RAW" = "/" ]; then
-                      HEALTH_URL="http://127.0.0.1:8080/actuator/health"
-                    else
-                      STRIP=\$(echo "\$RAW" | sed 's#^/*##; s#/*\$##')
-                      HEALTH_URL="http://127.0.0.1:8080/\${STRIP}/actuator/health"
-                    fi
-                    echo "[prod] health: \$HEALTH_URL"
+                  RAW=\$(grep -E '^SERVER_CONTEXT_PATH=' "${PROD_ENV_FILE_PATH}" | tail -n1 | cut -d'=' -f2- | tr -d '\\r')
+                  RAW=\$(echo "\$RAW" | tr -d '[:space:]')
+                  if [ -z "\$RAW" ] || [ "\$RAW" = "/" ]; then
+                    HEALTH_URL="http://127.0.0.1:8080/actuator/health"
+                  else
+                    STRIP=\$(echo "\$RAW" | sed 's#^/*##; s#/*\$##')
+                    HEALTH_URL="http://127.0.0.1:8080/\${STRIP}/actuator/health"
+                  fi
+                  echo "[prod] health: \$HEALTH_URL"
 
-                    for i in \$(seq 1 60); do
-                      if docker exec "\${TARGET_CONT}" sh -lc "wget -qO- \\"\$HEALTH_URL\\"" 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
-                      sleep 1
-                    done; exit 1
-                  """
+                  for i in \$(seq 1 60); do
+                    if docker exec ${env.TARGET_CONT} sh -lc "wget -qO- \\"\$HEALTH_URL\\"" 2>/dev/null | grep -q '"status":"UP"'; then exit 0; fi
+                    sleep 1
+                  done; exit 1
+                """
                 }
               }
             }
@@ -110,7 +113,7 @@ pipeline {
               steps {
                 script {
                   try {
-                    sh "NGINX_CONT=${NGINX_CONT} CONF_DIR=${CONF_DIR} bash infra/scripts/switch_backend.sh"
+                    sh "NGINX_CONT=${NGINX_CONT} bash infra/scripts/switch_backend.sh"
                     withCredentials([file(credentialsId: 'prod-env-file-backend', variable: 'PROD_ENV_FILE_PATH')]) {
                       sh """
                         set -euo pipefail
@@ -125,9 +128,9 @@ pipeline {
                         curl -fsS "https://${DOMAIN}\${EXT}" | grep UP
                       """
                     }
-                    sh '. /tmp/prod.slot && docker rm -f "${OLD_CONT}" || true'
+                    sh ". ${env.WORKSPACE}/prod.slot && docker rm -f \"${OLD_CONT}\" || true"
                   } catch (e) {
-                    sh "NGINX_CONT=${NGINX_CONT} CONF_DIR=${CONF_DIR} bash infra/scripts/switch_backend.sh"
+                    sh "NGINX_CONT=${NGINX_CONT} bash infra/scripts/switch_backend.sh"
                     error "Prod smoke test failed. Rolled back successfully."
                   }
                 }
@@ -139,9 +142,12 @@ pipeline {
         /*************** DEV: Backend 단일 교체 ***************/
         stage('Deploy Backend (dev)') {
           when {
-            anyOf {
-              expression { (env.BACKEND_CHANGED ?: "false").toBoolean() && (env.DO_DEV ?: "false").toBoolean() }
-              changeset pattern: 'backend/**', comparator: 'ANT'
+            allOf {
+              expression { (env.DO_DEV ?: "false").toBoolean() }
+              anyOf {
+                expression { (env.BACKEND_CHANGED ?: "false").toBoolean() }
+                changeset pattern: 'backend/**', comparator: 'ANT'
+              }
             }
           }
           environment { DEV_TAG = "${IMAGE_PREFIX}/impresser-backend-dev:${env.BUILD_NUMBER}" }
@@ -229,6 +235,12 @@ pipeline {
                 sh "docker logout"
               }
             }
+          }
+        }
+
+        stage('Cleanup Docker') {
+          steps {
+            sh 'docker image prune -af --filter "until=24h" || true'
           }
         }
       }
