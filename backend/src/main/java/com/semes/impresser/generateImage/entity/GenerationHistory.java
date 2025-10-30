@@ -16,7 +16,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "generatation_history")
+@Table(name = "generation_history")
 @Getter
 @Builder(toBuilder = true)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
@@ -94,6 +94,12 @@ public class GenerationHistory extends BaseEntity {
 
     @Column(name = "blue_gap_y", nullable = false)
     private int blueGapY;
+
+    @Column(name = "rg_gap", nullable = false)
+    private int rgGap;
+
+    @Column(name = "gb_gap", nullable = false)
+    private int gbGap;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)

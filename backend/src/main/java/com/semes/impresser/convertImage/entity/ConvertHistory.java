@@ -24,9 +24,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ConvertHistory extends BaseEntity {
 
-    @Column(name = "profile_key", nullable = false, length = 100)
-    private String profileKey;
-
     @Column(name = "bmp_volume", nullable = false)
     private Long bmpVolume;
 
@@ -42,10 +39,10 @@ public class ConvertHistory extends BaseEntity {
     @Column(name = "tiff_volume")
     private Long tiffVolume;
 
-    @Column(name = "tiff_volume")
+    @Column(name = "tiff_width")
     private Long tiffWidth;
 
-    @Column(name = "tiff_volume")
+    @Column(name = "tiff_height")
     private Long tiffHeight;
 
     @Column(name = "requested_at", nullable = false)

@@ -31,7 +31,7 @@ public class JobHistory extends BaseEntity {
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
-    @Column(name = "sheetCount")
+    @Column(name = "sheet_count")
     private Long sheetCount;
 
     @ManyToOne(fetch = FetchType.LAZY)
