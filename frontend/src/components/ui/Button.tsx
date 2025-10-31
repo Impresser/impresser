@@ -7,6 +7,7 @@ interface ButtonProps {
   onClick?: () => void;
   type?: "button" | "submit" | "reset";
   variant?: "blue" | "gray"; // ✅ 색상 구분용 prop 추가
+  className?: string;
 }
 
 export default function Button({
@@ -14,6 +15,7 @@ export default function Button({
   onClick,
   type = "button",
   variant = "blue", // ✅ 기본값: 파란색
+  className = "",
 }: ButtonProps) {
   const baseStyle = `
     px-7 py-2
@@ -44,7 +46,7 @@ export default function Button({
     <button
       type={type}
       onClick={onClick}
-      className={`${baseStyle} ${colorStyles[variant]}`}
+      className={`${baseStyle} ${colorStyles[variant]} ${className}`}
     >
       {children}
     </button>
