@@ -1,11 +1,13 @@
 package com.semes.impresser.inkjet.entity;
 
 import com.semes.impresser.common.entity.BaseTimeEntity;
+import com.semes.impresser.inkjet.dto.request.UpdateInkjetRequest;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -28,7 +30,7 @@ public class InkjetPrinter extends BaseTimeEntity {
     private String printerName;
 
     @Column(name = "install_date", nullable = false)
-    private LocalDateTime installDate;
+    private LocalDate installDate;
 
     @Column(name = "cpu", nullable = false)
     private String cpu;
@@ -55,4 +57,34 @@ public class InkjetPrinter extends BaseTimeEntity {
 
     @Column(name = "canvas_y", nullable = false)
     private Integer canvasY;
+
+    public void update(UpdateInkjetRequest request) {
+        if (request.modelName() != null) {
+            this.modelName = request.modelName();
+        }
+        if (request.printerName() != null) {
+            this.printerName = request.printerName();
+        }
+        if (request.cpu() != null) {
+            this.cpu = request.cpu();
+        }
+        if (request.gpu() != null) {
+            this.gpu = request.gpu();
+        }
+        if (request.ram() != null) {
+            this.ram = request.ram();
+        }
+        if (request.vram() != null) {
+            this.vram = request.vram();
+        }
+        if (request.canvasX() != null) {
+            this.canvasX = request.canvasX();
+        }
+        if (request.canvasY() != null) {
+            this.canvasY = request.canvasY();
+        }
+        if (request.printerStatus() != null) {
+            this.printerStatus = PrinterStatus.from(request.printerStatus());
+        }
+    }
 }
