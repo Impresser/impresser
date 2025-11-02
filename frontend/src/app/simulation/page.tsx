@@ -1,204 +1,176 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from '@/components/layout/sidebar';
 import Navbar from '@/components/layout/navbar';
+import IsometricMap from './components/IsometricMap';
+import FacilityList from './components/FacilityList';
+import FacilityStatistics from './components/FacilityStatistics';
+import AddFacilityModal from './components/AddFacilityModal';
+import type { TileType } from './components/IsometricMap';
+import type { Facility } from './components/FacilityStatistics';
 
 export default function SimulationPage() {
+  const [sidebarWidth, setSidebarWidth] = useState(192); // 기본값: w-48 = 192px
+  const [navbarHeight, setNavbarHeight] = useState(64); // 기본값: h-16 = 64px
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const navbarRef = useRef<HTMLDivElement>(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isLocationSelectMode, setIsLocationSelectMode] = useState(false);
+  const [selectedLocation, setSelectedLocation] = useState<{ x: number; y: number } | null>(null);
+
+  // Sidebar 너비 측정
+  useEffect(() => {
+    const updateSidebarWidth = () => {
+      if (sidebarRef.current) {
+        const width = sidebarRef.current.offsetWidth;
+        setSidebarWidth(width);
+      }
+    };
+
+    // 초기 측정
+    updateSidebarWidth();
+
+    // ResizeObserver로 sidebar 크기 변화 감지
+    const resizeObserver = new ResizeObserver(() => {
+      updateSidebarWidth();
+    });
+
+    if (sidebarRef.current) {
+      resizeObserver.observe(sidebarRef.current);
+    }
+
+    // 윈도우 리사이즈 이벤트도 감지
+    window.addEventListener('resize', updateSidebarWidth);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateSidebarWidth);
+    };
+  }, []);
+
+  // Navbar 높이 측정
+  useEffect(() => {
+    const updateNavbarHeight = () => {
+      if (navbarRef.current) {
+        const height = navbarRef.current.offsetHeight;
+        setNavbarHeight(height);
+      }
+    };
+
+    // 초기 측정
+    updateNavbarHeight();
+
+    // ResizeObserver로 navbar 크기 변화 감지
+    const resizeObserver = new ResizeObserver(() => {
+      updateNavbarHeight();
+    });
+
+    if (navbarRef.current) {
+      resizeObserver.observe(navbarRef.current);
+    }
+
+    // 윈도우 리사이즈 이벤트도 감지
+    window.addEventListener('resize', updateNavbarHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updateNavbarHeight);
+    };
+  }, []);
+
+  // 20x20 맵 데이터 생성
+  const mapData: TileType[][] = Array(20).fill(null).map(() => 
+    Array(20).fill('g' as TileType)
+  );
+
+  // 설비 데이터
+  const facilities: Facility[] = [
+    { id: '1', name: '프린터 A', type: 'Inkjet', status: 'active' },
+    { id: '2', name: '프린터 B', type: 'Inkjet', status: 'active' },
+    { id: '3', name: '프린터 C', type: 'Inkjet', status: 'inactive' },
+    { id: '4', name: '프린터 D', type: 'Inkjet', status: 'maintenance' },
+    { id: '5', name: '프린터 E', type: 'Inkjet', status: 'active' },
+  ];
+
+  // 맵에 표시할 설비 위치 데이터
+  const facilityLocations: Array<{ id: string; canvasX: number; canvasY: number; imagePath: string }> = [];
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
-      <Sidebar />
+      <div ref={sidebarRef}>
+        <Sidebar />
+      </div>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Navigation Bar */}
-        <Navbar userName="홍길동" />
+        <div ref={navbarRef}>
+          <Navbar userName="홍길동" />
+        </div>
 
         {/* Content */}
-        <main className="flex-1 p-6 overflow-y-auto">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* 시뮬레이션 설정 */}
-              <div className="lg:col-span-1">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                    시뮬레이션 설정
-                  </h2>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        패턴 선택
-                      </label>
-                      <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">패턴을 선택하세요</option>
-                        <option value="pattern1">패턴 1</option>
-                        <option value="pattern2">패턴 2</option>
-                        <option value="pattern3">패턴 3</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        시뮬레이션 시간 (초)
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="3600"
-                        defaultValue="60"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        샘플링 레이트
-                      </label>
-                      <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="1000">1000 Hz</option>
-                        <option value="2000">2000 Hz</option>
-                        <option value="5000">5000 Hz</option>
-                      </select>
-                    </div>
-                    <div className="flex space-x-2">
-                      <button className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
-                        시작
-                      </button>
-                      <button className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
-                        중지
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 진행 상황 */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    진행 상황
-                  </h3>
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex justify-between text-sm text-gray-600 mb-1">
-                        <span>시뮬레이션 진행률</span>
-                        <span>45%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full"
-                          style={{ width: '45%' }}
-                        ></div>
-                      </div>
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      <p>경과 시간: 27초</p>
-                      <p>남은 시간: 33초</p>
-                    </div>
-                  </div>
+        <main className="flex-1 px-6 py-6 overflow-y-auto">
+          <div className="w-full max-w-7xl mx-auto">
+            {/* 설비 시뮬레이션 타이틀 및 통계 */}
+            <div className="flex items-center justify-between mb-6">
+              <h1 className="text-2xl font-bold text-gray-900">잉크젯 프린트 공정</h1>
+              <FacilityStatistics facilities={facilities} />
+            </div>
+            
+            {/* 맵과 설비 목록 레이아웃 */}
+            <div className="flex gap-6">
+              {/* 맵 섹션 */}
+              <div className="flex-1 mb-6">
+                <div className="w-full h-[600px] border border-gray-300 rounded-lg overflow-hidden">
+                  <IsometricMap 
+                    mapData={mapData}
+                    facilities={facilityLocations}
+                    sidebarWidth={sidebarWidth}
+                    isLocationSelectMode={isLocationSelectMode}
+                    onLocationSelect={(x, y) => {
+                      setSelectedLocation({ x, y });
+                      setIsLocationSelectMode(false);
+                      setIsAddModalOpen(true);
+                    }}
+                    onAddFacilityClick={() => setIsAddModalOpen(true)}
+                  />
                 </div>
               </div>
 
-              {/* 시뮬레이션 결과 */}
-              <div className="lg:col-span-2">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                    시뮬레이션 결과
-                  </h2>
-                  <div className="space-y-6">
-                    {/* 그래프 영역 */}
-                    <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
-                      <div className="text-center">
-                        <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-2">
-                          <svg
-                            className="w-8 h-8 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                            />
-                          </svg>
-                        </div>
-                        <p className="text-gray-500">시뮬레이션 그래프</p>
-                      </div>
-                    </div>
-
-                    {/* 결과 통계 */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="text-center p-4 bg-blue-50 rounded-lg">
-                        <p className="text-2xl font-bold text-blue-600">1.2</p>
-                        <p className="text-sm text-blue-800">평균 값</p>
-                      </div>
-                      <div className="text-center p-4 bg-green-50 rounded-lg">
-                        <p className="text-2xl font-bold text-green-600">0.8</p>
-                        <p className="text-sm text-green-800">최소 값</p>
-                      </div>
-                      <div className="text-center p-4 bg-red-50 rounded-lg">
-                        <p className="text-2xl font-bold text-red-600">2.1</p>
-                        <p className="text-sm text-red-800">최대 값</p>
-                      </div>
-                      <div className="text-center p-4 bg-purple-50 rounded-lg">
-                        <p className="text-2xl font-bold text-purple-600">
-                          0.3
-                        </p>
-                        <p className="text-sm text-purple-800">표준편차</p>
-                      </div>
-                    </div>
-
-                    {/* 결과 테이블 */}
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                        상세 결과
-                      </h3>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-gray-200">
-                              <th className="text-left py-2">시간</th>
-                              <th className="text-left py-2">값</th>
-                              <th className="text-left py-2">상태</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {Array.from({ length: 5 }, (_, i) => {
-                              // 고정된 시드 값으로 일관된 결과 생성
-                              const seed = i * 0.3;
-                              const value = (1.2 + (seed % 0.8)).toFixed(2);
-
-                              return (
-                                <tr
-                                  key={i}
-                                  className="border-b border-gray-100"
-                                >
-                                  <td className="py-2">{i * 10}초</td>
-                                  <td className="py-2">{value}</td>
-                                  <td className="py-2">
-                                    <span
-                                      className={`px-2 py-1 rounded text-xs ${
-                                        i % 2 === 0
-                                          ? 'bg-green-100 text-green-800'
-                                          : 'bg-yellow-100 text-yellow-800'
-                                      }`}
-                                    >
-                                      {i % 2 === 0 ? '정상' : '경고'}
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </div>
+              {/* 설비 목록 섹션 */}
+              <div className="w-48 mb-6">
+                <div className="h-[600px]">
+                  <FacilityList facilities={facilities} />
                 </div>
               </div>
             </div>
           </div>
         </main>
       </div>
+
+      {/* 설비 추가 모달 */}
+      <AddFacilityModal
+        isOpen={isAddModalOpen}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setSelectedLocation(null);
+        }}
+        onAdd={(facilityData) => {
+          console.log('설비 추가:', facilityData);
+          // 여기에 실제 설비 추가 로직 구현
+          setIsAddModalOpen(false);
+          setSelectedLocation(null);
+        }}
+        sidebarWidth={sidebarWidth}
+        navbarHeight={navbarHeight}
+        selectedPosition={selectedLocation}
+        onSelectPosition={() => {
+          setIsAddModalOpen(false);
+          setIsLocationSelectMode(true);
+        }}
+      />
     </div>
   );
 }

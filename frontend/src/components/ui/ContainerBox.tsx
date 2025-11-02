@@ -5,9 +5,10 @@ import React from "react";
 interface ContainerBoxProps {
   children: React.ReactNode;
   className?: string;
+  title?: string;
 }
 
-export default function ContainerBox({ children, className = "" }: ContainerBoxProps) {
+export default function ContainerBox({ children, className = "", title }: ContainerBoxProps) {
   return (
     <div
       className={`
@@ -18,6 +19,11 @@ export default function ContainerBox({ children, className = "" }: ContainerBoxP
         ${className}
       `}
     >
+      {title && (
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">
+          {title}
+        </h2>
+      )}
       {children}
     </div>
   );

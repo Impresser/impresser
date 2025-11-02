@@ -6,7 +6,7 @@ interface ButtonProps {
   children: React.ReactNode;
   onClick?: () => void;
   type?: "button" | "submit" | "reset";
-  variant?: "blue" | "gray"; // ✅ 색상 구분용 prop 추가
+  variant?: "blue" | "gray" | "red"; // ✅ 색상 구분용 prop 추가
   className?: string;
 }
 
@@ -39,6 +39,10 @@ export default function Button({
     gray: `
       bg-[#8E8E93]/80
       hover:bg-[#7A7A7E]/90
+    `,
+    red: `
+      bg-[#DC2626]
+      hover:bg-[#B91C1C]/90
     `,
   };
 
