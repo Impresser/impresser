@@ -7,7 +7,7 @@ import ContainerBox from '@/components/ui/ContainerBox';
 import RadioButton from '@/components/ui/RadioButton';
 import CommonDropdown from '@/components/ui/CommonDropdown';
 import Button from '@/components/ui/Button';
-import CommonTable, { QueueItem } from '@/components/ui/CommonTable';
+import CommonTable, { QueueItem, HistoryItem } from '@/components/ui/CommonTable';
 
 interface FileInfo {
   name: string;
@@ -37,6 +37,7 @@ export default function ImageCompressorPage() {
   const [algorithm, setAlgorithm] = useState('lzw');
   const [version, setVersion] = useState('1.0');
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (file: File) => {
@@ -138,7 +139,7 @@ export default function ImageCompressorPage() {
     });
   };
 
-  // 경과시간 업데이트를 위한 useEffect
+  // 경과시간 업데이트 및 완료 처리를 위한 useEffect
   useEffect(() => {
     const interval = setInterval(() => {
       setQueue((prev) => {
@@ -148,6 +149,32 @@ export default function ImageCompressorPage() {
             const progress = item.estimatedTime > 0 
               ? Math.min(100, Math.floor((elapsed / item.estimatedTime) * 100))
               : 0;
+            
+            // 진행률이 100%에 도달하면 완료 처리
+            if (progress >= 100) {
+              const completedTime = new Date();
+              const duration = item.estimatedTime > 0 ? item.estimatedTime : elapsed;
+              
+              // 히스토리에 추가
+              const historyItem: HistoryItem = {
+                id: item.id,
+                fileName: item.fileName,
+                processingMethod: item.processingMethod,
+                algorithm: item.algorithm,
+                version: item.version,
+                fileSize: item.fileSize,
+                status: '완료',
+                assignedUser: item.assignedUser,
+                completedTime: completedTime,
+                duration: duration,
+              };
+              
+              setHistory((prevHistory) => [historyItem, ...prevHistory]);
+              
+              // 큐에서 제거 (null로 표시하고 나중에 필터링)
+              return null as any;
+            }
+            
             return {
               ...item,
               elapsedTime: elapsed,
@@ -155,7 +182,7 @@ export default function ImageCompressorPage() {
             };
           }
           return item;
-        });
+        }).filter((item): item is QueueItem => item !== null);
       });
     }, 1000); // 1초마다 업데이트
 
@@ -351,6 +378,23 @@ export default function ImageCompressorPage() {
                     )}
                   </div>
                 )}
+              </ContainerBox>
+            </div>
+
+            {/* 압축내역 영역 */}
+            <div className="mt-8">
+              <h1 className="text-2xl font-bold text-gray-900 mb-6">압축내역</h1>
+              
+              <ContainerBox>
+                <CommonTable 
+                  data={history} 
+                  emptyMessage="완료된 압축 내역이 없습니다."
+                  mode="history"
+                  onDownload={(item) => {
+                    console.log('다운로드:', item.fileName);
+                    // 여기에 실제 다운로드 로직 구현
+                  }}
+                />
               </ContainerBox>
             </div>
           </div>

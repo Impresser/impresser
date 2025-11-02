@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Button from './Button';
 
 export interface QueueItem {
   id: string;
@@ -17,9 +18,24 @@ export interface QueueItem {
   progress: number; // 0-100
 }
 
+export interface HistoryItem {
+  id: string;
+  fileName: string;
+  processingMethod: string;
+  algorithm: string;
+  version: string;
+  fileSize: number;
+  status: '완료';
+  assignedUser: string;
+  completedTime: Date;
+  duration: number; // 초 단위
+}
+
 interface CommonTableProps {
-  data: QueueItem[];
+  data: QueueItem[] | HistoryItem[];
   emptyMessage?: string;
+  mode?: 'queue' | 'history';
+  onDownload?: (item: HistoryItem) => void;
 }
 
 const formatFileSize = (bytes: number) => {
@@ -51,7 +67,23 @@ const formatDateTime = (date: Date): string => {
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
 };
 
-export default function CommonTable({ data, emptyMessage = '데이터가 없습니다.' }: CommonTableProps) {
+const isQueueItem = (item: QueueItem | HistoryItem): item is QueueItem => {
+  return 'startTime' in item || 'progress' in item;
+};
+
+const isHistoryItem = (item: QueueItem | HistoryItem): item is HistoryItem => {
+  return 'completedTime' in item && 'duration' in item;
+};
+
+export default function CommonTable({ data, emptyMessage = '데이터가 없습니다.', mode = 'queue', onDownload }: CommonTableProps) {
+  const handleDownload = (item: HistoryItem) => {
+    if (onDownload) {
+      onDownload(item);
+    } else {
+      console.log('다운로드:', item.fileName);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* 테이블 헤더 */}
@@ -63,10 +95,20 @@ export default function CommonTable({ data, emptyMessage = '데이터가 없습�
         <div className="col-span-1">파일용량</div>
         <div className="col-span-1">상태</div>
         <div className="col-span-1">담당자</div>
-        <div className="col-span-1">시작시각</div>
-        <div className="col-span-1">경과시간</div>
-        <div className="col-span-1">예상시간</div>
-        <div className="col-span-1">진행률</div>
+        {mode === 'queue' ? (
+          <>
+            <div className="col-span-1">시작시각</div>
+            <div className="col-span-1">경과시간</div>
+            <div className="col-span-1">예상시간</div>
+            <div className="col-span-1">진행률</div>
+          </>
+        ) : (
+          <>
+            <div className="col-span-2">완료일시</div>
+            <div className="col-span-1">소요시간</div>
+            <div className="col-span-1">다운로드</div>
+          </>
+        )}
       </div>
 
       {/* 테이블 행 또는 빈 메시지 */}
@@ -75,62 +117,104 @@ export default function CommonTable({ data, emptyMessage = '데이터가 없습�
           {emptyMessage}
         </div>
       ) : (
-        data.map((item) => (
-        <div
-          key={item.id}
-          className="grid grid-cols-12 gap-4 py-3 border-b border-gray-100 text-sm text-gray-900"
-        >
-          <div className="col-span-2 truncate" title={item.fileName}>
-            {item.fileName}
-          </div>
-          <div className="col-span-1">{item.processingMethod}</div>
-          <div className="col-span-1 truncate" title={item.algorithm}>
-            {item.algorithm}
-          </div>
-          <div className="col-span-1">{item.version}</div>
-          <div className="col-span-1">{formatFileSize(item.fileSize)}</div>
-          <div className="col-span-1">
-            <span
-              className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                item.status === '진행'
-                  ? 'bg-blue-100 text-blue-800'
-                  : 'bg-gray-100 text-gray-800'
-              }`}
-            >
-              {item.status}
-            </span>
-          </div>
-          <div className="col-span-1">{item.assignedUser}</div>
-          <div className="col-span-1 text-xs">
-            {item.startTime ? formatDateTime(item.startTime) : '-'}
-          </div>
-          <div className="col-span-1">
-            {item.status === '진행' ? formatTime(item.elapsedTime) : '-'}
-          </div>
-          <div className="col-span-1">
-            {item.estimatedTime > 0 ? formatTime(item.estimatedTime) : '-'}
-          </div>
-          <div className="col-span-1">
-            {item.status === '진행' ? (
-              <div className="flex items-center space-x-2">
-                <div className="flex-1 bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${item.progress}%` }}
-                  />
+        data.map((item) => {
+          if (mode === 'queue' && isQueueItem(item)) {
+            return (
+              <div
+                key={item.id}
+                className="grid grid-cols-12 gap-4 py-3 border-b border-gray-100 text-sm text-gray-900"
+              >
+                <div className="col-span-2 truncate" title={item.fileName}>
+                  {item.fileName}
                 </div>
-                <span className="text-xs text-gray-600 min-w-[3rem]">
-                  {item.progress}%
-                </span>
+                <div className="col-span-1">{item.processingMethod}</div>
+                <div className="col-span-1 truncate" title={item.algorithm}>
+                  {item.algorithm}
+                </div>
+                <div className="col-span-1">{item.version}</div>
+                <div className="col-span-1">{formatFileSize(item.fileSize)}</div>
+                <div className="col-span-1">
+                  <span
+                    className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                      item.status === '진행'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {item.status}
+                  </span>
+                </div>
+                <div className="col-span-1">{item.assignedUser}</div>
+                <div className="col-span-1 text-xs">
+                  {item.startTime ? formatDateTime(item.startTime) : '-'}
+                </div>
+                <div className="col-span-1">
+                  {item.status === '진행' ? formatTime(item.elapsedTime) : '-'}
+                </div>
+                <div className="col-span-1">
+                  {item.estimatedTime > 0 ? formatTime(item.estimatedTime) : '-'}
+                </div>
+                <div className="col-span-1">
+                  {item.status === '진행' ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="flex-1 bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${item.progress}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-600 min-w-[3rem]">
+                        {item.progress}%
+                      </span>
+                    </div>
+                  ) : (
+                    '-'
+                  )}
+                </div>
               </div>
-            ) : (
-              '-'
-            )}
-          </div>
-        </div>
-      ))
+            );
+          } else if (mode === 'history' && isHistoryItem(item)) {
+            return (
+              <div
+                key={item.id}
+                className="grid grid-cols-12 gap-4 py-3 border-b border-gray-100 text-sm text-gray-900"
+              >
+                <div className="col-span-2 truncate" title={item.fileName}>
+                  {item.fileName}
+                </div>
+                <div className="col-span-1">{item.processingMethod}</div>
+                <div className="col-span-1 truncate" title={item.algorithm}>
+                  {item.algorithm}
+                </div>
+                <div className="col-span-1">{item.version}</div>
+                <div className="col-span-1">{formatFileSize(item.fileSize)}</div>
+                <div className="col-span-1">
+                  <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
+                    {item.status}
+                  </span>
+                </div>
+                <div className="col-span-1">{item.assignedUser}</div>
+                <div className="col-span-2 text-xs">
+                  {formatDateTime(item.completedTime)}
+                </div>
+                <div className="col-span-1">
+                  {formatTime(item.duration)}
+                </div>
+                <div className="col-span-1">
+                  <Button
+                    onClick={() => handleDownload(item)}
+                    variant="blue"
+                    className="px-3 py-1 text-xs"
+                  >
+                    다운로드
+                  </Button>
+                </div>
+              </div>
+            );
+          }
+          return null;
+        })
       )}
     </div>
   );
 }
-
