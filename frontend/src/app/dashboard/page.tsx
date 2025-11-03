@@ -1,8 +1,11 @@
-'use client';
+"use client";
 
-import React from 'react';
-import Sidebar from '@/components/layout/sidebar';
-import Navbar from '@/components/layout/navbar';
+import React from "react";
+import PerformanceRanking from "./components/PerformanceRanking";
+import EquipmentUsage from "./components/EquipmentUsage";
+import PanelOutput from "./components/PanelOutput";
+import Sidebar from "@/components/layout/sidebar";
+import Navbar from "@/components/layout/navbar";
 
 export default function DashboardPage() {
   return (
@@ -16,54 +19,15 @@ export default function DashboardPage() {
         <Navbar userName="홍길동" />
 
         {/* Content */}
-        <main className="flex-1 p-6 overflow-y-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* 통계 카드들 */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                총 패턴 수
-              </h3>
-              <p className="text-3xl font-bold text-blue-600">1,234</p>
-              <p className="text-sm text-gray-500 mt-1">+12% 이번 달</p>
-            </div>
+        <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden">
+          <div className="flex flex-col gap-4">
+            {/* 상단: 성능 순위 전체 영역 */}
+            <PerformanceRanking />
 
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                압축된 파일
-              </h3>
-              <p className="text-3xl font-bold text-green-600">856</p>
-              <p className="text-sm text-gray-500 mt-1">+8% 이번 주</p>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                시뮬레이션 실행
-              </h3>
-              <p className="text-3xl font-bold text-purple-600">42</p>
-              <p className="text-sm text-gray-500 mt-1">+5% 어제</p>
-            </div>
-
-            {/* 최근 활동 */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 md:col-span-2 lg:col-span-3">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                최근 활동
-              </h3>
-              <div className="space-y-3">
-                {Array.from({ length: 5 }, (_, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="text-sm text-gray-700">
-                        새로운 패턴이 생성되었습니다
-                      </span>
-                    </div>
-                    <span className="text-xs text-gray-500">{i + 1}분 전</span>
-                  </div>
-                ))}
-              </div>
+            {/* 하단: 좌측 설비 이용 시간, 우측 패널 생산량 */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <EquipmentUsage />
+              <PanelOutput />
             </div>
           </div>
         </main>
@@ -71,3 +35,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+
