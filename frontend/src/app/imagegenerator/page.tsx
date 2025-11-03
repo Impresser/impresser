@@ -7,11 +7,13 @@ import PatternGenerator from './components/PatternGenerator';
 import PatternList from './components/PatternList';
 import Button from '@/components/ui/CommonButton';
 import { usePatternJobs } from '@/app/imagegenerator/hooks/usePatternJobs';
+import AuthGuard from '@/components/auth/AuthGuard';
 
 export default function PatternGeneratorPage() {
   const { generatedCount, addJob } = usePatternJobs();
   return (
-    <div className="flex h-screen bg-gray-50">
+    <AuthGuard>
+      <div className="flex h-screen bg-gray-50">
       {/* 🔹 Sidebar */}
       <Sidebar />
 
@@ -36,5 +38,6 @@ export default function PatternGeneratorPage() {
         </main>
       </div>
     </div>
+    </AuthGuard>
   );
 }
