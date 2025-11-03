@@ -7,6 +7,13 @@ export interface Facility {
   name: string;
   type: string;
   status: 'active' | 'inactive' | 'maintenance';
+  modelName?: string;
+  processingStatus?: 'idle' | 'processing' | 'error';
+  cpu?: string;
+  gpu?: string;
+  ram?: string;
+  vram?: string;
+  installDate?: Date | string;
 }
 
 interface FacilityStatisticsProps {

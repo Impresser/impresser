@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import ContainerBox from "@/components/ui/ContainerBox";
 import Input from "@/components/ui/Input01";
 import Button from "@/components/ui/Button";
-import Modal from "@/components/ui/Modal";
+import CommonModal from "@/components/ui/CommonModal";
 import LoginFindModalContent from "./loginfindmodal";
 
 export default function LoginContain() {
@@ -83,9 +83,9 @@ export default function LoginContain() {
             비밀번호 찾기
           </a>
         </div>
-        <Modal isOpen={infoOpen} onClose={() => setInfoOpen(false)}>
+        <CommonModal isOpen={infoOpen} onClose={() => setInfoOpen(false)}>
           <LoginFindModalContent />
-        </Modal>
+        </CommonModal>
       </ContainerBox>
     </div>
   );
