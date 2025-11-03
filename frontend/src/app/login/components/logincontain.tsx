@@ -157,7 +157,7 @@ export default function LoginContain() {
         </div>
 
         <div className="w-full max-w-md px-8 py-10">
-          <h2 className="text-3xl font-bold text-gray-800 mb-8">Login</h2>
+          <h2 className="text-3xl font-bold text-gray-800 mb-8">로그인</h2>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* 아이디 입력 */}
@@ -165,7 +165,7 @@ export default function LoginContain() {
               <CommonInput
                 value={userId}
                 onChange={(e) => setUserId(e.target.value)}
-                placeholder="Username or email"
+                placeholder="사번"
                 textAlign="left"
                 className="rounded-lg border-gray-200 focus:border-blue-500"
                 leftIcon={
@@ -183,7 +183,7 @@ export default function LoginContain() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
+                placeholder="비밀번호"
                 textAlign="left"
                 className="rounded-lg border-gray-200 focus:border-blue-500"
                 leftIcon={

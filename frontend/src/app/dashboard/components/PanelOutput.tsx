@@ -23,7 +23,7 @@ export default function PanelOutput() {
   return (
     <CommonContainerBox>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <div style={{ fontWeight: 800, fontSize: 20 }}>일일 패널 생산량</div>
+        <div style={{ fontWeight: 700, fontSize: 20 }}>일일 패널 생산량</div>
         <div style={{ color: "#374151", fontWeight: 600, fontSize: 14 }}>(25/10/13 ~ 25/10/19)</div>
       </div>
       <div style={{ width: "100%", height: 320, minWidth: 0, minHeight: 0 }}>
