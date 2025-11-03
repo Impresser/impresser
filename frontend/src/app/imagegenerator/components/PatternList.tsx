@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import { usePatternJobs } from '@/app/imagegenerator/hooks/usePatternJobs';
+import CommonPagination from '@/components/ui/CommonPagination';
 
 export default function PatternTable() {
   const { jobs } = usePatternJobs();
@@ -37,10 +38,7 @@ export default function PatternTable() {
     return jobs.slice(start, start + pageSize);
   }, [jobs, page]);
 
-  const canPrev = page > 1;
-  const canNext = page < totalPages;
-  const goPrev = () => canPrev && setPage((p) => p - 1);
-  const goNext = () => canNext && setPage((p) => p + 1);
+  const handlePageChange = (p: number) => setPage(p);
   return (
     <div>
       <h2 className="text-lg font-semibold text-gray-800 mb-4">목록</h2>
@@ -143,46 +141,9 @@ export default function PatternTable() {
           </div>
         )}
 
-        {/* 페이지네이션: 화살표 아이콘 + 숫자 버튼 */}
+        {/* 페이지네이션: 공통 컴포넌트 사용 */}
         {jobs.length > 0 && totalPages > 1 && (
-          <div className="mt-4 flex items-center justify-center gap-2">
-            <button
-              type="button"
-              onClick={goPrev}
-              aria-label="이전 페이지"
-              className={`h-9 w-9 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition ${!canPrev ? 'opacity-40 pointer-events-none' : ''}`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-                <path d="M15 18l-6-6 6-6" />
-              </svg>
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-              <button
-                key={p}
-                type="button"
-                onClick={() => setPage(p)}
-                className={`h-9 min-w-9 px-3 flex items-center justify-center rounded-full border transition ${
-                  p === page
-                    ? 'bg-[#0059FF] text-white border-transparent'
-                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                }`}
-                aria-current={p === page ? 'page' : undefined}
-                aria-label={`${p} 페이지`}
-              >
-                {p}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={goNext}
-              aria-label="다음 페이지"
-              className={`h-9 w-9 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition ${!canNext ? 'opacity-40 pointer-events-none' : ''}`}
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-                <path d="M9 6l6 6-6 6" />
-              </svg>
-            </button>
-          </div>
+          <CommonPagination currentPage={page} totalPages={totalPages} onChange={handlePageChange} />
         )}
       </CommonContainerBox>
     </div>

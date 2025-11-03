@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import CommonContainerBox from "@/components/ui/CommonContainerBox";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LabelList } from "recharts";
+import { ResponsiveContainer, ComposedChart, Bar, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from "recharts";
 
 type DataPoint = { day: string; value: number };
 
@@ -20,6 +20,7 @@ const DATA: DataPoint[] = [
 export default function PanelOutput() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  const avg = DATA.reduce((s, d) => s + d.value, 0) / DATA.length;
   return (
     <CommonContainerBox>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -29,19 +30,23 @@ export default function PanelOutput() {
       <div style={{ width: "100%", height: 320, minWidth: 0, minHeight: 0 }}>
         {mounted && (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={DATA} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-              <CartesianGrid stroke="#e5e7eb" strokeDasharray="3 3" />
-              <XAxis dataKey="day" tick={{ fill: "#9ca3af", fontSize: 12 }} />
-              <YAxis tick={{ fill: "#9ca3af", fontSize: 12 }} />
-              <Tooltip formatter={(v: number) => v.toLocaleString()} />
-              <Bar dataKey="value" fill="#CAD4E5" radius={[4, 4, 0, 0]}>
-                <LabelList
-                  dataKey="value"
-                  position="top"
-                  formatter={(label) => (typeof label === "number" ? label.toLocaleString() : String(label))}
-                />
-              </Bar>
-            </BarChart>
+            <ComposedChart data={DATA} margin={{ top: 8, right: 26, bottom: 1, left: 0 }}>
+              <defs>
+                <linearGradient id="panelStem" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#818CF8" stopOpacity={0.9} />
+                  <stop offset="100%" stopColor="#A78BFA" stopOpacity={0.7} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid stroke="#eef1f5" strokeDasharray="3 3" />
+              <XAxis dataKey="day" tick={{ fill: "#6b7280", fontSize: 12 }} height={18} tickMargin={4} />
+              <YAxis tick={{ fill: "#6b7280", fontSize: 12 }} domain={[0, 'dataMax + 150']} />
+              <Tooltip formatter={(v: number) => v.toLocaleString()} cursor={{ stroke: '#cfd4dc', strokeDasharray: '3 3' }} />
+              <ReferenceLine y={avg} stroke="#ef4444" strokeDasharray="4 4" label={{ value: ` ${Math.round(avg)}`, position: 'right', fill: '#ef4444', fontSize: 12 }} />
+              {/* 얇은 스템 */}
+              <Bar dataKey="value" barSize={6} radius={[3, 3, 0, 0]} fill="url(#panelStem)" />
+              {/* 동그란 헤드 */}
+              <Scatter dataKey="value" fill="#6366F1" shape="circle" />
+            </ComposedChart>
           </ResponsiveContainer>
         )}
       </div>

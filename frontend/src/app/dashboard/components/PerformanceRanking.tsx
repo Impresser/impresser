@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import CommonContainerBox from "@/components/ui/CommonContainerBox";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, RadialBarChart, RadialBar, PolarAngleAxis, Cell, ReferenceLine, ReferenceArea } from "recharts";
+import CommonPagination from "@/components/ui/CommonPagination";
 
 type AlgorithmKey = "LZW" | "PackBits" | "Deflate";
 
@@ -118,10 +119,40 @@ function PrettyNumber({ value, unit }: { value: number; unit: string }) {
   return <span>{value.toLocaleString(undefined, { maximumFractionDigits: 1 })}{unit}</span>;
 }
 
+function RadialGauge({ percent, size = 120, color = "#5A73FF" }: { percent: number; size?: number; color?: string }) {
+  const clamped = Math.max(0, Math.min(100, percent));
+  const inner = Math.max(10, Math.floor(size / 2) - 28);
+  const outer = Math.max(inner + 10, Math.floor(size / 2) - 10);
+  const startAngle = 90; // 12시
+  const endAngle = -270; // 시계방향 360도
+
+  return (
+    <div style={{ position: "relative", width: size, height: size }}>
+      {/* 배경 링 */}
+      <RadialBarChart width={size} height={size} cx="50%" cy="50%" innerRadius={inner} outerRadius={outer} startAngle={startAngle} endAngle={endAngle} data={[{ name: "bg", value: 100 }]}
+        style={{ position: "absolute", inset: 0 }}>
+        <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
+        <RadialBar dataKey="value" cornerRadius={10} fill="#E5E7EB" background={false} />
+      </RadialBarChart>
+      {/* 실제 값 */}
+      <RadialBarChart width={size} height={size} cx="50%" cy="50%" innerRadius={inner} outerRadius={outer} startAngle={startAngle} endAngle={endAngle} data={[{ name: "v", value: clamped }]}
+        style={{ position: "absolute", inset: 0 }}>
+        <PolarAngleAxis type="number" domain={[0, 100]} tick={false} />
+        <RadialBar dataKey="value" cornerRadius={10} fill={color} />
+      </RadialBarChart>
+      {/* 중앙 텍스트 */}
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: Math.round(size * 0.2), color: "#111827" }}>
+        {clamped}%
+      </div>
+    </div>
+  );
+}
+
 export default function EquipmentUsage() {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const detailRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => setMounted(true), []);
 
   const itemsPerPage = 10;
@@ -136,22 +167,56 @@ export default function EquipmentUsage() {
   const maxSpeed = useMemo(() => {
     return Math.max(...ALGORITHMS.map(a => a.avgSpeedMBps));
   }, []);
+  const overallAvg = useMemo(() => {
+    const sum = ALGORITHMS.reduce((acc, a) => acc + a.avgSpeedMBps, 0);
+    return sum / ALGORITHMS.length;
+  }, []);
+  const range1 = maxSpeed * 0.5; // 낮음
+  const range2 = maxSpeed * 0.8; // 보통
 
   const selectedItem = selectedIndex !== null ? ALGORITHMS[selectedIndex] : null;
   const selectedDetail = selectedItem ? DETAILS[selectedItem.key] : null;
 
+  function interpolateColor(startHex: string, endHex: string, t: number) {
+    const sh = startHex.replace('#', '');
+    const eh = endHex.replace('#', '');
+    const sr = parseInt(sh.substring(0, 2), 16);
+    const sg = parseInt(sh.substring(2, 4), 16);
+    const sb = parseInt(sh.substring(4, 6), 16);
+    const er = parseInt(eh.substring(0, 2), 16);
+    const eg = parseInt(eh.substring(2, 4), 16);
+    const eb = parseInt(eh.substring(4, 6), 16);
+    const r = Math.round(sr + (er - sr) * t).toString(16).padStart(2, '0');
+    const g = Math.round(sg + (eg - sg) * t).toString(16).padStart(2, '0');
+    const b = Math.round(sb + (eb - sb) * t).toString(16).padStart(2, '0');
+    return `#${r}${g}${b}`;
+  }
+
+  // 항목 선택 시 상세 영역으로 스무스 스크롤
+  useEffect(() => {
+    if (selectedDetail && detailRef.current) {
+      detailRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [selectedDetail]);
+
   return (
     <CommonContainerBox>
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className="flex flex-col gap-4">
       {/* 상단: 좌측 그래프, 우측 순위 표 */}
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", minWidth: 0, alignItems: "stretch" }}>
+      <div className="flex gap-4 flex-wrap min-w-0 items-stretch">
         {/* 좌측 Recharts 세로 막대 차트 */}
-        <div style={{ flex: "1 1 0", minWidth: 280, border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, display: "flex", flexDirection: "column" }}>
-          <div style={{ fontWeight: 600 }}>전체 압축 성능 순위</div>
-          <div style={{ width: "100%", flex: 1, minWidth: 0, minHeight: 0 }}>
+        <div className="flex-1 min-w-[280px] border border-gray-200 rounded-lg p-4 flex flex-col">
+          <div className="font-semibold">전체 압축 성능 순위</div>
+          <div className="w-full flex-1 min-w-0 min-h-0">
             {mounted && (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={currentPageData} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 8 }} barCategoryGap={24}>
+                <BarChart data={currentPageData} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 8 }} barCategoryGap={12}>
+                  <defs>
+                    <linearGradient id="bulletBarGradient" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#a9c0ff" />
+                      <stop offset="100%" stopColor="#5A73FF" />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid stroke="#f3f4f6" />
                   <XAxis type="number" domain={[0, maxSpeed]} hide />
                   <YAxis 
@@ -168,7 +233,14 @@ export default function EquipmentUsage() {
                     }}
                   />
                   <Tooltip formatter={(v: number) => `${v.toLocaleString(undefined, { maximumFractionDigits: 1 })} MB/s`} />
-                  <Bar dataKey="avgSpeedMBps" name="평균속도(MB/s)" fill="#CAD4E5" radius={[0, 4, 4, 0]} barSize={36} />
+                  {/* 불릿 차트: 정성 구간 배경 */}
+                  <ReferenceArea x1={0} x2={range1} fill="#f7f7f8" strokeOpacity={0} />
+                  <ReferenceArea x1={range1} x2={range2} fill="#eceef2" strokeOpacity={0} />
+                  <ReferenceArea x1={range2} x2={maxSpeed} fill="#e2e6ee" strokeOpacity={0} />
+                  {/* 타겟(전체 평균) 마커 */}
+                  <ReferenceLine x={overallAvg} stroke="#ef4444" strokeWidth={2} strokeDasharray="3 3" label={{ value: `AVG ${overallAvg.toFixed(1)} MB/s`, position: "top", fill: "#ef4444", fontSize: 12 }} />
+                  {/* 측정값 바 (그라데이션) */}
+                  <Bar dataKey="avgSpeedMBps" name="평균속도(MB/s)" fill="url(#bulletBarGradient)" radius={[0, 8, 8, 0]} barSize={14} />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -176,159 +248,117 @@ export default function EquipmentUsage() {
         </div>
 
         {/* 우측 순위 표 */}
-        <div style={{ flex: "1 1 0", minWidth: 280, border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, display: "flex", flexDirection: "column" }}>
-          <table className="w-full text-sm border-separate border-spacing-y-0">
-            <thead>
-              <tr className="text-gray-700">
-                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">순위</th>
-                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">알고리즘</th>
-                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">버전</th>
-                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">방식</th>
-                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">평균압축속도</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentPageData.map((a, idx) => {
-                const globalIndex = (currentPage - 1) * itemsPerPage + idx;
-                const isActive = selectedIndex === globalIndex;
-                return (
-                  <tr
-                    key={`${a.key}-${globalIndex}`}
-                    onClick={() => setSelectedIndex(prev => (prev === globalIndex ? null : globalIndex))}
-                    className={`group cursor-pointer ${isActive ? 'bg-gray-200' : ''}`}
-                  >
-                    <td className={`h-10 py-0 px-3 text-center text-gray-600 border border-gray-200 border-r-0 bg-white ${isActive ? 'bg-gray-200' : 'group-hover:bg-gray-50'}`}>
-                      {globalIndex + 1}위
-                    </td>
-                    <td className={`h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white ${isActive ? 'bg-gray-200' : 'group-hover:bg-gray-50'}`}>
-                      {a.label}
-                    </td>
-                    <td className={`h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white ${isActive ? 'bg-gray-200' : 'group-hover:bg-gray-50'}`}>
-                      {a.version}
-                    </td>
-                    <td className={`h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white ${isActive ? 'bg-gray-200' : 'group-hover:bg-gray-50'}`}>
-                      {a.mode}
-                    </td>
-                    <td className={`h-10 py-0 px-3 text-center border border-gray-200 border-l-0 bg-white ${isActive ? 'bg-gray-200' : 'group-hover:bg-gray-50'}`}>
-                      <PrettyNumber value={a.avgSpeedMBps} unit="MB/s" />
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {/* 페이지네이션 */}
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 16 }}>
-            <button
-              onClick={() => {
-                setCurrentPage(prev => Math.max(1, prev - 1));
+        <div className="flex-1 min-w-[280px] border border-gray-200 rounded-lg p-4 flex flex-col">
+          <div className="overflow-hidden rounded-md border border-gray-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr className="text-gray-700">
+                  <th className="text-center font-semibold text-xs tracking-wide py-2 px-3 w-16">순위</th>
+                  <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">알고리즘</th>
+                  <th className="text-center font-semibold text-xs tracking-wide py-2 px-3 w-20">버전</th>
+                  <th className="text-center font-semibold text-xs tracking-wide py-2 px-3 w-16">방식</th>
+                  <th className="text-right font-semibold text-xs tracking-wide py-2 px-3 w-36">평균압축속도</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentPageData.map((a, idx) => {
+                  const globalIndex = (currentPage - 1) * itemsPerPage + idx;
+                  const isActive = selectedIndex === globalIndex;
+                  return (
+                    <tr
+                      key={`${a.key}-${globalIndex}`}
+                      onClick={() => setSelectedIndex(prev => (prev === globalIndex ? null : globalIndex))}
+                      className={`cursor-pointer odd:bg-white even:bg-gray-50 hover:bg-gray-100 ${isActive ? 'ring-1 ring-inset ring-blue-300 bg-blue-50' : ''}`}
+                    >
+                      <td className="py-2 px-3 text-center text-gray-600">
+                        <span className="inline-flex items-center justify-center rounded-full bg-gray-200 text-gray-700 text-xs h-6 w-10">
+                          {globalIndex + 1}위
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 text-left font-medium text-gray-800">{a.label}</td>
+                      <td className="py-2 px-3 text-center">
+                        <span className="inline-flex items-center rounded-full bg-gray-100 text-gray-700 border border-gray-200 px-2 py-0.5 text-[11px]">
+                          v{a.version}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 text-center">
+                        <span className={`${a.mode === 'GPU' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-amber-50 text-amber-700 border-amber-200'} inline-flex items-center rounded-full border px-2 py-0.5 text-[11px]`}>
+                          {a.mode}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 text-right text-gray-800">
+                        <PrettyNumber value={a.avgSpeedMBps} unit="MB/s" />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {/* 페이지네이션: 공통 컴포넌트 사용 */}
+          <div>
+            <CommonPagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onChange={(p) => {
+                setCurrentPage(p);
                 setSelectedIndex(null);
               }}
-              disabled={currentPage === 1}
-              style={{
-                padding: "6px 12px",
-                border: "1px solid #d1d5db",
-                borderRadius: 6,
-                background: currentPage === 1 ? "#f3f4f6" : "white",
-                color: currentPage === 1 ? "#9ca3af" : "#374151",
-                cursor: currentPage === 1 ? "not-allowed" : "pointer",
-                fontSize: 14
-              }}
-            >
-              이전
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-              <button
-                key={page}
-                onClick={() => {
-                  setCurrentPage(page);
-                  setSelectedIndex(null);
-                }}
-                style={{
-                  padding: "6px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: 6,
-                  background: currentPage === page ? "#CAD4E5" : "white",
-                  color: currentPage === page ? "#1f2937" : "#374151",
-                  cursor: "pointer",
-                  fontSize: 14,
-                  fontWeight: currentPage === page ? 600 : 400
-                }}
-              >
-                {page}
-              </button>
-            ))}
-            <button
-              onClick={() => {
-                setCurrentPage(prev => Math.min(totalPages, prev + 1));
-                setSelectedIndex(null);
-              }}
-              disabled={currentPage === totalPages}
-              style={{
-                padding: "6px 12px",
-                border: "1px solid #d1d5db",
-                borderRadius: 6,
-                background: currentPage === totalPages ? "#f3f4f6" : "white",
-                color: currentPage === totalPages ? "#9ca3af" : "#374151",
-                cursor: currentPage === totalPages ? "not-allowed" : "pointer",
-                fontSize: 14
-              }}
-            >
-              다음
-            </button>
+            />
           </div>
         </div>
       </div>
 
       {/* 하단 상세 정보 (선택 시 표시) */}
       {selectedDetail && (
-      <div style={{ border: "1px solid #e5e7eb", borderRadius: 8 }}>
-        <div style={{ padding: 12 }}>
-          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
+      <div ref={detailRef} className="border border-gray-200 rounded-lg">
+        <div className="p-3">
+          {/* PatternList.tsx와 동일한 표 스타일 적용 */}
+          <table className="w-full text-sm border-separate border-spacing-y-0">
             <thead>
-              <tr style={{ background: "#f9fafb", color: "#6b7280", borderBottom: "1px solid #e5e7eb" }}>
-                <th style={{ textAlign: "left", padding: 8, fontWeight: 600, width: 60 }}>순위</th>
-                <th style={{ textAlign: "left", padding: 8, fontWeight: 600 }}>이름</th>
-                <th style={{ textAlign: "left", padding: 8, fontWeight: 600, width: 80 }}>방식</th>
-                <th style={{ textAlign: "left", padding: 8, fontWeight: 600, width: 110 }}>알고리즘</th>
-                <th style={{ textAlign: "left", padding: 8, fontWeight: 600, width: 90 }}>버전</th>
-                <th style={{ textAlign: "left", padding: 8, fontWeight: 600, width: 90 }}>용량</th>
-                <th style={{ textAlign: "left", padding: 8, fontWeight: 600, width: 90 }}>담당자</th>
-                <th style={{ textAlign: "right", padding: 8, fontWeight: 600, width: 80 }}>소요시간</th>
+              <tr className="text-gray-700">
+                <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-[60px]">순위</th>
+                <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">이름</th>
+                <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-[80px]">방식</th>
+                <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-[110px]">알고리즘</th>
+                <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-[90px]">버전</th>
+                <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-[90px]">용량</th>
+                <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-[90px]">담당자</th>
+                <th className="text-right font-semibold text-xs tracking-wide py-2 px-3 w-[80px]">소요시간</th>
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td style={{ padding: 8, width: 60 }}>{selectedDetail.id}</td>
-                <td style={{ padding: 8 }}>{selectedDetail.name}</td>
-                <td style={{ padding: 8, width: 80 }}>{selectedDetail.mode}</td>
-                <td style={{ padding: 8, width: 110 }}>{selectedDetail.algorithm}</td>
-                <td style={{ padding: 8, width: 90 }}>{selectedDetail.version}</td>
-                <td style={{ padding: 8, width: 90 }}>{selectedDetail.size}</td>
-                <td style={{ padding: 8, width: 90 }}>{selectedDetail.owner}</td>
-                <td style={{ padding: 8, width: 80, textAlign: "right" }}>{selectedDetail.elapsed}</td>
+              <tr className="group">
+                <td className="h-10 py-0 px-3 text-left text-gray-600 border border-gray-200 border-r-0 bg-white group-hover:bg-gray-50 w-[60px]">{selectedDetail.id}</td>
+                <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50">{selectedDetail.name}</td>
+                <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[80px]">{selectedDetail.mode}</td>
+                <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[110px]">{selectedDetail.algorithm}</td>
+                <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{selectedDetail.version}</td>
+                <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{selectedDetail.size}</td>
+                <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{selectedDetail.owner}</td>
+                <td className="h-10 py-0 px-3 text-right border border-gray-200 border-l-0 bg-white group-hover:bg-gray-50 w-[80px]">{selectedDetail.elapsed}</td>
               </tr>
             </tbody>
           </table>
 
           {/* 상세 카드 */}
-          <div style={{ display: "flex", gap: 24, marginTop: 16 }}>
+          <div className="flex gap-6 mt-4 items-center">
             {/* 좌: 간단 KPI */}
-            <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: 600, marginBottom: 8 }}>압축 성능</div>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16 }}>
-                {/* 원형 게이지 대체: 텍스트 + 바 */}
-                <div style={{ width: 120 }}>
-                  <div style={{ fontSize: 28, fontWeight: 700, textAlign: "center" }}>{selectedDetail.avgGpuUtilPercent}%</div>
-                  <div style={{ textAlign: "center", color: "#6b7280" }}>평균 GPU 이용률</div>
+            <div className="flex-1">
+              <div className="flex items-center justify-center gap-4">
+                <div className="font-semibold">압축 성능</div>
+                {/* 평균 GPU 이용률: Recharts 원형 게이지 */}
+                <div className="w-[140px] flex flex-col items-center">
+                  <RadialGauge percent={selectedDetail.avgGpuUtilPercent} size={120} />
+                  <div className="text-center text-gray-500 mt-2">평균 GPU 이용률</div>
                 </div>
-                <div style={{ flex: "0 0 auto" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", rowGap: 8, columnGap: 12 }}>
-                    <div style={{ color: "#6b7280" }}>평균속도</div>
+                <div className="shrink-0">
+                  <div className="grid [grid-template-columns:160px_1fr] gap-y-2 gap-x-3">
+                    <div className="text-gray-500">평균속도</div>
                     <div><PrettyNumber value={selectedDetail.avgSpeedMBps} unit="MB/s" /></div>
-                    <div style={{ color: "#6b7280" }}>최고속도</div>
+                    <div className="text-gray-500">최고속도</div>
                     <div><PrettyNumber value={selectedDetail.maxSpeedMBps} unit="MB/s" /></div>
-                    <div style={{ color: "#6b7280" }}>최저속도</div>
+                    <div className="text-gray-500">최저속도</div>
                     <div>{selectedDetail.minSpeedKBps.toLocaleString()}KB/s</div>
                   </div>
                 </div>
@@ -336,16 +366,15 @@ export default function EquipmentUsage() {
             </div>
 
             {/* 우: 메타 정보 */}
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, marginBottom: 8 }}>메타 정보</div>
-              <div style={{ display: "grid", gridTemplateColumns: "160px 1fr", rowGap: 8, columnGap: 12 }}>
-                <div style={{ color: "#6b7280" }}>시작일시</div>
+            <div className="flex-1">
+              <div className="grid [grid-template-columns:160px_1fr] gap-y-2 gap-x-3">
+                <div className="text-gray-500">시작일시</div>
                 <div>{selectedDetail.startedAt}</div>
-                <div style={{ color: "#6b7280" }}>완료일시</div>
+                <div className="text-gray-500">완료일시</div>
                 <div>{selectedDetail.finishedAt}</div>
-                <div style={{ color: "#6b7280" }}>원본확장자</div>
+                <div className="text-gray-500">원본확장자</div>
                 <div>{selectedDetail.inputFormat}</div>
-                <div style={{ color: "#6b7280" }}>압축확장자</div>
+                <div className="text-gray-500">압축확장자</div>
                 <div>{selectedDetail.outputFormat}</div>
               </div>
             </div>
