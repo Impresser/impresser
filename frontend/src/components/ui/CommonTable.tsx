@@ -163,7 +163,7 @@ export default function CommonTable({ data, emptyMessage = '데이터가 없습�
                           style={{ width: `${item.progress}%` }}
                         />
                       </div>
-                      <span className="text-xs text-gray-600 min-w-[3rem]">
+                      <span className="text-xs text-gray-600 min-w-12">
                         {item.progress}%
                       </span>
                     </div>
