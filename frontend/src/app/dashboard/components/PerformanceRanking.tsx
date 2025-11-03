@@ -147,7 +147,7 @@ export default function EquipmentUsage() {
       <div style={{ display: "flex", gap: 16, flexWrap: "wrap", minWidth: 0, alignItems: "stretch" }}>
         {/* 좌측 Recharts 세로 막대 차트 */}
         <div style={{ flex: "1 1 0", minWidth: 280, border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, display: "flex", flexDirection: "column" }}>
-          <div style={{ fontWeight: 600, marginBottom: 12 }}>전체 압축 성능 순위</div>
+          <div style={{ fontWeight: 600 }}>전체 압축 성능 순위</div>
           <div style={{ width: "100%", flex: 1, minWidth: 0, minHeight: 0 }}>
             {mounted && (
               <ResponsiveContainer width="100%" height="100%">
@@ -177,14 +177,14 @@ export default function EquipmentUsage() {
 
         {/* 우측 순위 표 */}
         <div style={{ flex: "1 1 0", minWidth: 280, border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, display: "flex", flexDirection: "column" }}>
-          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
+          <table className="w-full text-sm border-separate border-spacing-y-0">
             <thead>
-              <tr style={{ background: "#f9fafb", color: "#6b7280" }}>
-                <th style={{ textAlign: "left", padding: 8, fontWeight: 500 }}>순위</th>
-                <th style={{ textAlign: "left", padding: 8, fontWeight: 500 }}>알고리즘</th>
-                <th style={{ textAlign: "left", padding: 8, fontWeight: 500 }}>버전</th>
-                <th style={{ textAlign: "left", padding: 8, fontWeight: 500 }}>방식</th>
-                <th style={{ textAlign: "right", padding: 8, fontWeight: 500 }}>평균압축속도</th>
+              <tr className="text-gray-700">
+                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">순위</th>
+                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">알고리즘</th>
+                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">버전</th>
+                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">방식</th>
+                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">평균압축속도</th>
               </tr>
             </thead>
             <tbody>
@@ -195,16 +195,21 @@ export default function EquipmentUsage() {
                   <tr
                     key={`${a.key}-${globalIndex}`}
                     onClick={() => setSelectedIndex(prev => (prev === globalIndex ? null : globalIndex))}
-                    style={{
-                      cursor: "pointer",
-                      background: isActive ? "#e5e7eb" : "transparent"
-                    }}
+                    className={`group cursor-pointer ${isActive ? 'bg-gray-200' : ''}`}
                   >
-                    <td style={{ padding: 8 }}>{globalIndex + 1}위</td>
-                    <td style={{ padding: 8 }}>{a.label}</td>
-                    <td style={{ padding: 8 }}>{a.version}</td>
-                    <td style={{ padding: 8 }}>{a.mode}</td>
-                    <td style={{ padding: 8, textAlign: "right" }}>
+                    <td className={`h-10 py-0 px-3 text-center text-gray-600 border border-gray-200 border-r-0 bg-white ${isActive ? 'bg-gray-200' : 'group-hover:bg-gray-50'}`}>
+                      {globalIndex + 1}위
+                    </td>
+                    <td className={`h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white ${isActive ? 'bg-gray-200' : 'group-hover:bg-gray-50'}`}>
+                      {a.label}
+                    </td>
+                    <td className={`h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white ${isActive ? 'bg-gray-200' : 'group-hover:bg-gray-50'}`}>
+                      {a.version}
+                    </td>
+                    <td className={`h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white ${isActive ? 'bg-gray-200' : 'group-hover:bg-gray-50'}`}>
+                      {a.mode}
+                    </td>
+                    <td className={`h-10 py-0 px-3 text-center border border-gray-200 border-l-0 bg-white ${isActive ? 'bg-gray-200' : 'group-hover:bg-gray-50'}`}>
                       <PrettyNumber value={a.avgSpeedMBps} unit="MB/s" />
                     </td>
                   </tr>

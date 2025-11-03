@@ -22,7 +22,7 @@ export default function EquipmentUsage() {
   return (
     <CommonContainerBox>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <div style={{ fontWeight: 700 }}>일일 평균 설비 이용 시간</div>
+        <div style={{ fontWeight: 700, fontSize: 20 }}>일일 평균 설비 이용 시간</div>
         <div style={{ color: "#6b7280", fontSize: 12 }}>10월 2주차 3주차 비교</div>
       </div>
       <div style={{ width: "100%", height: 320, minWidth: 0, minHeight: 0 }}>
