@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import CommonModal from '@/components/ui/CommonModal';
-import Button from '@/components/ui/Button';
+import CommonButton from '@/components/ui/CommonButton';
 
 interface AddFacilityModalProps {
   isOpen: boolean;

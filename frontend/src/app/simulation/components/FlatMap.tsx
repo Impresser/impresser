@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import Button from '@/components/ui/Button';
+import Button from '@/components/ui/CommonButton';
 import type { TileType } from './IsometricMap';
 import type { FacilityLocation } from './IsometricMap';
 

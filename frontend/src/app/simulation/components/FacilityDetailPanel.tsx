@@ -3,7 +3,7 @@
 import React from 'react';
 import type { Facility } from './FacilityStatistics';
 import CommonTable, { QueueItem, HistoryItem } from '@/components/ui/CommonTable';
-import ContainerBox from '@/components/ui/ContainerBox';
+import CommonContainerBox from '@/components/ui/CommonContainerBox';
 
 interface FacilityDetailPanelProps {
   facility: Facility | null;
@@ -231,7 +231,7 @@ export default function FacilityDetailPanel({ facility, onClose }: FacilityDetai
 
   return (
     <div className="mt-6 space-y-6">
-      <ContainerBox>
+      <CommonContainerBox>
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-900">설비 상세 정보</h2>
@@ -298,10 +298,10 @@ export default function FacilityDetailPanel({ facility, onClose }: FacilityDetai
             <p className="text-sm text-gray-900">{formatDate(facility.installDate)}</p>
           </div>
         </div>
-      </ContainerBox>
+      </CommonContainerBox>
 
       {/* 대기열 섹션 */}
-      <ContainerBox>
+      <CommonContainerBox>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">현재 작업 중인 대기열</h3>
         
         {/* 전체 진행률 */}
@@ -326,10 +326,10 @@ export default function FacilityDetailPanel({ facility, onClose }: FacilityDetai
           emptyMessage="현재 작업 중인 대기열이 없습니다."
           mode="queue"
         />
-      </ContainerBox>
+      </CommonContainerBox>
 
       {/* 작업내역 섹션 */}
-      <ContainerBox>
+      <CommonContainerBox>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">작업내역</h3>
         <CommonTable
           data={historyItems}
@@ -340,7 +340,7 @@ export default function FacilityDetailPanel({ facility, onClose }: FacilityDetai
             // 여기에 실제 다운로드 로직 구현
           }}
         />
-      </ContainerBox>
+      </CommonContainerBox>
     </div>
   );
 }

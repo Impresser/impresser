@@ -5,7 +5,7 @@ import Sidebar from '@/components/layout/sidebar';
 import Navbar from '@/components/layout/navbar';
 import PatternGenerator from './components/PatternGenerator';
 import PatternList from './components/PatternList';
-import Button from '@/components/ui/Button';
+import Button from '@/components/ui/CommonButton';
 import { usePatternJobs } from '@/app/imagegenerator/hooks/usePatternJobs';
 
 export default function PatternGeneratorPage() {

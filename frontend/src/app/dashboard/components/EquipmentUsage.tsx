@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import ContainerBox from "@/components/ui/ContainerBox";
+import CommonContainerBox from "@/components/ui/CommonContainerBox";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 
 type UsageRow = { day: string; week2: number; week3: number };
@@ -20,7 +20,7 @@ export default function EquipmentUsage() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   return (
-    <ContainerBox>
+    <CommonContainerBox>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <div style={{ fontWeight: 700 }}>일일 평균 설비 이용 시간</div>
         <div style={{ color: "#6b7280", fontSize: 12 }}>10월 2주차 3주차 비교</div>
@@ -40,7 +40,7 @@ export default function EquipmentUsage() {
           </ResponsiveContainer>
         )}
       </div>
-    </ContainerBox>
+    </CommonContainerBox>
   );
 }
 

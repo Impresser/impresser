@@ -3,10 +3,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Sidebar from '@/components/layout/sidebar';
 import Navbar from '@/components/layout/navbar';
-import ContainerBox from '@/components/ui/ContainerBox';
+import ContainerBox from '@/components/ui/CommonContainerBox';
 import RadioButton from '@/components/ui/RadioButton';
 import CommonDropdown from '@/components/ui/CommonDropdown';
-import Button from '@/components/ui/Button';
+import Button from '@/components/ui/CommonButton';
 import CommonTable, { QueueItem, HistoryItem } from '@/components/ui/CommonTable';
 
 interface FileInfo {

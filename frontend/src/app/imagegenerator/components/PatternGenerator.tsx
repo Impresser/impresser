@@ -2,9 +2,9 @@
 
 import React, { useCallback, useEffect, useRef } from 'react';
 import Papa from 'papaparse';
-import Button from '@/components/ui/Button';
-import ContainerBox from '@/components/ui/ContainerBox';
-import Input from '@/components/ui/Input01';
+import CommonButton from '@/components/ui/CommonButton';
+import CommonContainerBox from '@/components/ui/CommonContainerBox';
+import CommonInput from '@/components/ui/CommonInput01';
 import { usePatternForm } from '@/app/imagegenerator/hooks/usePatternForm';
 
 export default function PatternForm() {
@@ -305,33 +305,33 @@ export default function PatternForm() {
             className="hidden"
             onChange={handleFileChange}
           />
-          <Button variant="blue" onClick={handleClickUpload}>불러오기</Button>
+          <CommonButton variant="blue" onClick={handleClickUpload}>불러오기</CommonButton>
         </div>
       </div>
 
       <div className="flex flex-col md:flex-row w-full gap-4 items-stretch">
-      <ContainerBox className="flex-1 md:basis-2/3">
+      <CommonContainerBox className="flex-1 md:basis-2/3">
         {/* 🔹 이미지 크기 / 간격 입력 (모바일 1열, 데스크톱 3열) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 text-sm">
           {/* 이미지 크기 */}
           <div className="flex items-center gap-2">
             <label className="text-gray-600 whitespace-nowrap">이미지 크기</label>
-            <Input fixedPlaceholder="W" fixedPlaceholderPadding="sm" value={form.imageSize.w} onChange={onNumChange('imageSize.w')} />
-            <Input fixedPlaceholder="H" fixedPlaceholderPadding="sm" value={form.imageSize.h} onChange={onNumChange('imageSize.h')} />
+            <CommonInput fixedPlaceholder="W" fixedPlaceholderPadding="sm" value={form.imageSize.w} onChange={onNumChange('imageSize.w')} />
+            <CommonInput fixedPlaceholder="H" fixedPlaceholderPadding="sm" value={form.imageSize.h} onChange={onNumChange('imageSize.h')} />
           </div>
 
           {/* R-G 간격 */}
           <div className="flex items-center gap-2">
             <label className="text-gray-600 whitespace-nowrap">R-G 간격</label>
-            <Input fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.gapRG.x} onChange={onNumChange('gapRG.x')} />
-            <Input fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.gapRG.y} onChange={onNumChange('gapRG.y')} />
+            <CommonInput fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.gapRG.x} onChange={onNumChange('gapRG.x')} />
+            <CommonInput fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.gapRG.y} onChange={onNumChange('gapRG.y')} />
           </div>
 
           {/* G-B 간격 */}
           <div className="flex items-center gap-2">
             <label className="text-gray-600 whitespace-nowrap">G-B 간격</label>
-            <Input fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.gapGB.x} onChange={onNumChange('gapGB.x')} />
-            <Input fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.gapGB.y} onChange={onNumChange('gapGB.y')} />
+            <CommonInput fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.gapGB.x} onChange={onNumChange('gapGB.x')} />
+            <CommonInput fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.gapGB.y} onChange={onNumChange('gapGB.y')} />
           </div>
         </div>
 
@@ -339,41 +339,41 @@ export default function PatternForm() {
         {/* 🔹 R, G, B 채널 설정 (모바일 스택, 데스크톱 테이블) */}
         <div className="mt-6">
           
-          <div className="hidden md:grid grid-cols-7 gap-6 text-sm font-semibold text-gray-700 mb-2">
-            <div></div>
-            <div className="col-span-2">크기</div>
-            <div className="col-span-2">개수</div>
-            <div className="col-span-2">간격</div>
+          <div className="hidden md:flex gap-7 text-sm font-semibold text-gray-700 mb-2">
+            <div className="w-8"></div>
+            <div className="flex-1">크기</div>
+            <div className="flex-1">개수</div>
+            <div className="flex-1">간격</div>
           </div>
 
           {(['R', 'G', 'B'] as const).map((color) => (
             <div key={color} className="mb-4 last:mb-0">
-              <div className="grid grid-cols-1 md:grid-cols-7 gap-3 md:gap-6 text-sm items-center">
+              <div className="flex gap-3 md:gap-7 text-sm items-center">
                 {/* 색상 레이블 */}
-                <span className="font-semibold text-gray-700">{color}</span>
+                <span className="font-semibold text-gray-700 w-8">{color}</span>
                 {/* 크기 */}
-                <div className="md:col-span-2 grid grid-cols-2 gap-2">
-                  <Input fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.channels[color].size.x} onChange={onNumChange(`channels.${color}.size.x`)} />
-                  <Input fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.channels[color].size.y} onChange={onNumChange(`channels.${color}.size.y`)} />
+                <div className="flex-1 grid grid-cols-2 gap-2">
+                  <CommonInput fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.channels[color].size.x} onChange={onNumChange(`channels.${color}.size.x`)} />
+                  <CommonInput fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.channels[color].size.y} onChange={onNumChange(`channels.${color}.size.y`)} />
                 </div>
 
                 {/* 개수 */}
-                <div className="md:col-span-2 grid grid-cols-2 gap-2">
-                  <Input fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.channels[color].count.x} onChange={onNumChange(`channels.${color}.count.x`)} />
-                  <Input fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.channels[color].count.y} onChange={onNumChange(`channels.${color}.count.y`)} />
+                <div className="flex-1 grid grid-cols-2 gap-2">
+                  <CommonInput fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.channels[color].count.x} onChange={onNumChange(`channels.${color}.count.x`)} />
+                  <CommonInput fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.channels[color].count.y} onChange={onNumChange(`channels.${color}.count.y`)} />
                 </div>
 
                 {/* 간격 */}
-                <div className="md:col-span-2 grid grid-cols-2 gap-2">
-                  <Input fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.channels[color].spacing.x} onChange={onNumChange(`channels.${color}.spacing.x`)} />
-                  <Input fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.channels[color].spacing.y} onChange={onNumChange(`channels.${color}.spacing.y`)} />
+                <div className="flex-1 grid grid-cols-2 gap-2">
+                  <CommonInput fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.channels[color].spacing.x} onChange={onNumChange(`channels.${color}.spacing.x`)} />
+                  <CommonInput fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.channels[color].spacing.y} onChange={onNumChange(`channels.${color}.spacing.y`)} />
                 </div>
               </div>
             </div>
           ))}
         </div>
-      </ContainerBox>
-          <ContainerBox className="flex-1 md:basis-1/3 flex flex-col p-6">
+      </CommonContainerBox>
+          <CommonContainerBox className="flex-1 md:basis-1/3 flex flex-col p-6">
             {/* 제목 */}
             <h2 className="text-lg font-semibold text-gray-800 mb-2">패턴 미리보기</h2>
       
@@ -381,7 +381,7 @@ export default function PatternForm() {
             <div className="w-full flex-1 bg-[#4B4B4B] rounded-lg shadow-inner overflow-hidden">
               <canvas ref={canvasRef} className="w-full h-full" />
             </div>
-          </ContainerBox>
+          </CommonContainerBox>
       </div>
     </div>
   );
