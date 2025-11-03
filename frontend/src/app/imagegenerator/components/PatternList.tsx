@@ -1,8 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import Button from '@/components/ui/Button';
-import ContainerBox from '@/components/ui/ContainerBox';
+import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import { usePatternJobs } from '@/app/imagegenerator/hooks/usePatternJobs';
 
 export default function PatternTable() {
@@ -46,7 +45,7 @@ export default function PatternTable() {
     <div>
       <h2 className="text-lg font-semibold text-gray-800 mb-4">목록</h2>
 
-      <ContainerBox className="p-6">
+      <CommonContainerBox className="p-6">
         {/* 데스크톱: 표 */}
         <div className="hidden md:block">
           <table className="w-full text-sm border-separate border-spacing-y-0">
@@ -185,7 +184,7 @@ export default function PatternTable() {
             </button>
           </div>
         )}
-      </ContainerBox>
+      </CommonContainerBox>
     </div>
   );
 }

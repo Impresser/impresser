@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import ContainerBox from "@/components/ui/ContainerBox";
+import CommonContainerBox from "@/components/ui/CommonContainerBox";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 
 type AlgorithmKey = "LZW" | "PackBits" | "Deflate";
@@ -33,11 +33,29 @@ type DetailRow = {
   minSpeedKBps: number;
 };
 
+// 20개 데이터 생성 (CPU와 GPU 혼합)
 const ALGORITHMS: AlgorithmPerf[] = [
-  { key: "LZW", label: "LZW", avgSpeedMBps: 20, version: "0.114", mode: "GPU" },
-  { key: "PackBits", label: "PackBits", avgSpeedMBps: 12.3, version: "0.2.1", mode: "GPU" },
-  { key: "Deflate", label: "Deflate", avgSpeedMBps: 9.2, version: "0.4.1", mode: "GPU" }
-];
+  { key: "LZW" as AlgorithmKey, label: "LZW", avgSpeedMBps: 20, version: "0.114", mode: "GPU" as const },
+  { key: "PackBits" as AlgorithmKey, label: "PackBits", avgSpeedMBps: 12.3, version: "0.2.1", mode: "GPU" as const },
+  { key: "Deflate" as AlgorithmKey, label: "Deflate", avgSpeedMBps: 9.2, version: "0.4.1", mode: "GPU" as const },
+  { key: "LZW" as AlgorithmKey, label: "LZW", avgSpeedMBps: 18.5, version: "0.114", mode: "CPU" as const },
+  { key: "PackBits" as AlgorithmKey, label: "PackBits", avgSpeedMBps: 11.8, version: "0.2.1", mode: "CPU" as const },
+  { key: "Deflate" as AlgorithmKey, label: "Deflate", avgSpeedMBps: 8.7, version: "0.4.1", mode: "CPU" as const },
+  { key: "LZW" as AlgorithmKey, label: "LZW", avgSpeedMBps: 19.2, version: "0.115", mode: "GPU" as const },
+  { key: "PackBits" as AlgorithmKey, label: "PackBits", avgSpeedMBps: 13.1, version: "0.2.2", mode: "GPU" as const },
+  { key: "Deflate" as AlgorithmKey, label: "Deflate", avgSpeedMBps: 9.8, version: "0.4.2", mode: "GPU" as const },
+  { key: "LZW" as AlgorithmKey, label: "LZW", avgSpeedMBps: 17.9, version: "0.115", mode: "CPU" as const },
+  { key: "PackBits" as AlgorithmKey, label: "PackBits", avgSpeedMBps: 11.2, version: "0.2.2", mode: "CPU" as const },
+  { key: "Deflate" as AlgorithmKey, label: "Deflate", avgSpeedMBps: 8.3, version: "0.4.2", mode: "CPU" as const },
+  { key: "LZW" as AlgorithmKey, label: "LZW", avgSpeedMBps: 20.3, version: "0.116", mode: "GPU" as const },
+  { key: "PackBits" as AlgorithmKey, label: "PackBits", avgSpeedMBps: 12.7, version: "0.2.3", mode: "GPU" as const },
+  { key: "Deflate" as AlgorithmKey, label: "Deflate", avgSpeedMBps: 9.5, version: "0.4.3", mode: "GPU" as const },
+  { key: "LZW" as AlgorithmKey, label: "LZW", avgSpeedMBps: 16.8, version: "0.116", mode: "CPU" as const },
+  { key: "PackBits" as AlgorithmKey, label: "PackBits", avgSpeedMBps: 10.9, version: "0.2.3", mode: "CPU" as const },
+  { key: "Deflate" as AlgorithmKey, label: "Deflate", avgSpeedMBps: 7.9, version: "0.4.3", mode: "CPU" as const },
+  { key: "LZW" as AlgorithmKey, label: "LZW", avgSpeedMBps: 19.8, version: "0.117", mode: "GPU" as const },
+  { key: "PackBits" as AlgorithmKey, label: "PackBits", avgSpeedMBps: 12.9, version: "0.2.4", mode: "GPU" as const }
+].sort((a, b) => b.avgSpeedMBps - a.avgSpeedMBps); // 속도 기준으로 정렬
 
 const DETAILS: Record<AlgorithmKey, DetailRow> = {
   LZW: {
@@ -101,31 +119,54 @@ function PrettyNumber({ value, unit }: { value: number; unit: string }) {
 }
 
 export default function EquipmentUsage() {
-  const [selected, setSelected] = useState<AlgorithmKey | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   useEffect(() => setMounted(true), []);
+
+  const itemsPerPage = 10;
+  const totalPages = Math.ceil(ALGORITHMS.length / itemsPerPage);
+  
+  const currentPageData = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    return ALGORITHMS.slice(start, end);
+  }, [currentPage]);
 
   const maxSpeed = useMemo(() => {
     return Math.max(...ALGORITHMS.map(a => a.avgSpeedMBps));
   }, []);
 
-  const selectedDetail = selected ? DETAILS[selected] : null;
+  const selectedItem = selectedIndex !== null ? ALGORITHMS[selectedIndex] : null;
+  const selectedDetail = selectedItem ? DETAILS[selectedItem.key] : null;
 
   return (
-    <ContainerBox>
+    <CommonContainerBox>
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* 상단: 좌측 그래프, 우측 순위 표 */}
-      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", minWidth: 0 }}>
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap", minWidth: 0, alignItems: "stretch" }}>
         {/* 좌측 Recharts 세로 막대 차트 */}
-        <div style={{ flex: "1 1 0", minWidth: 280, border: "1px solid #e5e7eb", borderRadius: 8, padding: 16 }}>
+        <div style={{ flex: "1 1 0", minWidth: 280, border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, display: "flex", flexDirection: "column" }}>
           <div style={{ fontWeight: 600, marginBottom: 12 }}>전체 압축 성능 순위</div>
-          <div style={{ width: "100%", height: 260, minWidth: 0, minHeight: 0 }}>
+          <div style={{ width: "100%", flex: 1, minWidth: 0, minHeight: 0 }}>
             {mounted && (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={ALGORITHMS} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 8 }} barCategoryGap={24}>
+                <BarChart data={currentPageData} layout="vertical" margin={{ top: 4, right: 16, bottom: 4, left: 8 }} barCategoryGap={24}>
                   <CartesianGrid stroke="#f3f4f6" />
                   <XAxis type="number" domain={[0, maxSpeed]} hide />
-                  <YAxis type="category" dataKey="label" width={80} tick={{ fill: "#6b7280", fontSize: 12 }} />
+                  <YAxis 
+                    type="category" 
+                    dataKey="label" 
+                    width={150} 
+                    tick={{ fill: "#6b7280", fontSize: 11 }}
+                    tickFormatter={(value) => {
+                      const item = currentPageData.find(d => d.label === value);
+                      if (item) {
+                        return `${item.label} ${item.version} ${item.mode}`;
+                      }
+                      return value;
+                    }}
+                  />
                   <Tooltip formatter={(v: number) => `${v.toLocaleString(undefined, { maximumFractionDigits: 1 })} MB/s`} />
                   <Bar dataKey="avgSpeedMBps" name="평균속도(MB/s)" fill="#CAD4E5" radius={[0, 4, 4, 0]} barSize={36} />
                 </BarChart>
@@ -135,7 +176,7 @@ export default function EquipmentUsage() {
         </div>
 
         {/* 우측 순위 표 */}
-        <div style={{ flex: "1 1 360px", minWidth: 0, maxWidth: 520, border: "1px solid #e5e7eb", borderRadius: 8, padding: 16 }}>
+        <div style={{ flex: "1 1 0", minWidth: 280, border: "1px solid #e5e7eb", borderRadius: 8, padding: 16, display: "flex", flexDirection: "column" }}>
           <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
             <thead>
               <tr style={{ background: "#f9fafb", color: "#6b7280" }}>
@@ -147,18 +188,19 @@ export default function EquipmentUsage() {
               </tr>
             </thead>
             <tbody>
-              {ALGORITHMS.map((a, idx) => {
-                const isActive = a.key === selected;
+              {currentPageData.map((a, idx) => {
+                const globalIndex = (currentPage - 1) * itemsPerPage + idx;
+                const isActive = selectedIndex === globalIndex;
                 return (
                   <tr
-                    key={a.key}
-                    onClick={() => setSelected(prev => (prev === a.key ? null : a.key))}
+                    key={`${a.key}-${globalIndex}`}
+                    onClick={() => setSelectedIndex(prev => (prev === globalIndex ? null : globalIndex))}
                     style={{
                       cursor: "pointer",
                       background: isActive ? "#e5e7eb" : "transparent"
                     }}
                   >
-                    <td style={{ padding: 8 }}>{idx + 1}위</td>
+                    <td style={{ padding: 8 }}>{globalIndex + 1}위</td>
                     <td style={{ padding: 8 }}>{a.label}</td>
                     <td style={{ padding: 8 }}>{a.version}</td>
                     <td style={{ padding: 8 }}>{a.mode}</td>
@@ -170,6 +212,66 @@ export default function EquipmentUsage() {
               })}
             </tbody>
           </table>
+          {/* 페이지네이션 */}
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginTop: 16 }}>
+            <button
+              onClick={() => {
+                setCurrentPage(prev => Math.max(1, prev - 1));
+                setSelectedIndex(null);
+              }}
+              disabled={currentPage === 1}
+              style={{
+                padding: "6px 12px",
+                border: "1px solid #d1d5db",
+                borderRadius: 6,
+                background: currentPage === 1 ? "#f3f4f6" : "white",
+                color: currentPage === 1 ? "#9ca3af" : "#374151",
+                cursor: currentPage === 1 ? "not-allowed" : "pointer",
+                fontSize: 14
+              }}
+            >
+              이전
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                onClick={() => {
+                  setCurrentPage(page);
+                  setSelectedIndex(null);
+                }}
+                style={{
+                  padding: "6px 12px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: 6,
+                  background: currentPage === page ? "#CAD4E5" : "white",
+                  color: currentPage === page ? "#1f2937" : "#374151",
+                  cursor: "pointer",
+                  fontSize: 14,
+                  fontWeight: currentPage === page ? 600 : 400
+                }}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              onClick={() => {
+                setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                setSelectedIndex(null);
+              }}
+              disabled={currentPage === totalPages}
+              style={{
+                padding: "6px 12px",
+                border: "1px solid #d1d5db",
+                borderRadius: 6,
+                background: currentPage === totalPages ? "#f3f4f6" : "white",
+                color: currentPage === totalPages ? "#9ca3af" : "#374151",
+                cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+                fontSize: 14
+              }}
+            >
+              다음
+            </button>
+          </div>
         </div>
       </div>
 
@@ -247,7 +349,7 @@ export default function EquipmentUsage() {
       </div>
       )}
       </div>
-    </ContainerBox>
+    </CommonContainerBox>
   );
 }
 

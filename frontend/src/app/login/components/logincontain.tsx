@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import ContainerBox from "@/components/ui/ContainerBox";
-import Input from "@/components/ui/Input01";
-import Button from "@/components/ui/Button";
+import CommonContainerBox from "@/components/ui/CommonContainerBox";
+import CommonInput from "@/components/ui/CommonInput01";
+import CommonButton from "@/components/ui/CommonButton";
 import CommonModal from "@/components/ui/CommonModal";
 import LoginFindModalContent from "./loginfindmodal";
 
@@ -20,10 +20,10 @@ export default function LoginContain() {
 
   return (
     <div className="w-full flex items-center justify-center py-10">
-      <ContainerBox className="w-[360px] md:w-[420px] px-8 py-6 md:px-15 md:py-8">
+      <CommonContainerBox className="w-[360px] md:w-[420px] px-8 py-6 md:px-15 md:py-8">
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="w-full">
-            <Input
+            <CommonInput
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
               placeholder="아이디"
@@ -38,7 +38,7 @@ export default function LoginContain() {
           </div>
 
           <div className="w-full">
-            <Input
+            <CommonInput
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -54,9 +54,9 @@ export default function LoginContain() {
           </div>
 
           <div className="pt-2">
-            <Button type="submit" variant="blue" className="w-full">
+            <CommonButton type="submit" variant="blue" className="w-full">
               로그인
-            </Button>
+            </CommonButton>
           </div>
         </form>
 
@@ -86,7 +86,7 @@ export default function LoginContain() {
         <CommonModal isOpen={infoOpen} onClose={() => setInfoOpen(false)}>
           <LoginFindModalContent />
         </CommonModal>
-      </ContainerBox>
+      </CommonContainerBox>
     </div>
   );
 }

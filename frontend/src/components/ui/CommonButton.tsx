@@ -34,15 +34,15 @@ export default function Button({
   const colorStyles = {
     blue: `
       bg-[#0059FF]
-      hover:bg-[#0062CC]/90
+      hover:bg-[#0062CC]
     `,
     gray: `
-      bg-[#8E8E93]/80
-      hover:bg-[#7A7A7E]/90
+      bg-[#8E8E93]
+      hover:bg-[#7A7A7E]
     `,
     red: `
       bg-[#DC2626]
-      hover:bg-[#B91C1C]/90
+      hover:bg-[#B91C1C]
     `,
   };
 
