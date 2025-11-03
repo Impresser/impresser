@@ -8,11 +8,17 @@ import com.semes.impresser.common.util.SecurityUtil;
 import com.semes.impresser.inkjet.dto.request.CreateInkjetRequest;
 import com.semes.impresser.inkjet.dto.request.UpdateInkjetRequest;
 import com.semes.impresser.inkjet.dto.response.AllInkjetResponse;
+import com.semes.impresser.inkjet.dto.response.InkjetResponse;
+import com.semes.impresser.inkjet.dto.response.JobHistoryListResponse;
+import com.semes.impresser.inkjet.dto.response.JobHistoryResponse;
+import com.semes.impresser.inkjet.dto.response.TotalJobResponse;
 import com.semes.impresser.inkjet.entity.InkjetPrinter;
+import com.semes.impresser.inkjet.entity.JobHistory;
 import com.semes.impresser.inkjet.entity.PrinterStatus;
 import com.semes.impresser.inkjet.entity.ProcessStatus;
 import com.semes.impresser.inkjet.repository.InkjetRepository;
 import com.semes.impresser.inkjet.repository.InkjetRepositoryCustom;
+import com.semes.impresser.inkjet.repository.JobHistoryRepository;
 import jakarta.transaction.Transactional;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -111,5 +117,71 @@ public class InkjetServiceImpl implements InkjetService {
             allInkjetResponseList, paginationResponse);
 
         return pageResponse;
+    }
+
+    @Override
+    public InkjetResponse getInkjet(UUID inkjetUuid) {
+        Optional<UUID> currentUserUuid = SecurityUtil.getCurrentUserUuid();
+
+        if (currentUserUuid.isEmpty()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST);
+        }
+
+        InkjetResponse inkjetResponse = inkjetRepository.getInkjet(inkjetUuid);
+
+        return inkjetResponse;
+    }
+
+    @Override
+    public JobHistoryListResponse getJobHistories(UUID inkjetUuid, Integer page, Integer size) {
+        Optional<UUID> currentUserUuid = SecurityUtil.getCurrentUserUuid();
+
+        if (currentUserUuid.isEmpty()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST);
+        }
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<JobHistory> jobHistoryPage = inkjetRepository.getJobHistories(
+            inkjetUuid, pageable);
+
+        InkjetPrinter inkjetPrinter = inkjetRepository.findByUuid(inkjetUuid).orElseThrow(
+            () -> new BusinessException(ErrorCode.NOT_FOUND));
+
+        List<JobHistoryResponse> jobHistories = jobHistoryPage.getContent().stream()
+            .map(JobHistoryResponse::toDto).toList();
+
+        Integer totalPages = jobHistoryPage.getTotalPages();
+        Long totalElements = jobHistoryPage.getTotalElements();
+
+        PaginationResponse paginationResponse = new PaginationResponse(
+            page,
+            size,
+            totalPages,
+            totalElements,
+            page == 0,
+            page.equals(totalPages - 1),
+            page < totalPages - 1);
+
+        PageResponse<JobHistoryResponse> pageResponse = new PageResponse<>(jobHistories,
+            paginationResponse);
+
+        JobHistoryListResponse jobHistoryListResponse = JobHistoryListResponse.toDto(
+            inkjetPrinter, pageResponse);
+
+        return jobHistoryListResponse;
+    }
+
+    @Override
+    public TotalJobResponse getTotalJob() {
+        Optional<UUID> currentUserUuid = SecurityUtil.getCurrentUserUuid();
+
+        if (currentUserUuid.isEmpty()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST);
+        }
+
+        TotalJobResponse totalJobResponse =  inkjetRepository.getTotalJob();
+
+        return totalJobResponse;
     }
 }
