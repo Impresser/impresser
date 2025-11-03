@@ -81,9 +81,9 @@ export default function SimulationPage() {
     };
   }, []);
 
-  // 20x20 맵 데이터 생성
-  const mapData: TileType[][] = Array(20).fill(null).map(() => 
-    Array(20).fill('g' as TileType)
+  // 21x21 맵 데이터 생성
+  const mapData: TileType[][] = Array(21).fill(null).map(() => 
+    Array(21).fill('g' as TileType)
   );
 
   // 설비 데이터
@@ -197,6 +197,7 @@ export default function SimulationPage() {
                       setIsAddModalOpen(true);
                     }}
                     onAddFacilityClick={() => setIsAddModalOpen(true)}
+                    selectedLocation={selectedLocation}
                   />
                 </div>
               </div>

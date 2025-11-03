@@ -196,7 +196,7 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
                   className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
                   placeholder="위치를 선택하세요"
                 />
-                <Button
+                <CommonButton
                   variant="blue"
                   onClick={() => {
                     if (onSelectPosition) {
@@ -206,7 +206,7 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
                   className="px-4 py-2 text-sm"
                 >
                   선택
-                </Button>
+                </CommonButton>
               </div>
             </div>
           </div>
@@ -217,12 +217,12 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
 
         {/* 버튼 */}
         <div className="flex justify-end gap-3 mt-6">
-          <Button variant="gray" onClick={handleClose}>
+          <CommonButton variant="gray" onClick={handleClose}>
             취소
-          </Button>
-          <Button variant="blue" onClick={handleSubmit}>
+          </CommonButton>
+          <CommonButton variant="blue" onClick={handleSubmit}>
             추가
-          </Button>
+          </CommonButton>
         </div>
       </div>
     </CommonModal>

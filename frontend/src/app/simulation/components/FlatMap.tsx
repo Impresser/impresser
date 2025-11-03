@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import Button from '@/components/ui/CommonButton';
+import CommonButton from '@/components/ui/CommonButton';
 import type { TileType } from './IsometricMap';
 import type { FacilityLocation } from './IsometricMap';
 
@@ -132,14 +132,14 @@ export default function FlatMap({ mapData, facilities = [], onTileClick, showMan
         <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
           {isManagementOpen ? (
             <>
-              <Button
+              <CommonButton
                 onClick={() => setIsManagementOpen(false)}
                 variant="gray"
                 className="px-4 py-2 text-sm"
               >
                 나가기
-              </Button>
-              <Button
+              </CommonButton>
+              <CommonButton
                 onClick={() => {
                   if (onAddFacilityClick) {
                     onAddFacilityClick();
@@ -149,23 +149,23 @@ export default function FlatMap({ mapData, facilities = [], onTileClick, showMan
                 className="px-4 py-2 text-sm"
               >
                 설비 추가
-              </Button>
-              <Button
+              </CommonButton>
+              <CommonButton
                 onClick={handleDeleteFacility}
                 variant="red"
                 className="px-4 py-2 text-sm"
               >
                 설비 삭제
-              </Button>
+              </CommonButton>
             </>
           ) : (
-            <Button
+            <CommonButton
               onClick={() => setIsManagementOpen(true)}
               variant="gray"
               className="px-4 py-2 text-sm"
             >
               설비 관리
-            </Button>
+            </CommonButton>
           )}
         </div>
         )}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import Button from '@/components/ui/CommonButton';
+import CommonButton from '@/components/ui/CommonButton';
 
 export type TileType = 'd' | 'f' | 'g' | 's' | 'w' | '';
 
@@ -21,10 +21,12 @@ interface IsometricMapProps {
   isLocationSelectMode?: boolean;
   onLocationSelect?: (x: number, y: number) => void;
   onAddFacilityClick?: () => void;
+  selectedLocation?: { x: number; y: number } | null;
 }
 
-export default function IsometricMap({ mapData, facilities = [], onTileClick, showManagementButton = true, sidebarWidth = 192, isLocationSelectMode = false, onLocationSelect, onAddFacilityClick }: IsometricMapProps) {
+export default function IsometricMap({ mapData, facilities = [], onTileClick, showManagementButton = true, sidebarWidth = 192, isLocationSelectMode = false, onLocationSelect, onAddFacilityClick, selectedLocation = null }: IsometricMapProps) {
   const [isManagementOpen, setIsManagementOpen] = useState(false);
+  const [hoveredTile, setHoveredTile] = useState<{ x: number; y: number } | null>(null);
   
   const tileWidth = 30;
   const tileHeight = 30;
@@ -48,6 +50,45 @@ export default function IsometricMap({ mapData, facilities = [], onTileClick, sh
   const handleDeleteFacility = () => {
     // 설비 삭제 로직
     console.log('설비 삭제');
+  };
+
+  // 3x3 영역이 유효한지 확인 (맵 경계 체크)
+  const isValid3x3Area = (centerX: number, centerY: number): boolean => {
+    // 3x3 영역의 중심 기준으로 상하좌우 1칸씩 필요
+    // 테두리 칸은 선택 불가 (인덱스 0, width-1, height-1은 불가)
+    if (centerX < 1 || centerX >= width - 1 || centerY < 1 || centerY >= height - 1) {
+      return false;
+    }
+    return true;
+  };
+
+  // 3x3 영역의 모든 타일 좌표 반환
+  const get3x3Tiles = (centerX: number, centerY: number): Array<{ x: number; y: number }> => {
+    const tiles: Array<{ x: number; y: number }> = [];
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        tiles.push({ x: centerX + dx, y: centerY + dy });
+      }
+    }
+    return tiles;
+  };
+
+  // 특정 타일이 3x3 영역에 포함되는지 확인
+  const isInHovered3x3Area = (x: number, y: number): boolean => {
+    if (!hoveredTile) return false;
+    if (!isValid3x3Area(hoveredTile.x, hoveredTile.y)) return false;
+    
+    const tiles = get3x3Tiles(hoveredTile.x, hoveredTile.y);
+    return tiles.some(tile => tile.x === x && tile.y === y);
+  };
+
+  // 특정 타일이 선택된 3x3 영역에 포함되는지 확인
+  const isInSelected3x3Area = (x: number, y: number): boolean => {
+    if (!selectedLocation) return false;
+    if (!isValid3x3Area(selectedLocation.x, selectedLocation.y)) return false;
+    
+    const tiles = get3x3Tiles(selectedLocation.x, selectedLocation.y);
+    return tiles.some(tile => tile.x === x && tile.y === y);
   };
 
   return (
@@ -101,27 +142,40 @@ export default function IsometricMap({ mapData, facilities = [], onTileClick, sh
         }
 
         @media (hover: hover) {
-          .isometric-map-container-wrapper.is-location-select-mode .isometric-map-tile:hover {
+          .isometric-map-container-wrapper.is-location-select-mode .isometric-map-tile.tile-hover-3x3 {
             transition: background 0.250s ease-in;
             background: rgba(255, 255, 255, 0.2);
           }
 
-          .isometric-map-container-wrapper.is-location-select-mode .isometric-map-tile:hover::after {
+          .isometric-map-container-wrapper.is-location-select-mode .isometric-map-tile.tile-hover-3x3::after {
             transform: translate(-6px, -6px);
             box-shadow: 6px 6px 6px rgba(0, 0, 0, 0.24);
             background: rgba(255, 255, 255, 0.8);
           }
         }
 
-        .isometric-map-container-wrapper.is-location-select-mode .isometric-map-tile:active {
+        .isometric-map-container-wrapper.is-location-select-mode .isometric-map-tile.tile-active-3x3 {
           transition: background 0.250s ease-in;
           background: rgba(255, 255, 255, 0.2);
         }
 
-        .isometric-map-container-wrapper.is-location-select-mode .isometric-map-tile:active::after {
+        .isometric-map-container-wrapper.is-location-select-mode .isometric-map-tile.tile-active-3x3::after {
           transform: translate(-6px, -6px);
           box-shadow: 6px 6px 6px rgba(0, 0, 0, 0.24);
           background: rgba(255, 255, 255, 0.8);
+        }
+
+        .isometric-map-container-wrapper.is-location-select-mode .isometric-map-tile.tile-invalid {
+          opacity: 0.3;
+          cursor: not-allowed;
+        }
+
+        .isometric-map-container-wrapper.is-location-select-mode .isometric-map-tile.tile-selected-3x3 {
+          background: rgba(59, 130, 246, 0.3);
+        }
+
+        .isometric-map-container-wrapper.is-location-select-mode .isometric-map-tile.tile-selected-3x3::after {
+          background: rgba(59, 130, 246, 0.5);
         }
 
         .isometric-map-tile.dirt {
@@ -179,14 +233,14 @@ export default function IsometricMap({ mapData, facilities = [], onTileClick, sh
         <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
           {isManagementOpen ? (
             <>
-              <Button
+              <CommonButton
                 onClick={() => setIsManagementOpen(false)}
                 variant="gray"
                 className="px-4 py-2 text-sm"
               >
                 나가기
-              </Button>
-              <Button
+              </CommonButton>
+              <CommonButton
                 onClick={() => {
                   if (onAddFacilityClick) {
                     onAddFacilityClick();
@@ -196,23 +250,23 @@ export default function IsometricMap({ mapData, facilities = [], onTileClick, sh
                 className="px-4 py-2 text-sm"
               >
                 설비 추가
-              </Button>
-              <Button
+              </CommonButton>
+              <CommonButton
                 onClick={handleDeleteFacility}
                 variant="red"
                 className="px-4 py-2 text-sm"
               >
                 설비 삭제
-              </Button>
+              </CommonButton>
             </>
           ) : (
-            <Button
+            <CommonButton
               onClick={() => setIsManagementOpen(true)}
               variant="gray"
               className="px-4 py-2 text-sm"
             >
               설비 관리
-            </Button>
+            </CommonButton>
           )}
         </div>
         )}
@@ -223,26 +277,52 @@ export default function IsometricMap({ mapData, facilities = [], onTileClick, sh
             width: width * tileWidth,
             height: height * tileHeight
           }}
+          onMouseLeave={() => {
+            if (isLocationSelectMode) {
+              setHoveredTile(null);
+            }
+          }}
         >
           <div className="isometric-map">
             {mapData.map((row, y) =>
-              row.map((tile, x) => (
-                <div
-                  key={`${y}-${x}`}
-                  className={`isometric-map-tile ${getTileClassName(tile)}`}
-                  style={{
-                    width: tileWidth,
-                    height: tileHeight
-                  }}
-                  onClick={() => {
-                    if (isLocationSelectMode && onLocationSelect) {
-                      onLocationSelect(x, y);
-                    } else if (onTileClick) {
-                      onTileClick(x, y);
-                    }
-                  }}
-                />
-              ))
+              row.map((tile, x) => {
+                const isInHoverArea = isInHovered3x3Area(x, y);
+                const isInSelectedArea = isInSelected3x3Area(x, y);
+                const isValid = isValid3x3Area(x, y);
+                const isInvalid = isLocationSelectMode && !isValid;
+                
+                return (
+                  <div
+                    key={`${y}-${x}`}
+                    className={`
+                      isometric-map-tile 
+                      ${getTileClassName(tile)}
+                      ${isInHoverArea ? 'tile-hover-3x3' : ''}
+                      ${isInSelectedArea && !isInHoverArea ? 'tile-selected-3x3' : ''}
+                      ${isInvalid ? 'tile-invalid' : ''}
+                    `.trim()}
+                    style={{
+                      width: tileWidth,
+                      height: tileHeight
+                    }}
+                    onMouseEnter={() => {
+                      if (isLocationSelectMode) {
+                        setHoveredTile({ x, y });
+                      }
+                    }}
+                    onClick={() => {
+                      if (isLocationSelectMode && onLocationSelect) {
+                        // 3x3 영역이 유효한지 확인
+                        if (isValid3x3Area(x, y)) {
+                          onLocationSelect(x, y);
+                        }
+                      } else if (onTileClick) {
+                        onTileClick(x, y);
+                      }
+                    }}
+                  />
+                );
+              })
             )}
           </div>
           
