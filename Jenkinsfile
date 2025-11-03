@@ -36,12 +36,50 @@ pipeline {
 
             if (targetBranch == 'master') { env.DO_PROD = "true" }
             else if (targetBranch == 'develop') { env.DO_DEV = "true" }
-
-            if (params.BUILD_BACKEND) { env.BACKEND_CHANGED = "true" }
-            if (params.BUILD_FRONTEND) { env.FRONTEND_CHANGED = "true" }
-            if (params.BUILD_IMAGE_WORKER) { env.IMAGE_WORKER_CHANGED = "true" }
           }
-          
+
+          List<String> changedFiles = []
+          try {
+            for (cs in currentBuild.changeSets) {
+              for (item in cs.items) {
+                for (file in item.affectedFiles) {
+                  changedFiles << (file.path as String)
+                }
+              }
+            }
+          } catch (ignored) {}
+
+          if (changedFiles.isEmpty()) {
+            def from = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: ''
+            def to   = env.GIT_COMMIT ?: 'HEAD'
+            try {
+              def cmd = from ? "git diff --name-only ${from} ${to}" : "git diff --name-only ${to}~1 ${to}"
+              def out = sh(script: cmd, returnStdout: true).trim()
+              if (out) {
+                changedFiles.addAll(out.split("\\r?\\n") as List<String>)
+              }
+            } catch (ignored) {}
+          }
+
+          def touched = { String prefix ->
+            changedFiles.any { it.startsWith(prefix + "/") || it == prefix }
+          }
+
+          if (env.gitlabMergeRequestState == 'merged') {
+            env.BACKEND_CHANGED       = touched('backend').toString()
+            env.FRONTEND_CHANGED      = touched('frontend').toString()
+            env.IMAGE_WORKER_CHANGED  = touched('image').toString()
+          } else {
+            env.BACKEND_CHANGED       = (params.BUILD_BACKEND  ? true : touched('backend')).toString()
+            env.FRONTEND_CHANGED      = (params.BUILD_FRONTEND ? true : touched('frontend')).toString()
+            env.IMAGE_WORKER_CHANGED  = (params.BUILD_IMAGE_WORKER ? true : touched('image')).toString()
+          }
+
+          env.DEPLOYED_BACKEND   = "false"
+          env.DEPLOYED_FRONTEND  = "false"
+          env.BUILT_WORKER       = "false"
+          env.DEPLOY_ENV         = ((env.DO_PROD ?: "false").toBoolean() ? "PROD" : ((env.DO_DEV ?: "false").toBoolean() ? "DEV" : ""))
+              
           echo "Build decisions: DO_PROD=${env.DO_PROD}, DO_DEV=${env.DO_DEV}, BACKEND=${env.BACKEND_CHANGED}, FRONTEND=${env.FRONTEND_CHANGED}, IMAGE_WORKER=${env.IMAGE_WORKER_CHANGED}"
         }
       }
@@ -54,10 +92,7 @@ pipeline {
           when {
             allOf {
               expression { (env.DO_PROD ?: "false").toBoolean() }
-              anyOf {
-                expression { (env.BACKEND_CHANGED ?: "false").toBoolean() }
-                changeset pattern: 'backend/**', comparator: 'ANT'
-              }
+              expression { (env.BACKEND_CHANGED ?: "false").toBoolean() }
             }
           }
           environment { PROD_TAG = "${IMAGE_PREFIX}/impresser-backend:${env.BUILD_NUMBER}" }
@@ -112,48 +147,27 @@ pipeline {
             stage('Switch & Cleanup') {
               steps {
                 script {
-                  def cur = sh(
-                    script: "docker exec ${NGINX_CONT} /bin/sh -lc 'readlink -f /etc/nginx/conf.d/upstream.backend.prod.conf' || true",
-                    returnStdout: true
-                  ).trim()
-                  def targetSlot = cur.contains('blue') ? 'green' : 'blue'
-                  def rollbackSlot = cur.contains('blue') ? 'blue' : 'green'
-
                   try {
-                    sh "NGINX_CONT=${NGINX_CONT} TARGET=${targetSlot} bash infra/scripts/switch_backend.sh"
-
+                    sh "NGINX_CONT=${NGINX_CONT} bash infra/scripts/switch_backend.sh"
                     withCredentials([file(credentialsId: 'prod-env-file-backend', variable: 'PROD_ENV_FILE_PATH')]) {
-                      sh '''
+                      sh """
                         set -euo pipefail
-                        RAW=$(grep -E '^SERVER_CONTEXT_PATH=' "$PROD_ENV_FILE_PATH" | tail -n1 | cut -d'=' -f2- | tr -d '\\r[:space:]')
-                        if [ -z "$RAW" ] || [ "$RAW" = "/" ]; then
+                        RAW=\$(grep -E '^SERVER_CONTEXT_PATH=' "${PROD_ENV_FILE_PATH}" | tail -n1 | cut -d'=' -f2- | tr -d '\\r')
+                        RAW=\$(echo "\$RAW" | tr -d '[:space:]')
+                        if [ -z "\$RAW" ] || [ "\$RAW" = "/" ]; then
                           EXT="/actuator/health"
                         else
-                          STRIP=$(echo "$RAW" | sed 's#^/*##; s#/*$##')
-                          EXT="/${STRIP}/actuator/health"
+                          STRIP=\$(echo "\$RAW" | sed 's#^/*##; s#/*\$##')
+                          EXT="/\${STRIP}/actuator/health"
                         fi
-                        # 재시도 포함 스모크
-                        for i in $(seq 1 10); do
-                          if curl -fsS --max-time 3 "https://${DOMAIN}${EXT}" | grep -q '"status":"UP"'; then
-                            exit 0
-                          fi
-                          sleep 1
-                        done
-                        exit 1
-                      '''
+                        curl -fsS "https://${DOMAIN}\${EXT}" | grep UP
+                      """
                     }
-
-                    sh """
-                      set -euo pipefail
-                      if [ -f "${env.WORKSPACE}/prod.slot" ]; then
-                        . "${env.WORKSPACE}/prod.slot" || true
-                        if [ -n "\${OLD_CONT:-}" ]; then
-                          docker rm -f "\${OLD_CONT}" || true
-                        fi
-                      fi
-                    """
+                    env.DEPLOYED_BACKEND = "true"
+                    env.DEPLOY_ENV = "PROD"
+                    sh ". ${env.WORKSPACE}/prod.slot && docker rm -f \"${OLD_CONT}\" || true"
                   } catch (e) {
-                    sh "NGINX_CONT=${NGINX_CONT} TARGET=${rollbackSlot} bash infra/scripts/switch_backend.sh"
+                    sh "NGINX_CONT=${NGINX_CONT} bash infra/scripts/switch_backend.sh"
                     error "Prod smoke test failed. Rolled back successfully."
                   }
                 }
@@ -167,10 +181,7 @@ pipeline {
           when {
             allOf {
               expression { (env.DO_DEV ?: "false").toBoolean() }
-              anyOf {
-                expression { (env.BACKEND_CHANGED ?: "false").toBoolean() }
-                changeset pattern: 'backend/**', comparator: 'ANT'
-              }
+              expression { (env.BACKEND_CHANGED ?: "false").toBoolean() }
             }
           }
           environment { DEV_TAG = "${IMAGE_PREFIX}/impresser-backend-dev:${env.BUILD_NUMBER}" }
@@ -203,16 +214,14 @@ pipeline {
                 done; exit 1
               """
             }
+            script { env.DEPLOYED_BACKEND = "true"; env.DEPLOY_ENV = "DEV" }
           }
         }
 
         /*************** FRONTEND ***************/
         stage('Deploy Frontend') {
           when {
-            anyOf {
               expression { (env.FRONTEND_CHANGED ?: "false").toBoolean() }
-              changeset pattern: 'frontend/**', comparator: 'ANT'
-            }
           }
           stages {
             stage('PROD') {
@@ -224,6 +233,7 @@ pipeline {
                   sh "docker rm -f frontend-prod || true"
                   sh "docker run -d --name frontend-prod --network ${PROD_NET} --env-file ${PROD_ENV_FILE_PATH} ${PROD_TAG}"
                 }
+                script { env.DEPLOYED_FRONTEND = "true"; env.DEPLOY_ENV = "PROD" }
               }
             }
             stage('DEV') {
@@ -235,6 +245,7 @@ pipeline {
                   sh "docker rm -f frontend-dev || true"
                   sh "docker run -d --name frontend-dev --network ${DEV_NET} --env-file ${DEV_ENV_FILE_PATH} ${DEV_TAG}"
                 }
+                script { env.DEPLOYED_FRONTEND = "true"; env.DEPLOY_ENV = "DEV" }
               }
             }
           }
@@ -243,10 +254,7 @@ pipeline {
         /*************** C++ GPU WORKER (For RunPod) ***************/
         stage('Build & Push GPU Worker') {
           when {
-            anyOf {
               expression { (env.IMAGE_WORKER_CHANGED ?: "false").toBoolean() }
-              changeset pattern: 'image/**', comparator: 'ANT'
-            }
           }
           steps {
             withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
@@ -257,16 +265,112 @@ pipeline {
                 sh "docker push ${imageName}"
                 sh "docker logout"
               }
+              script { env.BUILT_WORKER = "true" }
             }
-          }
-        }
-
-        stage('Cleanup Docker') {
-          steps {
-            sh 'docker image prune -af --filter "until=24h" || true'
           }
         }
       }
     }
+  
+    /*************** Docker Image 정리 ***************/
+    stage('Cleanup Docker') {
+      steps {
+        sh 'docker image prune -af --filter "until=24h" || true'
+      }
+    }
+  }
+
+  /*************** 배포 결과 MM 알림 ***************/
+  post {
+    success {
+      script {
+        def branch    = resolveBranch()
+        def mention   = resolvePusherMention()
+        def commitMsg = sh(script: "git log -1 --pretty=%s", returnStdout: true).trim()
+        def commitUrl = (env.GIT_URL && env.GIT_COMMIT) ? "${env.GIT_URL.replaceFirst(/\\.git$/, '')}/commit/${env.GIT_COMMIT}" : (env.GIT_COMMIT_URL ?: "")
+        def envName   = env.DEPLOY_ENV ?: "N/A"
+
+        def lines = []
+        lines << "- **Environment**: `${envName}`"
+        lines << "- **Backend Deployed**: `${env.DEPLOYED_BACKEND ?: "false"}`"
+        lines << "- **Frontend Deployed**: `${env.DEPLOYED_FRONTEND ?: "false"}`"
+        lines << "- **GPU Worker Built/Push**: `${env.BUILT_WORKER ?: "false"}`"
+
+        sendMMNotify(true, [
+          branch   : branch,
+          mention  : mention,
+          buildUrl : env.BUILD_URL,
+          commit   : [msg: commitMsg, url: commitUrl],
+          details  : lines.join("\n")
+        ])
+      }
+    }
+    failure {
+      script {
+        def branch    = resolveBranch()
+        def mention   = resolvePusherMention()
+        def commitMsg = sh(script: "git log -1 --pretty=%s", returnStdout: true).trim()
+        def commitUrl = (env.GIT_URL && env.GIT_COMMIT) ? "${env.GIT_URL.replaceFirst(/\\.git$/, '')}/commit/${env.GIT_COMMIT}" : (env.GIT_COMMIT_URL ?: "")
+
+        def tail = ""
+        try {
+          tail = currentBuild.rawBuild.getLog(150).join("\n")
+        } catch (ignore) {
+          tail = ""
+        }
+        tail = tail
+          .replaceAll(/(?i)(token|secret|password|passwd|apikey|api_key)\s*[:=]\s*\S+/, '$1=[REDACTED]')
+          .replaceAll(/AKIA[0-9A-Z]{16}/, 'AKIA[REDACTED]')
+        def detailsBlock = tail ? "```text\n${tail}\n```" : ""
+
+        sendMMNotify(false, [
+          branch   : branch,
+          mention  : mention,
+          buildUrl : env.BUILD_URL,
+          commit   : [msg: commitMsg, url: commitUrl],
+          details  : detailsBlock
+        ])
+      }
+    }
+  }
+}
+
+def resolveBranch() {
+  if (env.BRANCH_NAME) return env.BRANCH_NAME
+  if (env.GIT_REF) return env.GIT_REF.replaceFirst(/^refs\/heads\//,'')
+  return sh(script: "git name-rev --name-only HEAD || git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
+}
+
+def resolvePusherMention() {
+  def u = env.GIT_PUSHER_USERNAME?.trim()
+  if (u) return "@${u}"
+  return sh(script: "git --no-pager show -s --format='%an <%ae>' HEAD", returnStdout: true).trim()
+}
+
+def sendMMNotify(boolean success, Map info) {
+  def titleLine = success ? "## :jenkins7: Jenkins Build Success"
+                          : "## :angry_jenkins: Jenkins Build Failed"
+  def lines = []
+  if (info.mention) lines << "**Author**: ${info.mention}"
+  if (info.branch)  lines << "**Target Branch**: `${info.branch}`"
+  if (info.commit?.msg) {
+    def commitLine = info.commit?.url ? "[${info.commit.msg}](${info.commit.url})" : info.commit.msg
+    lines << "**Commit**: ${commitLine}"
+  }
+  if (!success && info.details) lines << "**Error Message**:\n${info.details}"
+  if (success && info.details)  lines << info.details
+
+  def text = "${titleLine}\n" + (lines ? ("\n" + lines.join("\n")) : "")
+  writeFile file: 'payload.json', text: groovy.json.JsonOutput.toJson([
+    text      : text,
+    username  : "Jenkins",
+    icon_emoji: ":jenkins7:"
+  ])
+  withCredentials([string(credentialsId: 'mattermost-webhook', variable: 'MM_WEBHOOK')]) {
+    sh(script: '''
+      curl -sS -f -X POST -H 'Content-Type: application/json' \
+        --data-binary @payload.json \
+        "$MM_WEBHOOK"
+    ''')
   }
 }
