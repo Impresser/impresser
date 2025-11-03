@@ -8,6 +8,7 @@ interface ButtonProps {
   type?: "button" | "submit" | "reset";
   variant?: "blue" | "gray" | "red"; // ✅ 색상 구분용 prop 추가
   className?: string;
+  disabled?: boolean;
 }
 
 export default function Button({
@@ -16,6 +17,7 @@ export default function Button({
   type = "button",
   variant = "blue", // ✅ 기본값: 파란색
   className = "",
+  disabled = false,
 }: ButtonProps) {
   const baseStyle = `
     px-7 py-2
@@ -29,6 +31,9 @@ export default function Button({
     hover:scale-103
     active:scale-95
     cursor-pointer
+    disabled:opacity-50
+    disabled:cursor-not-allowed
+    disabled:hover:scale-100
   `;
 
   const colorStyles = {
@@ -50,6 +55,7 @@ export default function Button({
     <button
       type={type}
       onClick={onClick}
+      disabled={disabled}
       className={`${baseStyle} ${colorStyles[variant]} ${className}`}
     >
       {children}

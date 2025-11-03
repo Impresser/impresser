@@ -17,7 +17,7 @@ export default function PatternGeneratorPage() {
 
       {/* 🔹 Main Content */}
       <div className="flex-1 flex flex-col">
-        <Navbar userName="홍길동" />
+        <Navbar />
 
         <main className="flex-1 p-8 overflow-y-auto">
           {/* 상단: 입력 영역 - 전체 폭 사용 */}

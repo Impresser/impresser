@@ -1,6 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { logout } from '@/service/auth';
+import { useAuthStore } from '@/store/authStore';
 
 // 로그아웃 아이콘
 const LogoutIcon = () => (
@@ -69,15 +72,53 @@ interface NavbarProps {
 }
 
 export default function Navbar({
-  userName = '사용자',
-  userProfile,
+  userName: propUserName,
+  userProfile: propUserProfile,
 }: NavbarProps) {
+  const router = useRouter();
+  const user = useAuthStore((state) => state.user);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
+  const initializeFromStorage = useAuthStore((state) => state.initializeFromStorage);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  const handleLogout = () => {
-    // 로그아웃 로직 구현
-    console.log('로그아웃');
+  // 클라이언트에서만 마운트 후 localStorage에서 초기화 (Hydration 에러 방지)
+  useEffect(() => {
+    setMounted(true);
+    if (!user) {
+      initializeFromStorage();
+    }
+  }, [user, initializeFromStorage]);
+
+  // 초기 렌더링(서버)에서는 prop이나 기본값만 사용, 마운트 후에는 store 값 사용
+  const userName = mounted && user?.userName ? user.userName : (propUserName || '사용자');
+  const employeeNo = mounted && user?.employeeNo ? user.employeeNo : '';
+  const userProfile = mounted && user?.profileUrl ? user.profileUrl : propUserProfile;
+
+  const handleLogout = async () => {
+    if (isLoggingOut) return;
+
+    setIsLoggingOut(true);
     setShowUserMenu(false);
+
+    try {
+      // 로그아웃 API 호출
+      await logout();
+
+      // Zustand store 클리어
+      clearAuth();
+
+      // 로그인 페이지로 리다이렉트
+      router.push('/login');
+    } catch (error) {
+      console.error('로그아웃 오류:', error);
+      // 에러가 발생해도 store는 클리어하고 로그인 페이지로 이동
+      clearAuth();
+      router.push('/login');
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   return (
@@ -116,17 +157,18 @@ export default function Navbar({
               {/* 프로필 정보 */}
               <div className="px-4 py-2 border-b border-gray-100">
                 <p className="text-sm font-medium text-gray-900">{userName}</p>
-                <p className="text-xs text-gray-500">1353578</p>
+                <p className="text-xs text-gray-500">{employeeNo || '직원번호'}</p>
               </div>
 
               {/* 메뉴 아이템들 */}
               <div className="py-1">
                 <button
                   onClick={handleLogout}
-                  className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  disabled={isLoggingOut}
+                  className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <LogoutIcon />
-                  <span>로그아웃</span>
+                  <span>{isLoggingOut ? '로그아웃 중...' : '로그아웃'}</span>
                 </button>
               </div>
             </div>

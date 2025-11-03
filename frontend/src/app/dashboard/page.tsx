@@ -16,7 +16,7 @@ export default function DashboardPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Navigation Bar */}
-        <Navbar userName="홍길동" />
+        <Navbar />
 
         {/* Content */}
         <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden">
