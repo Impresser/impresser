@@ -2,16 +2,20 @@ package com.semes.impresser.inkjet.dto.response;
 
 import java.time.LocalDate;
 import java.util.UUID;
-import lombok.Builder;
 
-@Builder
-public record AllInkjetResponse(
+public record InkjetResponse(
     UUID inkjetUuid,
     String printerName,
     String modelName,
     String printerStatus,
     String processStatus,
-    LocalDate installDate
+    LocalDate installDate,
+    String cpu,
+    String gpu,
+    String ram,
+    String vram,
+    Long sheetCount,
+    String tiffName // todo : tiffKey -> tiffName
 ) {
 
 }

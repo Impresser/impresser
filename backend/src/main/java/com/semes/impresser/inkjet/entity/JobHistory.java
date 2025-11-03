@@ -37,4 +37,8 @@ public class JobHistory extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "printer_id", nullable = false)
     private InkjetPrinter printer;
+
+    public void updateCompletedAt(LocalDateTime completedAt) {
+        this.completedAt = completedAt;
+    }
 }
