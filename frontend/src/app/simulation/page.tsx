@@ -8,6 +8,7 @@ import FacilityList from './components/FacilityList';
 import FacilityStatistics from './components/FacilityStatistics';
 import FacilityDetailPanel from './components/FacilityDetailPanel';
 import AddFacilityModal from './components/AddFacilityModal';
+import AuthGuard from '@/components/auth/AuthGuard';
 import type { TileType } from './components/IsometricMap';
 import type { Facility } from './components/FacilityStatistics';
 
@@ -159,7 +160,8 @@ export default function SimulationPage() {
   const facilityLocations: Array<{ id: string; canvasX: number; canvasY: number; imagePath: string }> = [];
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <AuthGuard>
+      <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
       <div ref={sidebarRef}>
         <Sidebar />
@@ -246,5 +248,6 @@ export default function SimulationPage() {
         }}
       />
     </div>
+    </AuthGuard>
   );
 }

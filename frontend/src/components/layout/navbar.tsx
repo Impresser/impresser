@@ -109,13 +109,17 @@ export default function Navbar({
       // Zustand store 클리어
       clearAuth();
 
-      // 로그인 페이지로 리다이렉트
-      router.push('/login');
+      // 로그아웃 플래그 설정 (로그인 페이지에서 returnUrl 무시하기 위해)
+      sessionStorage.setItem('isLogoutAction', 'true');
+
+      // 로그인 페이지로 리다이렉트 (returnUrl 없음)
+      router.replace('/login');
     } catch (error) {
       console.error('로그아웃 오류:', error);
       // 에러가 발생해도 store는 클리어하고 로그인 페이지로 이동
       clearAuth();
-      router.push('/login');
+      sessionStorage.setItem('isLogoutAction', 'true');
+      router.replace('/login');
     } finally {
       setIsLoggingOut(false);
     }

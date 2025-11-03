@@ -8,6 +8,7 @@ import RadioButton from '@/components/ui/RadioButton';
 import CommonDropdown from '@/components/ui/CommonDropdown';
 import Button from '@/components/ui/CommonButton';
 import CommonTable, { QueueItem, HistoryItem } from '@/components/ui/CommonTable';
+import AuthGuard from '@/components/auth/AuthGuard';
 
 interface FileInfo {
   name: string;
@@ -190,9 +191,10 @@ export default function ImageCompressorPage() {
   }, []);
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <Sidebar />
+    <AuthGuard>
+      <div className="flex h-screen bg-gray-50">
+        {/* Sidebar */}
+        <Sidebar />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
@@ -401,5 +403,6 @@ export default function ImageCompressorPage() {
         </main>
       </div>
     </div>
+    </AuthGuard>
   );
 }
