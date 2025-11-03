@@ -1,21 +1,56 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import CommonContainerBox from "@/components/ui/CommonContainerBox";
 import CommonInput from "@/components/ui/CommonInput01";
 import CommonButton from "@/components/ui/CommonButton";
 import CommonModal from "@/components/ui/CommonModal";
 import LoginFindModalContent from "./loginfindmodal";
+import { login } from "@/service/auth";
+import { useAuthStore } from "@/store/authStore";
 
 export default function LoginContain() {
+  const router = useRouter();
+  const setAuth = useAuthStore((state) => state.setAuth);
   const [userId, setUserId] = useState("");
   const [password, setPassword] = useState("");
   const [infoOpen, setInfoOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: API 연동
-    // console.log({ userId, password });
+    setError(null);
+
+    if (!userId.trim() || !password.trim()) {
+      setError("아이디와 비밀번호를 입력해주세요.");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const response = await login({
+        employeeNo: userId.trim(),
+        password: password.trim(),
+      });
+
+      if (response.isSuccess && response.result) {
+        // Zustand store에 저장
+        setAuth(response.result, response.result.accessToken);
+
+        // 로그인 성공 후 대시보드로 리다이렉트
+        router.push("/dashboard");
+      } else {
+        setError(response.message || "로그인에 실패했습니다.");
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "로그인 중 오류가 발생했습니다.";
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -53,9 +88,19 @@ export default function LoginContain() {
             />
           </div>
 
+          {error && (
+            <div className="text-red-500 text-sm text-center mt-2">
+              {error}
+            </div>
+          )}
           <div className="pt-2">
-            <CommonButton type="submit" variant="blue" className="w-full">
-              로그인
+            <CommonButton
+              type="submit"
+              variant="blue"
+              className="w-full"
+              disabled={isLoading}
+            >
+              {isLoading ? "로그인 중..." : "로그인"}
             </CommonButton>
           </div>
         </form>
