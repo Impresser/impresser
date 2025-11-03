@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
 
 // 아이콘 컴포넌트들 (추후 실제 아이콘으로 교체 예정)
 const HomeIcon = () => (
@@ -179,7 +180,7 @@ export default function Sidebar() {
       }`}
     >
       {/* 브랜드 로고 및 이름 */}
-      <div className="flex items-center h-16 px-4 border-b border-gray-100">
+      <Link href="/dashboard" className="flex items-center h-16 px-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors">
         <div className="flex items-center space-x-2">
           <div className="w-8 h-8 bg-[#0059FF] rounded-lg flex items-center justify-center">
             <span className="text-white font-bold text-sm">I</span>
@@ -188,7 +189,7 @@ export default function Sidebar() {
             <span className="text-[#0059FF] font-bold text-lg">Impresser</span>
           )}
         </div>
-      </div>
+      </Link>
 
       {/* 메뉴 아이템들 */}
       <nav className="flex-1 mt-4">
