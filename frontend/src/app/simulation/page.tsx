@@ -9,6 +9,8 @@ import FacilityStatistics from './components/FacilityStatistics';
 import FacilityDetailPanel from './components/FacilityDetailPanel';
 import AddFacilityModal from './components/AddFacilityModal';
 import AuthGuard from '@/components/auth/AuthGuard';
+import { useAuthStore } from '@/store/authStore';
+import { getInkjetPrinters, type InkjetPrinter } from '@/service/inkjet';
 import type { TileType } from './components/IsometricMap';
 import type { Facility } from './components/FacilityStatistics';
 
@@ -21,6 +23,15 @@ export default function SimulationPage() {
   const [isLocationSelectMode, setIsLocationSelectMode] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{ x: number; y: number } | null>(null);
   const [selectedFacility, setSelectedFacility] = useState<Facility | null>(null);
+  
+  // 사용자 역할 확인
+  const user = useAuthStore((state) => state.user);
+  const isAdmin = user?.userRole === 'ADMIN';
+  
+  // 설비 데이터 상태
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Sidebar 너비 측정
   useEffect(() => {
@@ -82,79 +93,61 @@ export default function SimulationPage() {
     };
   }, []);
 
-  // 21x21 맵 데이터 생성
-  const mapData: TileType[][] = Array(21).fill(null).map(() => 
-    Array(21).fill('g' as TileType)
+  // 20x20 맵 데이터 생성
+  const mapData: TileType[][] = Array(20).fill(null).map(() => 
+    Array(20).fill('g' as TileType)
   );
 
-  // 설비 데이터
-  const facilities: Facility[] = [
-    { 
-      id: '1', 
-      name: '프린터 A', 
-      type: 'Inkjet', 
-      status: 'active',
-      modelName: 'Inkjet Pro X1',
-      processingStatus: 'processing',
-      cpu: 'Intel Core i7-12700',
-      gpu: 'NVIDIA RTX 3060',
-      ram: '32GB',
-      vram: '12GB',
-      installDate: new Date('2024-01-15'),
-    },
-    { 
-      id: '2', 
-      name: '프린터 B', 
-      type: 'Inkjet', 
-      status: 'active',
-      modelName: 'Inkjet Pro X2',
-      processingStatus: 'idle',
-      cpu: 'Intel Core i7-12700',
-      gpu: 'NVIDIA RTX 3070',
-      ram: '64GB',
-      vram: '16GB',
-      installDate: new Date('2024-02-20'),
-    },
-    { 
-      id: '3', 
-      name: '프린터 C', 
-      type: 'Inkjet', 
-      status: 'inactive',
-      modelName: 'Inkjet Standard',
-      processingStatus: 'idle',
-      cpu: 'Intel Core i5-12400',
-      gpu: 'NVIDIA GTX 1660',
-      ram: '16GB',
-      vram: '6GB',
-      installDate: new Date('2023-11-10'),
-    },
-    { 
-      id: '4', 
-      name: '프린터 D', 
-      type: 'Inkjet', 
-      status: 'maintenance',
-      modelName: 'Inkjet Pro X1',
-      processingStatus: 'idle',
-      cpu: 'Intel Core i7-12700',
-      gpu: 'NVIDIA RTX 3060',
-      ram: '32GB',
-      vram: '12GB',
-      installDate: new Date('2024-01-15'),
-    },
-    { 
-      id: '5', 
-      name: '프린터 E', 
-      type: 'Inkjet', 
-      status: 'active',
-      modelName: 'Inkjet Pro X3',
-      processingStatus: 'processing',
-      cpu: 'Intel Core i9-12900',
-      gpu: 'NVIDIA RTX 4080',
-      ram: '64GB',
-      vram: '16GB',
-      installDate: new Date('2024-03-05'),
-    },
-  ];
+  // API 응답을 Facility 타입으로 변환
+  const mapInkjetToFacility = (inkjet: InkjetPrinter): Facility => {
+    // printerStatus 매핑: BROKEN -> inactive (고장), UNDER_REPAIR -> maintenance (수리 중), OPERATIONAL -> active (정상)
+    let status: 'active' | 'inactive' | 'maintenance' = 'inactive';
+    if (inkjet.printerStatus === 'BROKEN') {
+      status = 'inactive'; // 고장
+    } else if (inkjet.printerStatus === 'UNDER_REPAIR') {
+      status = 'maintenance'; // 수리 중
+    } else if (inkjet.printerStatus === 'OPERATIONAL') {
+      status = 'active'; // 정상
+    }
+
+    return {
+      id: inkjet.inkjetUuid,
+      name: inkjet.printerName,
+      type: 'Inkjet',
+      status,
+      modelName: inkjet.modelName,
+      processStatus: inkjet.processStatus as 'WAITING' | 'RUNNING',
+      installDate: inkjet.installDate,
+    };
+  };
+
+  // 설비 목록 조회
+  useEffect(() => {
+    const fetchFacilities = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const response = await getInkjetPrinters({
+          page: 0,
+          size: 100, // 모든 설비를 가져오기 위해 큰 값 설정
+        });
+
+        if (response.isSuccess && response.result) {
+          const mappedFacilities = response.result.content.map(mapInkjetToFacility);
+          setFacilities(mappedFacilities);
+        } else {
+          setError(response.message || '설비 목록 조회에 실패했습니다.');
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : '설비 목록 조회 중 오류가 발생했습니다.');
+        console.error('설비 목록 조회 실패:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchFacilities();
+  }, []);
 
   // 맵에 표시할 설비 위치 데이터
   const facilityLocations: Array<{ id: string; canvasX: number; canvasY: number; imagePath: string }> = [];
@@ -180,40 +173,62 @@ export default function SimulationPage() {
             {/* 설비 시뮬레이션 타이틀 및 통계 */}
             <div className="flex items-center justify-between mb-6">
               <h1 className="text-2xl font-bold text-gray-900">잉크젯 프린트 공정</h1>
-              <FacilityStatistics facilities={facilities} />
+              {!isLoading && !error && <FacilityStatistics facilities={facilities} />}
+              {error && (
+                <div className="text-sm text-red-600">
+                  {error}
+                </div>
+              )}
             </div>
+
+            {/* 로딩 상태 */}
+            {isLoading && (
+              <div className="flex justify-center items-center py-12">
+                <div className="text-gray-500">설비 목록을 불러오는 중...</div>
+              </div>
+            )}
+
+            {/* 에러 상태 */}
+            {error && !isLoading && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <p className="text-red-800 text-sm">{error}</p>
+              </div>
+            )}
             
             {/* 맵과 설비 목록 레이아웃 */}
-            <div className="flex gap-6">
-              {/* 맵 섹션 */}
-              <div className="flex-1 mb-6">
-                <div className="w-full h-[600px] border border-gray-300 rounded-lg overflow-hidden">
-                  <IsometricMap 
-                    mapData={mapData}
-                    facilities={facilityLocations}
-                    sidebarWidth={sidebarWidth}
-                    isLocationSelectMode={isLocationSelectMode}
-                    onLocationSelect={(x, y) => {
-                      setSelectedLocation({ x, y });
-                      setIsLocationSelectMode(false);
-                      setIsAddModalOpen(true);
-                    }}
-                    onAddFacilityClick={() => setIsAddModalOpen(true)}
-                    selectedLocation={selectedLocation}
-                  />
+            {!isLoading && !error && (
+              <div className="flex gap-6">
+                {/* 맵 섹션 */}
+                <div className="flex-1 mb-6">
+                  <div className="w-full h-[600px] border border-gray-300 rounded-lg overflow-hidden">
+                    <IsometricMap 
+                      mapData={mapData}
+                      facilities={facilityLocations}
+                      sidebarWidth={sidebarWidth}
+                      isLocationSelectMode={isLocationSelectMode}
+                      onLocationSelect={(x, y) => {
+                        setSelectedLocation({ x, y });
+                        setIsLocationSelectMode(false);
+                        setIsAddModalOpen(true);
+                      }}
+                      onAddFacilityClick={() => setIsAddModalOpen(true)}
+                      selectedLocation={selectedLocation}
+                      showManagementButton={isAdmin}
+                    />
+                  </div>
                 </div>
-              </div>
 
-              {/* 설비 목록 섹션 */}
-              <div className="w-48 mb-6">
-                <div className="h-[600px]">
-                  <FacilityList 
-                    facilities={facilities}
-                    onFacilityClick={(facility) => setSelectedFacility(facility)}
-                  />
+                {/* 설비 목록 섹션 */}
+                <div className="w-72 mb-6">
+                  <div className="h-[600px]">
+                    <FacilityList 
+                      facilities={facilities}
+                      onFacilityClick={(facility) => setSelectedFacility(facility)}
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* 설비 상세 정보 패널 */}
             {selectedFacility && (

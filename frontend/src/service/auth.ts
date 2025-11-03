@@ -8,7 +8,7 @@ export const setAuthStore = (store: { setToken: (token: string) => void }) => {
   authStore = store;
 };
 
-const API_BASE_URL = "https://k13s404.p.ssafy.io/dev/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://k13s404.p.ssafy.io/dev/api/v1";
 
 /**
  * 로그인 API 호출

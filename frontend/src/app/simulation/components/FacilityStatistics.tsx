@@ -8,7 +8,7 @@ export interface Facility {
   type: string;
   status: 'active' | 'inactive' | 'maintenance';
   modelName?: string;
-  processingStatus?: 'idle' | 'processing' | 'error';
+  processStatus?: 'WAITING' | 'RUNNING';
   cpu?: string;
   gpu?: string;
   ram?: string;

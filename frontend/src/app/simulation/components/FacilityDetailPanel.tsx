@@ -194,27 +194,23 @@ export default function FacilityDetailPanel({ facility, onClose }: FacilityDetai
     }
   };
 
-  const getProcessingStatusColor = (status?: Facility['processingStatus']) => {
+  const getProcessingStatusColor = (status?: Facility['processStatus']) => {
     switch (status) {
-      case 'idle':
+      case 'WAITING':
         return 'bg-gray-100 text-gray-800';
-      case 'processing':
+      case 'RUNNING':
         return 'bg-blue-100 text-blue-800';
-      case 'error':
-        return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
   };
 
-  const getProcessingStatusText = (status?: Facility['processingStatus']) => {
+  const getProcessingStatusText = (status?: Facility['processStatus']) => {
     switch (status) {
-      case 'idle':
+      case 'WAITING':
         return '대기';
-      case 'processing':
-        return '처리중';
-      case 'error':
-        return '오류';
+      case 'RUNNING':
+        return '진행 중';
       default:
         return '알 수 없음';
     }
@@ -273,8 +269,8 @@ export default function FacilityDetailPanel({ facility, onClose }: FacilityDetai
           </div>
           <div>
             <label className="text-sm font-medium text-gray-500 mb-1 block">진행상태</label>
-            <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getProcessingStatusColor(facility.processingStatus)}`}>
-              {getProcessingStatusText(facility.processingStatus)}
+            <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getProcessingStatusColor(facility.processStatus)}`}>
+              {getProcessingStatusText(facility.processStatus)}
             </span>
           </div>
           <div>
