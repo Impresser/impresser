@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import Modal from '@/components/ui/Modal';
+import CommonModal from '@/components/ui/CommonModal';
 import Button from '@/components/ui/Button';
 
 interface AddFacilityModalProps {
@@ -80,7 +80,7 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
   };
 
   return (
-    <Modal 
+    <CommonModal 
       isOpen={isOpen} 
       onClose={handleClose} 
       className="w-full max-w-2xl" 
@@ -225,6 +225,6 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
           </Button>
         </div>
       </div>
-    </Modal>
+    </CommonModal>
   );
 }

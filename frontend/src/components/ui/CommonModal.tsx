@@ -2,7 +2,7 @@
 
 import React from "react";
 
-interface ModalProps {
+interface CommonModalProps {
   children: React.ReactNode;
   isOpen: boolean;
   onClose: () => void;
@@ -12,7 +12,7 @@ interface ModalProps {
   style?: React.CSSProperties;
 }
 
-export default function Modal({ children, isOpen, onClose, className = '', leftOffset = 0, topOffset = 0, style }: ModalProps) {
+export default function CommonModal({ children, isOpen, onClose, className = '', leftOffset = 0, topOffset = 0, style }: CommonModalProps) {
   if (!isOpen) return null;
 
   return (
@@ -20,7 +20,7 @@ export default function Modal({ children, isOpen, onClose, className = '', leftO
       className="
         fixed
         flex items-center justify-center
-        backdrop-blur-md 
+        bg-black/50
         z-50
       "
       style={{
@@ -56,3 +56,4 @@ export default function Modal({ children, isOpen, onClose, className = '', leftO
     </div>
   );
 }
+

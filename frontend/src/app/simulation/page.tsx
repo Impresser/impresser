@@ -6,6 +6,7 @@ import Navbar from '@/components/layout/navbar';
 import IsometricMap from './components/IsometricMap';
 import FacilityList from './components/FacilityList';
 import FacilityStatistics from './components/FacilityStatistics';
+import FacilityDetailPanel from './components/FacilityDetailPanel';
 import AddFacilityModal from './components/AddFacilityModal';
 import type { TileType } from './components/IsometricMap';
 import type { Facility } from './components/FacilityStatistics';
@@ -18,6 +19,7 @@ export default function SimulationPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isLocationSelectMode, setIsLocationSelectMode] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<{ x: number; y: number } | null>(null);
+  const [selectedFacility, setSelectedFacility] = useState<Facility | null>(null);
 
   // Sidebar 너비 측정
   useEffect(() => {
@@ -86,11 +88,71 @@ export default function SimulationPage() {
 
   // 설비 데이터
   const facilities: Facility[] = [
-    { id: '1', name: '프린터 A', type: 'Inkjet', status: 'active' },
-    { id: '2', name: '프린터 B', type: 'Inkjet', status: 'active' },
-    { id: '3', name: '프린터 C', type: 'Inkjet', status: 'inactive' },
-    { id: '4', name: '프린터 D', type: 'Inkjet', status: 'maintenance' },
-    { id: '5', name: '프린터 E', type: 'Inkjet', status: 'active' },
+    { 
+      id: '1', 
+      name: '프린터 A', 
+      type: 'Inkjet', 
+      status: 'active',
+      modelName: 'Inkjet Pro X1',
+      processingStatus: 'processing',
+      cpu: 'Intel Core i7-12700',
+      gpu: 'NVIDIA RTX 3060',
+      ram: '32GB',
+      vram: '12GB',
+      installDate: new Date('2024-01-15'),
+    },
+    { 
+      id: '2', 
+      name: '프린터 B', 
+      type: 'Inkjet', 
+      status: 'active',
+      modelName: 'Inkjet Pro X2',
+      processingStatus: 'idle',
+      cpu: 'Intel Core i7-12700',
+      gpu: 'NVIDIA RTX 3070',
+      ram: '64GB',
+      vram: '16GB',
+      installDate: new Date('2024-02-20'),
+    },
+    { 
+      id: '3', 
+      name: '프린터 C', 
+      type: 'Inkjet', 
+      status: 'inactive',
+      modelName: 'Inkjet Standard',
+      processingStatus: 'idle',
+      cpu: 'Intel Core i5-12400',
+      gpu: 'NVIDIA GTX 1660',
+      ram: '16GB',
+      vram: '6GB',
+      installDate: new Date('2023-11-10'),
+    },
+    { 
+      id: '4', 
+      name: '프린터 D', 
+      type: 'Inkjet', 
+      status: 'maintenance',
+      modelName: 'Inkjet Pro X1',
+      processingStatus: 'idle',
+      cpu: 'Intel Core i7-12700',
+      gpu: 'NVIDIA RTX 3060',
+      ram: '32GB',
+      vram: '12GB',
+      installDate: new Date('2024-01-15'),
+    },
+    { 
+      id: '5', 
+      name: '프린터 E', 
+      type: 'Inkjet', 
+      status: 'active',
+      modelName: 'Inkjet Pro X3',
+      processingStatus: 'processing',
+      cpu: 'Intel Core i9-12900',
+      gpu: 'NVIDIA RTX 4080',
+      ram: '64GB',
+      vram: '16GB',
+      installDate: new Date('2024-03-05'),
+    },
   ];
 
   // 맵에 표시할 설비 위치 데이터
@@ -142,10 +204,21 @@ export default function SimulationPage() {
               {/* 설비 목록 섹션 */}
               <div className="w-48 mb-6">
                 <div className="h-[600px]">
-                  <FacilityList facilities={facilities} />
+                  <FacilityList 
+                    facilities={facilities}
+                    onFacilityClick={(facility) => setSelectedFacility(facility)}
+                  />
                 </div>
               </div>
             </div>
+
+            {/* 설비 상세 정보 패널 */}
+            {selectedFacility && (
+              <FacilityDetailPanel
+                facility={selectedFacility}
+                onClose={() => setSelectedFacility(null)}
+              />
+            )}
           </div>
         </main>
       </div>

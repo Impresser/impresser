@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import Modal from "@/components/ui/Modal";
+import CommonModal from "@/components/ui/CommonModal";
 import Button from "@/components/ui/Button";
 import ContainerBox from "@/components/ui/ContainerBox"; // ✅ 컨테이너 박스 import
 
@@ -30,7 +30,7 @@ export default function ModalTestPage() {
       </ContainerBox>
 
       {/* 🔹 모달 */}
-      <Modal isOpen={open} onClose={() => setOpen(false)}>
+      <CommonModal isOpen={open} onClose={() => setOpen(false)}>
         <h2 className="text-xl font-semibold mb-4">모달 제목</h2>
         <p className="text-gray-600 mb-6">
           이 모달은 부드러운 그림자와 둥근 모서리를 가진 디자인입니다.
@@ -40,7 +40,7 @@ export default function ModalTestPage() {
             닫기
           </Button>
         </div>
-      </Modal>
+      </CommonModal>
     </div>
   );
 }

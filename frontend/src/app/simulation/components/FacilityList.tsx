@@ -5,9 +5,10 @@ import type { Facility } from './FacilityStatistics';
 
 interface FacilityListProps {
   facilities: Facility[];
+  onFacilityClick?: (facility: Facility) => void;
 }
 
-export default function FacilityList({ facilities }: FacilityListProps) {
+export default function FacilityList({ facilities, onFacilityClick }: FacilityListProps) {
 
   const getStatusColor = (status: Facility['status']) => {
     switch (status) {
@@ -49,6 +50,7 @@ export default function FacilityList({ facilities }: FacilityListProps) {
             <div
               key={facility.id}
               className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+              onClick={() => onFacilityClick?.(facility)}
             >
               <div className="flex items-start justify-between mb-2">
                 <div>
