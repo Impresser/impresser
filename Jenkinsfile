@@ -229,7 +229,16 @@ pipeline {
               environment { PROD_TAG = "${IMAGE_PREFIX}/impresser-frontend:${env.BUILD_NUMBER}" }
               steps {
                 withCredentials([file(credentialsId: 'prod-env-file-frontend', variable: 'PROD_ENV_FILE_PATH')]) {
-                  sh "docker build -t ${PROD_TAG} -f frontend/Dockerfile frontend"
+                  sh """
+                    set -a
+                    . ${PROD_ENV_FILE_PATH}
+                    set +a
+
+                    docker build \
+                      --build-arg BASE_PATH="${BASE_PATH}" \
+                      --build-arg NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL}" \
+                      -t ${PROD_TAG} -f frontend/Dockerfile frontend
+                  """
                   sh "docker rm -f frontend-prod || true"
                   sh "docker run -d --name frontend-prod --network ${PROD_NET} --env-file ${PROD_ENV_FILE_PATH} ${PROD_TAG}"
                 }
@@ -241,7 +250,16 @@ pipeline {
               environment { DEV_TAG = "${IMAGE_PREFIX}/impresser-frontend-dev:${env.BUILD_NUMBER}" }
               steps {
                 withCredentials([file(credentialsId: 'dev-env-file-frontend', variable: 'DEV_ENV_FILE_PATH')]) {
-                  sh "docker build -t ${DEV_TAG} -f frontend/Dockerfile frontend"
+                  sh """
+                    set -a
+                    . ${DEV_ENV_FILE_PATH}
+                    set +a
+                    
+                    docker build \
+                      --build-arg BASE_PATH="${BASE_PATH}" \
+                      --build-arg NEXT_PUBLIC_API_URL="${NEXT_PUBLIC_API_URL}" \
+                      -t ${DEV_TAG} -f frontend/Dockerfile frontend
+                  """
                   sh "docker rm -f frontend-dev || true"
                   sh "docker run -d --name frontend-dev --network ${DEV_NET} --env-file ${DEV_ENV_FILE_PATH} ${DEV_TAG}"
                 }
