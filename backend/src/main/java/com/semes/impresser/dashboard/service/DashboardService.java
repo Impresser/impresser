@@ -4,6 +4,7 @@ import com.semes.impresser.common.response.PageResponse;
 import com.semes.impresser.dashboard.dto.response.ConvertAvgSpeedListResponse;
 import com.semes.impresser.dashboard.dto.response.ConvertHistoryDetailResponse;
 import com.semes.impresser.dashboard.dto.response.ConvertHistoryListResponse;
+import com.semes.impresser.dashboard.dto.response.InkjetDailyUsageCompareResponse;
 import java.util.UUID;
 
 public interface DashboardService {
@@ -14,4 +15,6 @@ public interface DashboardService {
         UUID compressionTypeUuid, Integer page, Integer size);
 
     ConvertHistoryDetailResponse getConvertHistoryDetail(UUID convertHistoryUuid);
+
+    InkjetDailyUsageCompareResponse getInkjetDailyUsageCompare();
 }
