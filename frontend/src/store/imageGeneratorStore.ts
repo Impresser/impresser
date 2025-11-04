@@ -30,6 +30,7 @@ export type PatternJob = {
   etaTime: string; // HH:mm:ss
   elapsed: string; // mm:ss
   progress: number; // 0-100
+  form: PatternFormState; // 생성 시 사용한 폼 데이터
 };
 
 type ImageGeneratorStore = {
@@ -117,6 +118,7 @@ export const useImageGeneratorStore = create<ImageGeneratorStore>((set, get) => 
       etaTime,
       elapsed: "00:00",
       progress: 0,
+      form: structuredClone(state.form), // 생성 시 폼 상태 저장
     };
     set((s) => ({ jobs: [newJob, ...s.jobs], generatedCount: s.generatedCount + 1 }));
   },
