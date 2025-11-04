@@ -20,9 +20,9 @@ public enum ErrorCode {
     VALIDATION_FAILED(HttpStatus.BAD_REQUEST, "유효성 검사에 실패"),
     PERMISSION_DENIED(HttpStatus.FORBIDDEN, "권한 부족"),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 내부 오류 발생"),
+    SSE_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "이미지 생성 중 SSE 전송 실패"),
     INVALID_PART_COUNT(HttpStatus.BAD_REQUEST, "파트 데이터가 전부 업로드되지 않음"),
     INVALID_PART_DATA(HttpStatus.BAD_REQUEST, "업로드된 파트 데이터가 유효하지 않음");
-
 
     private final HttpStatus status;
     private final String message;

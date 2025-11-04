@@ -4,6 +4,8 @@ import com.semes.impresser.common.entity.BaseEntity;
 import com.semes.impresser.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -29,8 +31,15 @@ public class GenerationHistory extends BaseEntity {
     @Column(name = "requested_at", nullable = false)
     private LocalDateTime requestedAt;
 
+    @Column(name = "started_at")
+    private LocalDateTime startedAt;
+
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
+
+    @Column(name = "status", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private GenerationStatus status;
 
     @Column(name = "bmp_volume", nullable = false)
     private Long bmpVolume;
@@ -104,4 +113,24 @@ public class GenerationHistory extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    public void updateBmpKey(String bmpKey) {
+        this.bmpKey = bmpKey;
+    }
+
+    public void markRunning() {
+        this.status = GenerationStatus.RUNNING;
+        this.startedAt = LocalDateTime.now();
+    }
+
+    public void markCompleted(String bmpKey) {
+        this.status = GenerationStatus.COMPLETED;
+        this.bmpKey = bmpKey;
+        this.completedAt = LocalDateTime.now();
+    }
+
+    public void markFailed() {
+        this.status = GenerationStatus.FAILED;
+        this.completedAt = LocalDateTime.now();
+    }
 }
