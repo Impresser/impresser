@@ -11,7 +11,9 @@ public record AllInkjetResponse(
     String modelName,
     String printerStatus,
     String processStatus,
-    LocalDate installDate
+    LocalDate installDate,
+    Integer canvasX,
+    Integer canvasY
 ) {
 
 }

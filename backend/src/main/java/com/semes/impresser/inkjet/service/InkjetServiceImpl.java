@@ -19,6 +19,7 @@ import com.semes.impresser.inkjet.entity.ProcessStatus;
 import com.semes.impresser.inkjet.repository.InkjetRepository;
 import com.semes.impresser.inkjet.repository.InkjetRepositoryCustom;
 import com.semes.impresser.inkjet.repository.JobHistoryRepository;
+import com.semes.impresser.s3.service.FilePresignedService;
 import jakarta.transaction.Transactional;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -127,7 +128,16 @@ public class InkjetServiceImpl implements InkjetService {
             throw new BusinessException(ErrorCode.BAD_REQUEST);
         }
 
-        InkjetResponse inkjetResponse = inkjetRepository.getInkjet(inkjetUuid);
+        InkjetPrinter inkjetPrinter = inkjetRepository.findByUuid(inkjetUuid).orElseThrow(
+            () -> new BusinessException(ErrorCode.NOT_FOUND));
+
+        InkjetResponse tempInkjetResponse = inkjetRepository.getInkjet(inkjetUuid);
+
+        String tiffUrl = tempInkjetResponse.tiffUrl();
+
+        String tiffName = FilePresignedService.extractOriginalFileName(tiffUrl);
+
+        InkjetResponse inkjetResponse = InkjetResponse.toDto(tiffName, tempInkjetResponse);
 
         return inkjetResponse;
     }
@@ -180,7 +190,7 @@ public class InkjetServiceImpl implements InkjetService {
             throw new BusinessException(ErrorCode.BAD_REQUEST);
         }
 
-        TotalJobResponse totalJobResponse =  inkjetRepository.getTotalJob();
+        TotalJobResponse totalJobResponse = inkjetRepository.getTotalJob();
 
         return totalJobResponse;
     }

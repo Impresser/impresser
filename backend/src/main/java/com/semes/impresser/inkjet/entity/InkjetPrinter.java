@@ -46,10 +46,10 @@ public class InkjetPrinter extends BaseTimeEntity {
     @Column(name = "process_status", nullable = false)
     private ProcessStatus processStatus;
 
-    @Column(name = "ram", length = 5, nullable = false)
+    @Column(name = "ram", length = 20, nullable = false)
     private String ram;
 
-    @Column(name = "vram", length = 5, nullable = false)
+    @Column(name = "vram", length = 20, nullable = false)
     private String vram;
 
     @Column(name = "canvas_x", nullable = false)
