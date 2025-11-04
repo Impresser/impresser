@@ -8,9 +8,11 @@ import CommonContainerBox from '@/components/ui/CommonContainerBox';
 interface FacilityDetailPanelProps {
   facility: Facility | null;
   onClose: () => void;
+  isLoading?: boolean;
+  error?: string | null;
 }
 
-export default function FacilityDetailPanel({ facility, onClose }: FacilityDetailPanelProps) {
+export default function FacilityDetailPanel({ facility, onClose, isLoading = false, error = null }: FacilityDetailPanelProps) {
   if (!facility) return null;
 
   // 설비별 대기열 및 작업내역 데이터 - 실제로는 API에서 가져와야 함
@@ -184,9 +186,9 @@ export default function FacilityDetailPanel({ facility, onClose }: FacilityDetai
   const getStatusText = (status: Facility['status']) => {
     switch (status) {
       case 'active':
-        return '가동중';
+        return '정상';
       case 'inactive':
-        return '정지';
+        return '고장';
       case 'maintenance':
         return '점검중';
       default:
@@ -251,8 +253,24 @@ export default function FacilityDetailPanel({ facility, onClose }: FacilityDetai
           </button>
         </div>
 
+        {/* 로딩 상태 */}
+        {isLoading && (
+          <div className="flex justify-center items-center py-8">
+            <div className="text-gray-500">설비 상세 정보를 불러오는 중...</div>
+          </div>
+        )}
+
+        {/* 에러 상태 */}
+        {error && !isLoading && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <p className="text-red-800 text-sm">{error}</p>
+          </div>
+        )}
+
         {/* 설비 정보 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
+        {!isLoading && (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
           <div>
             <label className="text-sm font-medium text-gray-500 mb-1 block">설비명</label>
             <p className="text-sm text-gray-900">{facility.name}</p>
@@ -294,10 +312,13 @@ export default function FacilityDetailPanel({ facility, onClose }: FacilityDetai
             <p className="text-sm text-gray-900">{formatDate(facility.installDate)}</p>
           </div>
         </div>
+          </>
+        )}
       </CommonContainerBox>
 
       {/* 대기열 섹션 */}
-      <CommonContainerBox>
+      {!isLoading && (
+        <CommonContainerBox>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">현재 작업 중인 대기열</h3>
         
         {/* 전체 진행률 */}
@@ -323,9 +344,11 @@ export default function FacilityDetailPanel({ facility, onClose }: FacilityDetai
           mode="queue"
         />
       </CommonContainerBox>
+      )}
 
       {/* 작업내역 섹션 */}
-      <CommonContainerBox>
+      {!isLoading && (
+        <CommonContainerBox>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">작업내역</h3>
         <CommonTable
           data={historyItems}
@@ -337,6 +360,7 @@ export default function FacilityDetailPanel({ facility, onClose }: FacilityDetai
           }}
         />
       </CommonContainerBox>
+      )}
     </div>
   );
 }

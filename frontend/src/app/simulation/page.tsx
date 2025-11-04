@@ -10,7 +10,7 @@ import FacilityDetailPanel from './components/FacilityDetailPanel';
 import AddFacilityModal from './components/AddFacilityModal';
 import AuthGuard from '@/components/auth/AuthGuard';
 import { useAuthStore } from '@/store/authStore';
-import { getInkjetPrinters, type InkjetPrinter } from '@/service/inkjet';
+import { getInkjetPrinters, getInkjetPrinterDetail, type InkjetPrinter, type InkjetPrinterDetail } from '@/service/inkjet';
 import type { TileType } from './components/IsometricMap';
 import type { Facility } from './components/FacilityStatistics';
 
@@ -32,6 +32,8 @@ export default function SimulationPage() {
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   // Sidebar 너비 측정
   useEffect(() => {
@@ -98,7 +100,7 @@ export default function SimulationPage() {
     Array(20).fill('g' as TileType)
   );
 
-  // API 응답을 Facility 타입으로 변환
+  // API 응답을 Facility 타입으로 변환 (목록 조회용)
   const mapInkjetToFacility = (inkjet: InkjetPrinter): Facility => {
     // printerStatus 매핑: BROKEN -> inactive (고장), UNDER_REPAIR -> maintenance (수리 중), OPERATIONAL -> active (정상)
     let status: 'active' | 'inactive' | 'maintenance' = 'inactive';
@@ -121,31 +123,84 @@ export default function SimulationPage() {
     };
   };
 
-  // 설비 목록 조회
-  useEffect(() => {
-    const fetchFacilities = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const response = await getInkjetPrinters({
-          page: 0,
-          size: 100, // 모든 설비를 가져오기 위해 큰 값 설정
-        });
+  // 상세 정보를 Facility 타입으로 변환
+  const mapDetailToFacility = (detail: InkjetPrinterDetail): Facility => {
+    // printerStatus 매핑: BROKEN -> inactive (고장), UNDER_REPAIR -> maintenance (수리 중), OPERATIONAL -> active (정상)
+    let status: 'active' | 'inactive' | 'maintenance' = 'inactive';
+    if (detail.printerStatus === 'BROKEN') {
+      status = 'inactive'; // 고장
+    } else if (detail.printerStatus === 'UNDER_REPAIR') {
+      status = 'maintenance'; // 수리 중
+    } else if (detail.printerStatus === 'OPERATIONAL') {
+      status = 'active'; // 정상
+    }
 
-        if (response.isSuccess && response.result) {
-          const mappedFacilities = response.result.content.map(mapInkjetToFacility);
-          setFacilities(mappedFacilities);
-        } else {
-          setError(response.message || '설비 목록 조회에 실패했습니다.');
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '설비 목록 조회 중 오류가 발생했습니다.');
-        console.error('설비 목록 조회 실패:', err);
-      } finally {
-        setIsLoading(false);
-      }
+    return {
+      id: detail.inkjetUuid,
+      name: detail.printerName,
+      type: 'Inkjet',
+      status,
+      modelName: detail.modelName,
+      processStatus: detail.processStatus as 'WAITING' | 'RUNNING',
+      cpu: detail.cpu,
+      gpu: detail.gpu,
+      ram: detail.ram,
+      vram: detail.vram,
+      installDate: detail.installDate,
     };
+  };
 
+  // 설비 상세 조회
+  const handleFacilityClick = async (facility: Facility) => {
+    try {
+      setIsLoadingDetail(true);
+      setDetailError(null);
+      
+      const response = await getInkjetPrinterDetail(facility.id);
+      
+      if (response.isSuccess && response.result) {
+        const facilityDetail = mapDetailToFacility(response.result);
+        setSelectedFacility(facilityDetail);
+      } else {
+        setDetailError(response.message || '설비 상세 조회에 실패했습니다.');
+        // 에러가 있어도 기본 정보는 표시
+        setSelectedFacility(facility);
+      }
+    } catch (err) {
+      console.error('설비 상세 조회 실패:', err);
+      setDetailError(err instanceof Error ? err.message : '설비 상세 조회 중 오류가 발생했습니다.');
+      // 에러가 있어도 기본 정보는 표시
+      setSelectedFacility(facility);
+    } finally {
+      setIsLoadingDetail(false);
+    }
+  };
+
+  // 설비 목록 조회
+  const fetchFacilities = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await getInkjetPrinters({
+        page: 0,
+        size: 100, // 모든 설비를 가져오기 위해 큰 값 설정
+      });
+
+      if (response.isSuccess && response.result) {
+        const mappedFacilities = response.result.content.map(mapInkjetToFacility);
+        setFacilities(mappedFacilities);
+      } else {
+        setError(response.message || '설비 목록 조회에 실패했습니다.');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '설비 목록 조회 중 오류가 발생했습니다.');
+      console.error('설비 목록 조회 실패:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchFacilities();
   }, []);
 
@@ -223,7 +278,7 @@ export default function SimulationPage() {
                   <div className="h-[600px]">
                     <FacilityList 
                       facilities={facilities}
-                      onFacilityClick={(facility) => setSelectedFacility(facility)}
+                      onFacilityClick={handleFacilityClick}
                     />
                   </div>
                 </div>
@@ -234,7 +289,12 @@ export default function SimulationPage() {
             {selectedFacility && (
               <FacilityDetailPanel
                 facility={selectedFacility}
-                onClose={() => setSelectedFacility(null)}
+                onClose={() => {
+                  setSelectedFacility(null);
+                  setDetailError(null);
+                }}
+                isLoading={isLoadingDetail}
+                error={detailError}
               />
             )}
           </div>
@@ -248,9 +308,9 @@ export default function SimulationPage() {
           setIsAddModalOpen(false);
           setSelectedLocation(null);
         }}
-        onAdd={(facilityData) => {
-          console.log('설비 추가:', facilityData);
-          // 여기에 실제 설비 추가 로직 구현
+        onAdd={async (facilityData) => {
+          // 설비 추가 성공 후 목록 새로고침
+          await fetchFacilities();
           setIsAddModalOpen(false);
           setSelectedLocation(null);
         }}

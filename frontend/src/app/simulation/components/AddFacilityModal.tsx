@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import CommonModal from '@/components/ui/CommonModal';
 import CommonButton from '@/components/ui/CommonButton';
+import { createInkjetPrinter } from '@/service/inkjet';
 
 interface AddFacilityModalProps {
   isOpen: boolean;
@@ -32,8 +33,9 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
   const [gpu, setGpu] = useState('');
   const [ram, setRam] = useState('');
   const [vram, setVram] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!printerName || !modelName || !installDate || !cpu || !gpu || !ram || !vram) {
       alert('모든 필드를 입력해주세요.');
       return;
@@ -44,27 +46,56 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
       return;
     }
 
-    onAdd({
-      printerName,
-      modelName,
-      installDate,
-      cpu,
-      gpu,
-      ram,
-      vram,
-      canvasX: selectedPosition.x,
-      canvasY: selectedPosition.y,
-    });
+    try {
+      setIsSubmitting(true);
 
-    // 폼 초기화
-    setPrinterName('');
-    setModelName('');
-    setInstallDate('');
-    setCpu('');
-    setGpu('');
-    setRam('');
-    setVram('');
-    onClose();
+      // API 호출
+      const response = await createInkjetPrinter({
+        modelName,
+        printerName,
+        installDate,
+        cpu,
+        gpu,
+        ram,
+        vram,
+        printerStatus: 'OPERATIONAL', // 기본값: 정상
+        processStatus: 'WAITING', // 기본값: 대기
+        canvasX: selectedPosition.x,
+        canvasY: selectedPosition.y,
+      });
+
+      if (response.isSuccess) {
+        // 성공 시 부모 컴포넌트에 알림
+        onAdd({
+          printerName,
+          modelName,
+          installDate,
+          cpu,
+          gpu,
+          ram,
+          vram,
+          canvasX: selectedPosition.x,
+          canvasY: selectedPosition.y,
+        });
+
+        // 폼 초기화
+        setPrinterName('');
+        setModelName('');
+        setInstallDate('');
+        setCpu('');
+        setGpu('');
+        setRam('');
+        setVram('');
+        onClose();
+      } else {
+        alert(response.message || '설비 추가에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('설비 추가 실패:', error);
+      alert(error instanceof Error ? error.message : '설비 추가 중 오류가 발생했습니다.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = () => {
@@ -217,11 +248,11 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
 
         {/* 버튼 */}
         <div className="flex justify-end gap-3 mt-6">
-          <CommonButton variant="gray" onClick={handleClose}>
+          <CommonButton variant="gray" onClick={handleClose} disabled={isSubmitting}>
             취소
           </CommonButton>
-          <CommonButton variant="blue" onClick={handleSubmit}>
-            추가
+          <CommonButton variant="blue" onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? '추가 중...' : '추가'}
           </CommonButton>
         </div>
       </div>

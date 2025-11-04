@@ -10,7 +10,7 @@ export interface GetInkjetPrintersParams {
   size?: number;
 }
 
-// 설비 정보 응답 타입
+// 설비 정보 응답 타입 (목록 조회용)
 export interface InkjetPrinter {
   inkjetUuid: string;
   printerName: string;
@@ -18,6 +18,25 @@ export interface InkjetPrinter {
   printerStatus: string; // "BROKEN" | "UNDER_REPAIR" | "OPERATIONAL"
   processStatus: string; // "WAITING" | "RUNNING"
   installDate: string; // YYYY-MM-DD 형식
+}
+
+// 설비 상세 정보 응답 타입
+export interface InkjetPrinterDetail {
+  inkjetUuid: string;
+  printerName: string;
+  modelName: string;
+  printerStatus: string; // "BROKEN" | "UNDER_REPAIR" | "OPERATIONAL"
+  processStatus: string; // "WAITING" | "RUNNING"
+  installDate: string; // YYYY-MM-DD 형식
+  cpu: string;
+  gpu: string;
+  ram: string;
+  vram: string;
+  sheetCount: number | null;
+  tiffName: string | null;
+  tiffUrl: string | null;
+  canvasX: number;
+  canvasY: number;
 }
 
 // 페이지네이션 정보
@@ -94,6 +113,92 @@ export async function getInkjetPrinters(
   }
 
   const data: ApiResponse<GetInkjetPrintersResponse> = await response.json();
+  return data;
+}
+
+// 설비 등록 요청 타입
+export interface CreateInkjetPrinterRequest {
+  modelName: string;
+  printerName: string;
+  installDate: string; // YYYY-MM-DD 형식
+  cpu: string;
+  gpu: string;
+  ram: string;
+  vram: string;
+  printerStatus: string; // "BROKEN" | "UNDER_REPAIR" | "OPERATIONAL"
+  processStatus: string; // "WAITING" | "RUNNING"
+  canvasX: number;
+  canvasY: number;
+}
+
+/**
+ * 잉크젯 설비 등록 API 호출
+ * @param data 설비 등록 요청 데이터
+ * @returns 설비 등록 응답 데이터
+ */
+export async function createInkjetPrinter(
+  data: CreateInkjetPrinterRequest
+): Promise<ApiResponse<null>> {
+  const accessToken = localStorage.getItem("accessToken");
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  // 토큰이 있으면 Authorization 헤더에 추가
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/inkjet-printer`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `설비 등록 실패: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const result: ApiResponse<null> = await response.json();
+  return result;
+}
+
+/**
+ * 잉크젯 설비 상세 조회 API 호출
+ * @param inkjetUuid 설비 UUID
+ * @returns 설비 상세 정보 응답 데이터
+ */
+export async function getInkjetPrinterDetail(
+  inkjetUuid: string
+): Promise<ApiResponse<InkjetPrinterDetail>> {
+  const accessToken = localStorage.getItem("accessToken");
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  // 토큰이 있으면 Authorization 헤더에 추가
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/inkjet-printer/${inkjetUuid}`, {
+    method: "GET",
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `설비 상세 조회 실패: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const data: ApiResponse<InkjetPrinterDetail> = await response.json();
   return data;
 }
 
