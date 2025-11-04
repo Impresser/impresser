@@ -31,7 +31,7 @@ export default function FacilityList({ facilities, onFacilityClick }: FacilityLi
       case 'inactive':
         return '고장';
       case 'maintenance':
-        return '수리 중';
+        return '점검중';
       default:
         return '알 수 없음';
     }
