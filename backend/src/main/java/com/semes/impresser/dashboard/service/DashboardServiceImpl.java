@@ -10,11 +10,21 @@ import com.semes.impresser.convertImage.repository.ConvertHistoryRepository;
 import com.semes.impresser.dashboard.dto.response.ConvertAvgSpeedListResponse;
 import com.semes.impresser.dashboard.dto.response.ConvertHistoryDetailResponse;
 import com.semes.impresser.dashboard.dto.response.ConvertHistoryListResponse;
+import com.semes.impresser.dashboard.dto.response.InkjetDailyUsageCompareResponse;
+import com.semes.impresser.dashboard.dto.response.InkjetDailyUsageResponse;
+import com.semes.impresser.dashboard.dto.response.InkjetDailyUsageStatResponse;
+import com.semes.impresser.dashboard.dto.response.InkjetWeeklyUsageResponse;
+import com.semes.impresser.inkjet.repository.InkjetRepository;
+import java.time.DayOfWeek;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -26,6 +36,7 @@ import org.springframework.stereotype.Service;
 public class DashboardServiceImpl implements DashboardService {
 
     private final ConvertHistoryRepository convertHistoryRepository;
+    private final InkjetRepository inkjetRepository;
 
     @Override
     public PageResponse<ConvertAvgSpeedListResponse> getConvertAvgSpeedList(Integer page,
@@ -111,8 +122,74 @@ public class DashboardServiceImpl implements DashboardService {
         }
 
         ConvertHistoryDetailResponse convertHistoryDetailResponse =
-            ConvertHistoryDetailResponse.toDto(history,elapsedTime);
+            ConvertHistoryDetailResponse.toDto(history, elapsedTime);
 
         return convertHistoryDetailResponse;
+    }
+
+    @Override
+    public InkjetDailyUsageCompareResponse getInkjetDailyUsageCompare() {
+
+        Optional<UUID> currentUserUuid = SecurityUtil.getCurrentUserUuid();
+        if (currentUserUuid.isEmpty()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST);
+        }
+
+        LocalDate today = LocalDate.now();
+
+        LocalDate currentMonday = today.with(DayOfWeek.MONDAY);
+        LocalDate currentSunday = currentMonday.plusDays(6);
+
+        LocalDate previousMonday = currentMonday.minusWeeks(1);
+        LocalDate previousSunday = currentMonday.minusDays(1);
+
+        List<InkjetDailyUsageStatResponse> currentStats =
+            inkjetRepository.getDailyAvgUsage(currentMonday, currentSunday);
+
+        List<InkjetDailyUsageStatResponse> previousStats =
+            inkjetRepository.getDailyAvgUsage(previousMonday, previousSunday);
+
+        Map<LocalDate, Double> currentMap = currentStats.stream()
+            .collect(Collectors.toMap(
+                stat -> stat.date().toLocalDate(),
+                InkjetDailyUsageStatResponse::usageHours
+            ));
+
+        Map<LocalDate, Double> previousMap = previousStats.stream()
+            .collect(Collectors.toMap(
+                stat -> stat.date().toLocalDate(),
+                InkjetDailyUsageStatResponse::usageHours
+            ));
+
+        List<InkjetDailyUsageResponse> currentDays = new ArrayList<>();
+        List<InkjetDailyUsageResponse> previousDays = new ArrayList<>();
+
+        for (int i = 0; i < 7; i++) {
+            LocalDate curDate = currentMonday.plusDays(i);
+            LocalDate prevDate = previousMonday.plusDays(i);
+
+            Double curHours = currentMap.getOrDefault(curDate, 0.0);
+            Double prevHours = previousMap.getOrDefault(prevDate, 0.0);
+
+            String dayLabel = curDate.getDayOfWeek().name().substring(0, 3);
+
+            currentDays.add(new InkjetDailyUsageResponse(dayLabel, curHours));
+            previousDays.add(new InkjetDailyUsageResponse(dayLabel, prevHours));
+        }
+
+        InkjetWeeklyUsageResponse currentWeek = new InkjetWeeklyUsageResponse(
+            currentMonday + " ~ " + currentSunday,
+            currentDays
+        );
+
+        InkjetWeeklyUsageResponse previousWeek = new InkjetWeeklyUsageResponse(
+            previousMonday + " ~ " + previousSunday,
+            previousDays
+        );
+
+        InkjetDailyUsageCompareResponse inkjetDailyUsageCompareResponse =
+            new InkjetDailyUsageCompareResponse(previousWeek, currentWeek);
+
+        return inkjetDailyUsageCompareResponse;
     }
 }

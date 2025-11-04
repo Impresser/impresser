@@ -2,24 +2,27 @@ package com.semes.impresser.inkjet.repository;
 
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Projections;
+import com.querydsl.core.types.dsl.DateExpression;
 import com.querydsl.core.types.dsl.Expressions;
+import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.semes.impresser.dashboard.dto.response.InkjetDailyUsageStatResponse;
+import com.semes.impresser.inkjet.dto.response.AllInkjetResponse;
 import com.semes.impresser.inkjet.dto.response.InkjetResponse;
 import com.semes.impresser.inkjet.dto.response.TotalJobResponse;
 import com.semes.impresser.inkjet.entity.JobHistory;
-import com.semes.impresser.inkjet.dto.response.AllInkjetResponse;
 import com.semes.impresser.inkjet.entity.QInkjetPrinter;
 import com.semes.impresser.inkjet.entity.QJobHistory;
-import com.semes.impresser.s3.service.FilePresignedService;
-import java.time.LocalDateTime;
-import java.util.UUID;
+import java.sql.Date;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
-import java.util.List;
-import java.util.Optional;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -147,5 +150,43 @@ public class InkjetRepositoryCustomImpl implements InkjetRepositoryCustom {
             .fetchOne();
 
         return totalJobResponse;
+    }
+
+    @Override
+    public List<InkjetDailyUsageStatResponse> getDailyAvgUsage(
+        LocalDate startDate,
+        LocalDate endDate
+    ) {
+        DateExpression<Date> jobDate = Expressions.dateTemplate(
+            Date.class,
+            "date({0})",
+            jobHistory.requestedAt
+        );
+
+        NumberExpression<Double> usageSecondsExpr = Expressions.numberTemplate(
+            Double.class,
+            "timestampdiff(SECOND, {0}, {1})",
+            jobHistory.requestedAt,
+            jobHistory.completedAt
+        );
+
+        NumberExpression<Double> avgUsageHoursExpr =
+            usageSecondsExpr.avg().divide(3600.0);
+
+        return queryFactory
+            .select(Projections.constructor(
+                InkjetDailyUsageStatResponse.class,
+                jobDate,
+                avgUsageHoursExpr
+            ))
+            .from(jobHistory)
+            .where(
+                jobDate.goe(Date.valueOf(startDate))
+                    .and(jobDate.loe(Date.valueOf(endDate)))
+                    .and(jobHistory.completedAt.isNotNull())
+            )
+            .groupBy(jobDate)
+            .orderBy(jobDate.asc())
+            .fetch();
     }
 }

@@ -5,6 +5,7 @@ import com.semes.impresser.common.response.PageResponse;
 import com.semes.impresser.dashboard.dto.response.ConvertAvgSpeedListResponse;
 import com.semes.impresser.dashboard.dto.response.ConvertHistoryDetailResponse;
 import com.semes.impresser.dashboard.dto.response.ConvertHistoryListResponse;
+import com.semes.impresser.dashboard.dto.response.InkjetDailyUsageCompareResponse;
 import com.semes.impresser.dashboard.service.DashboardService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.constraints.Min;
@@ -54,5 +55,13 @@ public class DashboardController {
         ConvertHistoryDetailResponse convertHistoryDetailResponse =
             dashboardService.getConvertHistoryDetail(convertHistoryUuid);
         return BaseResponse.onSuccess(convertHistoryDetailResponse);
+    }
+
+    @GetMapping("/inkjet/usage")
+    @Operation(summary = "전체 설비 일일 평균 이용 시간 비교 (이번주 vs 지난주)")
+    public BaseResponse<InkjetDailyUsageCompareResponse> getInkjetDailyUsageCompare() {
+        InkjetDailyUsageCompareResponse response =
+            dashboardService.getInkjetDailyUsageCompare();
+        return BaseResponse.onSuccess(response);
     }
 }
