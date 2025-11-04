@@ -31,11 +31,11 @@ public record CreateInkjetRequest(
     String gpu,
 
     @NotBlank
-    @Size(max = 5)
+    @Size(max = 20)
     String ram,
 
     @NotBlank
-    @Size(max = 5)
+    @Size(max = 20)
     String vram,
 
     @NotBlank

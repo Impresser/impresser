@@ -10,6 +10,7 @@ import com.semes.impresser.inkjet.entity.JobHistory;
 import com.semes.impresser.inkjet.dto.response.AllInkjetResponse;
 import com.semes.impresser.inkjet.entity.QInkjetPrinter;
 import com.semes.impresser.inkjet.entity.QJobHistory;
+import com.semes.impresser.s3.service.FilePresignedService;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import java.time.LocalDate;
@@ -61,7 +62,9 @@ public class InkjetRepositoryCustomImpl implements InkjetRepositoryCustom {
                 inkjetPrinter.modelName,
                 inkjetPrinter.printerStatus.stringValue(),
                 inkjetPrinter.processStatus.stringValue(),
-                inkjetPrinter.installDate
+                inkjetPrinter.installDate,
+                inkjetPrinter.canvasX,
+                inkjetPrinter.canvasY
             ))
             .from(inkjetPrinter)
             .where(builder)
@@ -95,13 +98,15 @@ public class InkjetRepositoryCustomImpl implements InkjetRepositoryCustom {
                 inkjetPrinter.ram,
                 inkjetPrinter.vram,
                 jobHistory.sheetCount,
-                jobHistory.imageKey))
+                Expressions.nullExpression(String.class),
+                jobHistory.imageKey,
+                inkjetPrinter.canvasX,
+                inkjetPrinter.canvasY))
             .from(inkjetPrinter)
             .leftJoin(jobHistory).on(inkjetPrinter.uuid.eq(jobHistory.printer.uuid)
                 .and(jobHistory.completedAt.isNull()))
             .where(inkjetPrinter.uuid.eq(inkjetUuid))
             .fetchOne();
-
         return inkjetResponse;
     }
 

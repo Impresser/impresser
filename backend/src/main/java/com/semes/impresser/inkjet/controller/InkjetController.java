@@ -102,7 +102,7 @@ public class InkjetController {
         return BaseResponse.onSuccess(jobHistoryListResponse);
     }
 
-    @PostMapping("/daily-production")
+    @GetMapping("/daily-production")
     @Operation(summary = "일일 패널 생산량 조회")
     public BaseResponse<TotalJobResponse> getTotalJobs() {
         TotalJobResponse totalJobResponse = inkjetService.getTotalJob();
