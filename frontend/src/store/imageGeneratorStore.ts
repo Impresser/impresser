@@ -22,6 +22,7 @@ export type JobStatus = "진행" | "완료";
 
 export type PatternJob = {
   id: string;
+  generationUuid?: string; // API 응답에서 받은 UUID
   createdAt: string; // ISO string
   imageSizeLabel: string; // e.g. 1920x1080
   status: JobStatus;
@@ -41,7 +42,7 @@ type ImageGeneratorStore = {
   // setters
   setFormField: (path: string, value: number | "") => void;
   resetForm: () => void;
-  addJob: (owner?: string) => void;
+  addJob: (owner?: string, generationUuid?: string) => string; // job ID 반환
   updateJobProgress: (id: string, progress: number) => void;
   markJobDone: (id: string) => void;
 };
@@ -100,7 +101,7 @@ export const useImageGeneratorStore = create<ImageGeneratorStore>((set, get) => 
 
   resetForm: () => set(() => ({ form: initialForm })),
 
-  addJob: (owner = "홍길동") => {
+  addJob: (owner = "홍길동", generationUuid?: string) => {
     const state = get();
     const { w, h } = state.form.imageSize;
     const imageSizeLabel = `${w || 0}x${h || 0}`;
@@ -110,6 +111,7 @@ export const useImageGeneratorStore = create<ImageGeneratorStore>((set, get) => 
     const id = `${Date.now()}`;
     const newJob: PatternJob = {
       id,
+      generationUuid,
       createdAt,
       imageSizeLabel,
       status: "진행",
@@ -121,6 +123,7 @@ export const useImageGeneratorStore = create<ImageGeneratorStore>((set, get) => 
       form: structuredClone(state.form), // 생성 시 폼 상태 저장
     };
     set((s) => ({ jobs: [newJob, ...s.jobs], generatedCount: s.generatedCount + 1 }));
+    return id; // job ID 반환
   },
 
   updateJobProgress: (id, progress) => {

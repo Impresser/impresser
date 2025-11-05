@@ -8,7 +8,7 @@ export const setAuthStore = (store: { setToken: (token: string) => void }) => {
   authStore = store;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://k13s404.p.ssafy.io/dev/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://k13s404.p.ssafy.io:8443/api/v1";
 
 /**
  * 로그인 API 호출
@@ -40,6 +40,7 @@ export async function login(loginData: LoginRequest): Promise<LoginResponse> {
  * @returns 로그아웃 응답 데이터
  */
 export async function logout(): Promise<LogoutResponse> {
+  // 로그아웃은 토큰 재발급 대상에서 제외 (순환 참조 방지)
   const accessToken = localStorage.getItem("accessToken");
 
   const headers: HeadersInit = {
@@ -80,6 +81,7 @@ export async function logout(): Promise<LogoutResponse> {
 /**
  * 토큰 재발급 API 호출
  * @returns 토큰 재발급 응답 데이터
+ * @note 이 함수는 fetchWithAuth에서 사용되므로 순환 참조를 피하기 위해 일반 fetch 사용
  */
 export async function reissueToken(): Promise<ReissueResponse> {
   const accessToken = localStorage.getItem("accessToken");
@@ -93,6 +95,7 @@ export async function reissueToken(): Promise<ReissueResponse> {
     headers["Authorization"] = `Bearer ${accessToken}`;
   }
 
+  // 토큰 재발급은 fetchWithAuth를 사용하지 않음 (순환 참조 방지)
   const response = await fetch(`${API_BASE_URL}/auth/reissue`, {
     method: "POST",
     headers,
