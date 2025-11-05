@@ -2,6 +2,7 @@ package com.semes.impresser.s3.service;
 
 import com.semes.impresser.s3.dto.request.CompleteMultipartUploadRequest;
 import com.semes.impresser.s3.dto.response.InitMultipartUploadResponse;
+import com.semes.impresser.s3.dto.response.CreateTiffUploadResponse;
 import com.semes.impresser.s3.dto.response.PresignedUrlListResponse;
 
 public interface FilePresignedService {
@@ -32,19 +33,5 @@ public interface FilePresignedService {
      */
     String getPresignedUrl(String objectName);
 
-    /**
-     * 파일명 추출
-     */
-    static String extractOriginalFileName(String objectName) {
-        if (objectName == null || objectName.isEmpty()) {
-            return null;
-        }
-        String fileName = objectName.substring(objectName.lastIndexOf("/") + 1);
-
-        if (fileName.length() > 37) { // 36(UUID) + 1('_')
-            return fileName.substring(37);
-        }
-
-        return fileName;
-    }
+    CreateTiffUploadResponse createTiffUpload(String fileName, String contentType);
 }

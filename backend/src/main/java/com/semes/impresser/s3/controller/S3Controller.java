@@ -3,10 +3,12 @@ package com.semes.impresser.s3.controller;
 import com.semes.impresser.common.response.BaseResponse;
 import com.semes.impresser.s3.dto.request.CompleteMultipartUploadRequest;
 import com.semes.impresser.s3.dto.response.InitMultipartUploadResponse;
+import com.semes.impresser.s3.dto.response.CreateTiffUploadResponse;
 import com.semes.impresser.s3.dto.response.PresignedUrlListResponse;
 import com.semes.impresser.s3.service.FilePresignedService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -65,5 +67,14 @@ public class S3Controller {
     ) {
         filePresignedService.abortMultipartUpload(objectName, uploadId);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(BaseResponse.onSuccess());
+    }
+
+    @PostMapping("/tiff/upload")
+    @Operation(summary = "TIFF 단일 업로드용 Presigned PUT URL 발급")
+    public BaseResponse<CreateTiffUploadResponse> createTiffUpload(
+        @RequestParam @NotBlank String fileName
+    ) {
+        CreateTiffUploadResponse response = filePresignedService.createTiffUpload(fileName, "image/tiff");
+        return BaseResponse.onSuccess(response);
     }
 }

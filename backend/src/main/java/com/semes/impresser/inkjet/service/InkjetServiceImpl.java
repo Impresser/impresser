@@ -17,12 +17,9 @@ import com.semes.impresser.inkjet.entity.JobHistory;
 import com.semes.impresser.inkjet.entity.PrinterStatus;
 import com.semes.impresser.inkjet.entity.ProcessStatus;
 import com.semes.impresser.inkjet.repository.InkjetRepository;
-import com.semes.impresser.inkjet.repository.InkjetRepositoryCustom;
-import com.semes.impresser.inkjet.repository.JobHistoryRepository;
-import com.semes.impresser.s3.service.FilePresignedService;
+import com.semes.impresser.common.util.S3Util;
 import jakarta.transaction.Transactional;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -135,7 +132,7 @@ public class InkjetServiceImpl implements InkjetService {
 
         String tiffUrl = tempInkjetResponse.tiffUrl();
 
-        String tiffName = FilePresignedService.extractOriginalFileName(tiffUrl);
+        String tiffName = S3Util.extractOriginalFileName(tiffUrl);
 
         InkjetResponse inkjetResponse = InkjetResponse.toDto(tiffName, tempInkjetResponse);
 
