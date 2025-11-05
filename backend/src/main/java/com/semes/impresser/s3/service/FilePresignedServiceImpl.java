@@ -4,6 +4,7 @@ import com.semes.impresser.common.config.S3Config;
 import com.semes.impresser.common.exception.BusinessException;
 import com.semes.impresser.common.exception.ErrorCode;
 import com.semes.impresser.s3.dto.response.InitMultipartUploadResponse;
+import com.semes.impresser.s3.dto.response.CreateTiffUploadResponse;
 import com.semes.impresser.s3.dto.response.PresignedUrlListResponse;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -23,10 +24,12 @@ import software.amazon.awssdk.services.s3.model.CreateMultipartUploadResponse;
 import software.amazon.awssdk.services.s3.model.ListPartsRequest;
 import software.amazon.awssdk.services.s3.model.ListPartsResponse;
 import software.amazon.awssdk.services.s3.model.Part;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedUploadPartRequest;
 
 @Service
@@ -190,6 +193,30 @@ public class FilePresignedServiceImpl implements FilePresignedService {
             return request.url().toString();
         } catch (Exception e) {
             e.printStackTrace();
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Override
+    public CreateTiffUploadResponse createTiffUpload(String fileName, String contentType) {
+        try {
+            String savedFileName = UUID.randomUUID() + "_" + fileName;
+            String objectName = "tiff/" + savedFileName;
+
+            PutObjectRequest por = PutObjectRequest.builder()
+                .bucket(s3Config.getBucket())
+                .key(objectName)
+                .contentType(contentType)
+                .build();
+
+            PresignedPutObjectRequest presigned = s3Presigner.presignPutObject(b -> b
+                .signatureDuration(Duration.ofMinutes(10))
+                .putObjectRequest(por));
+
+            return new CreateTiffUploadResponse(
+                objectName, fileName, savedFileName, presigned.url().toString()
+            );
+        } catch (Exception e) {
             throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
