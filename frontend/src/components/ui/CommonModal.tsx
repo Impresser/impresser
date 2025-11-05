@@ -10,19 +10,20 @@ interface CommonModalProps {
   leftOffset?: number;
   topOffset?: number;
   style?: React.CSSProperties;
+  hideBackdrop?: boolean;
 }
 
-export default function CommonModal({ children, isOpen, onClose, className = '', leftOffset = 0, topOffset = 0, style }: CommonModalProps) {
+export default function CommonModal({ children, isOpen, onClose, className = '', leftOffset = 0, topOffset = 0, style, hideBackdrop = false }: CommonModalProps) {
   if (!isOpen) return null;
 
   return (
     <div
-      className="
+      className={`
         fixed
         flex items-center justify-center
-        bg-black/50
+        ${hideBackdrop ? '' : 'bg-black/50'}
         z-50
-      "
+      `}
       style={{
         left: leftOffset > 0 ? `${leftOffset}px` : '0',
         top: topOffset > 0 ? `${topOffset}px` : '0',

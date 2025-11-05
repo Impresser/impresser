@@ -1,19 +1,58 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Facility } from './FacilityStatistics';
 import CommonTable, { QueueItem, HistoryItem } from '@/components/ui/CommonTable';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
+import CommonButton from '@/components/ui/CommonButton';
+import { deleteInkjetPrinter, getInkjetJobs, type InkjetJob } from '@/service/inkjet';
 
 interface FacilityDetailPanelProps {
   facility: Facility | null;
   onClose: () => void;
+  onDelete?: (facilityId: string) => void;
   isLoading?: boolean;
   error?: string | null;
+  isAdmin?: boolean;
 }
 
-export default function FacilityDetailPanel({ facility, onClose, isLoading = false, error = null }: FacilityDetailPanelProps) {
+export default function FacilityDetailPanel({ 
+  facility, 
+  onClose, 
+  onDelete,
+  isLoading = false, 
+  error = null,
+  isAdmin = false 
+}: FacilityDetailPanelProps) {
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
   if (!facility) return null;
+
+  const handleDelete = async () => {
+    if (!confirm(`정말로 "${facility.name}" 설비를 삭제하시겠습니까?`)) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      setDeleteError(null);
+      
+      await deleteInkjetPrinter(facility.id);
+      
+      // 삭제 성공 시 부모 컴포넌트에 알림
+      onDelete?.(facility.id);
+      onClose();
+    } catch (err) {
+      console.error('설비 삭제 실패:', err);
+      setDeleteError(err instanceof Error ? err.message : '설비 삭제 중 오류가 발생했습니다.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   // 설비별 대기열 및 작업내역 데이터 - 실제로는 API에서 가져와야 함
   // 임시로 설비 ID별로 다른 데이터 제공
@@ -100,69 +139,62 @@ export default function FacilityDetailPanel({ facility, onClose, isLoading = fal
     return queueData[facilityId] || [];
   };
 
-  const getHistoryItems = (facilityId: string): HistoryItem[] => {
-    // 각 설비별로 다른 작업내역 데이터
-    const historyData: Record<string, HistoryItem[]> = {
-      '1': [
-        {
-          id: '1-h1',
-          fileName: 'image003.bmp',
-          processingMethod: 'CPU',
-          algorithm: 'RLE (Run-Length Encoding)',
-          version: '1.0',
-          fileSize: 512000,
-          status: '완료',
-          assignedUser: '홍길동',
-          completedTime: new Date(Date.now() - 3600000), // 1시간 전
-          duration: 180,
-        },
-        {
-          id: '1-h2',
-          fileName: 'image004.bmp',
-          processingMethod: 'GPU',
-          algorithm: 'Arithmetic Coding',
-          version: '3.0',
-          fileSize: 3145728,
-          status: '완료',
-          assignedUser: '홍길동',
-          completedTime: new Date(Date.now() - 7200000), // 2시간 전
-          duration: 420,
-        },
-      ],
-      '2': [
-        {
-          id: '2-h1',
-          fileName: 'image008.bmp',
-          processingMethod: 'GPU',
-          algorithm: 'Huffman Coding',
-          version: '2.0',
-          fileSize: 1048576,
-          status: '완료',
-          assignedUser: '홍길동',
-          completedTime: new Date(Date.now() - 10800000), // 3시간 전
-          duration: 300,
-        },
-      ],
-      '5': [
-        {
-          id: '5-h1',
-          fileName: 'image009.bmp',
-          processingMethod: 'GPU',
-          algorithm: 'LZW (Lempel-Ziv-Welch)',
-          version: '2.0',
-          fileSize: 4194304,
-          status: '완료',
-          assignedUser: '홍길동',
-          completedTime: new Date(Date.now() - 5400000), // 1.5시간 전
-          duration: 360,
-        },
-      ],
+  // API 응답을 HistoryItem 타입으로 변환
+  const mapJobToHistoryItem = (job: InkjetJob): HistoryItem => {
+    // tiffImageUrl에서 파일명 추출 (예: "s3://demo/20251107_01.bmp" -> "20251107_01.bmp")
+    const fileName = job.tiffImageUrl.split('/').pop() || job.tiffImageUrl;
+    
+    // duration 계산 (completedAt - requestedAt, 초 단위)
+    const requestedTime = new Date(job.requestedAt).getTime();
+    const completedTime = new Date(job.completedAt).getTime();
+    const duration = Math.floor((completedTime - requestedTime) / 1000); // 초 단위
+
+    return {
+      id: job.jobUuid,
+      fileName,
+      processingMethod: '-', // API에 없음
+      algorithm: '-', // API에 없음
+      version: '-', // API에 없음
+      fileSize: 0, // API에 없음
+      status: '완료',
+      assignedUser: '-', // API에 없음
+      completedTime: new Date(job.completedAt),
+      duration,
     };
-    return historyData[facilityId] || [];
   };
 
+  // 설비가 변경되거나 로딩이 완료되면 작업 내역 조회
+  useEffect(() => {
+    if (!facility || isLoading) return;
+
+    const fetchHistory = async () => {
+      try {
+        setIsLoadingHistory(true);
+        setHistoryError(null);
+
+        const response = await getInkjetJobs(facility.id, {
+          page: 0,
+          size: 100, // 모든 작업 내역을 가져오기 위해 큰 값 설정
+        });
+
+        if (response.isSuccess && response.result) {
+          const mappedHistory = response.result.content.content.map(mapJobToHistoryItem);
+          setHistoryItems(mappedHistory);
+        } else {
+          setHistoryError(response.message || '작업 내역 조회에 실패했습니다.');
+        }
+      } catch (err) {
+        console.error('작업 내역 조회 실패:', err);
+        setHistoryError(err instanceof Error ? err.message : '작업 내역 조회 중 오류가 발생했습니다.');
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    fetchHistory();
+  }, [facility?.id, isLoading]);
+
   const queueItems = getQueueItems(facility.id);
-  const historyItems = getHistoryItems(facility.id);
 
   // 전체 진행률 계산 (진행 중인 항목들만)
   const processingItems = queueItems.filter(item => item.status === '진행');
@@ -233,24 +265,36 @@ export default function FacilityDetailPanel({ facility, onClose, isLoading = fal
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-semibold text-gray-900">설비 상세 정보</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <div className="flex items-center gap-2">
+            {isAdmin && (
+              <CommonButton
+                onClick={handleDelete}
+                disabled={isDeleting}
+                variant="red"
+                className="px-3 py-1.5 text-sm"
+              >
+                {isDeleting ? '삭제 중...' : '삭제'}
+              </CommonButton>
+            )}
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* 로딩 상태 */}
@@ -264,6 +308,13 @@ export default function FacilityDetailPanel({ facility, onClose, isLoading = fal
         {error && !isLoading && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
             <p className="text-red-800 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* 삭제 에러 상태 */}
+        {deleteError && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <p className="text-red-800 text-sm">{deleteError}</p>
           </div>
         )}
 
@@ -350,15 +401,33 @@ export default function FacilityDetailPanel({ facility, onClose, isLoading = fal
       {!isLoading && (
         <CommonContainerBox>
         <h3 className="text-lg font-semibold text-gray-900 mb-4">작업내역</h3>
-        <CommonTable
-          data={historyItems}
-          emptyMessage="작업 내역이 없습니다."
-          mode="history"
-          onDownload={(item) => {
-            console.log('다운로드:', item.fileName);
-            // 여기에 실제 다운로드 로직 구현
-          }}
-        />
+        
+        {/* 로딩 상태 */}
+        {isLoadingHistory && (
+          <div className="flex justify-center items-center py-8">
+            <div className="text-gray-500">작업 내역을 불러오는 중...</div>
+          </div>
+        )}
+
+        {/* 에러 상태 */}
+        {historyError && !isLoadingHistory && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <p className="text-red-800 text-sm">{historyError}</p>
+          </div>
+        )}
+
+        {/* 작업 내역 테이블 */}
+        {!isLoadingHistory && (
+          <CommonTable
+            data={historyItems}
+            emptyMessage="작업 내역이 없습니다."
+            mode="history"
+            onDownload={(item) => {
+              console.log('다운로드:', item.fileName);
+              // 여기에 실제 다운로드 로직 구현
+            }}
+          />
+        )}
       </CommonContainerBox>
       )}
     </div>

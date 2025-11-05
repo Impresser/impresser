@@ -202,3 +202,150 @@ export async function getInkjetPrinterDetail(
   return data;
 }
 
+/**
+ * 잉크젯 설비 삭제 API 호출
+ * @param inkjetUuid 설비 UUID
+ * @returns 삭제 성공 여부
+ */
+export async function deleteInkjetPrinter(
+  inkjetUuid: string
+): Promise<void> {
+  const accessToken = localStorage.getItem("accessToken");
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  // 토큰이 있으면 Authorization 헤더에 추가
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/inkjet-printer/${inkjetUuid}`, {
+    method: "DELETE",
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `설비 삭제 실패: ${response.status} ${response.statusText}`
+    );
+  }
+
+  // 204 No Content 응답이므로 body가 없음
+  return;
+}
+
+// 작업 내역 조회 요청 파라미터
+export interface GetInkjetJobsParams {
+  page?: number;
+  size?: number;
+}
+
+// 작업 내역 항목
+export interface InkjetJob {
+  jobUuid: string;
+  tiffImageUrl: string;
+  requestedAt: string; // ISO 8601 형식
+  completedAt: string; // ISO 8601 형식
+  sheetCount: number;
+}
+
+// 작업 내역 조회 응답 타입
+export interface GetInkjetJobsResponse {
+  inkjetUuid: string;
+  printerName: string;
+  modelName: string;
+  content: {
+    content: InkjetJob[];
+    pagination: PaginationInfo;
+  };
+}
+
+/**
+ * 잉크젯 설비별 작업 내역 조회 API 호출
+ * @param inkjetUuid 설비 UUID
+ * @param params 조회 파라미터
+ * @returns 작업 내역 조회 응답 데이터
+ */
+export async function getInkjetJobs(
+  inkjetUuid: string,
+  params?: GetInkjetJobsParams
+): Promise<ApiResponse<GetInkjetJobsResponse>> {
+  const accessToken = localStorage.getItem("accessToken");
+
+  // Query 파라미터 구성
+  const queryParams = new URLSearchParams();
+  if (params?.page !== undefined) {
+    queryParams.append("page", params.page.toString());
+  }
+  if (params?.size !== undefined) {
+    queryParams.append("size", params.size.toString());
+  }
+
+  const url = `${API_BASE_URL}/inkjet-printer/${inkjetUuid}/jobs${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  // 토큰이 있으면 Authorization 헤더에 추가
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `작업 내역 조회 실패: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const data: ApiResponse<GetInkjetJobsResponse> = await response.json();
+  return data;
+}
+
+// 일일 패널 생산량 응답 타입
+export interface DailyProductionResponse {
+  totalSheetCount: number;
+  completedDate: string; // YYYY-MM-DD 형식
+}
+
+/**
+ * 일일 패널 생산량 조회 API 호출
+ * @returns 일일 패널 생산량 응답 데이터
+ */
+export async function getDailyProduction(): Promise<ApiResponse<DailyProductionResponse>> {
+  const accessToken = localStorage.getItem("accessToken");
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  // 토큰이 있으면 Authorization 헤더에 추가
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/inkjet-printer/daily-production`, {
+    method: "GET",
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `일일 패널 생산량 조회 실패: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const data: ApiResponse<DailyProductionResponse> = await response.json();
+  return data;
+}
+

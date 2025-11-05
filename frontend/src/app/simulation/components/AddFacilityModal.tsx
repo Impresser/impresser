@@ -117,6 +117,7 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
       className="w-full max-w-2xl" 
       leftOffset={sidebarWidth}
       topOffset={navbarHeight}
+      hideBackdrop={true}
     >
       <div className="w-full">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">설비 추가</h2>
