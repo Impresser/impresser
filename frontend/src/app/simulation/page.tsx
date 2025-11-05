@@ -10,7 +10,7 @@ import FacilityDetailPanel from './components/FacilityDetailPanel';
 import AddFacilityModal from './components/AddFacilityModal';
 import AuthGuard from '@/components/auth/AuthGuard';
 import { useAuthStore } from '@/store/authStore';
-import { getInkjetPrinters, getInkjetPrinterDetail, type InkjetPrinter, type InkjetPrinterDetail } from '@/service/inkjet';
+import { getInkjetPrinters, getInkjetPrinterDetail, getDailyProduction, type InkjetPrinter, type InkjetPrinterDetail, type DailyProductionResponse } from '@/service/inkjet';
 import type { TileType } from './components/IsometricMap';
 import type { Facility } from './components/FacilityStatistics';
 
@@ -34,6 +34,11 @@ export default function SimulationPage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  
+  // 일일 패널 생산량 상태
+  const [dailyProduction, setDailyProduction] = useState<DailyProductionResponse | null>(null);
+  const [isLoadingProduction, setIsLoadingProduction] = useState(false);
+  const [productionError, setProductionError] = useState<string | null>(null);
 
   // Sidebar 너비 측정
   useEffect(() => {
@@ -200,8 +205,30 @@ export default function SimulationPage() {
     }
   };
 
+  // 일일 패널 생산량 조회
+  const fetchDailyProduction = async () => {
+    try {
+      setIsLoadingProduction(true);
+      setProductionError(null);
+      
+      const response = await getDailyProduction();
+      
+      if (response.isSuccess && response.result) {
+        setDailyProduction(response.result);
+      } else {
+        setProductionError(response.message || '일일 패널 생산량 조회에 실패했습니다.');
+      }
+    } catch (err) {
+      console.error('일일 패널 생산량 조회 실패:', err);
+      setProductionError(err instanceof Error ? err.message : '일일 패널 생산량 조회 중 오류가 발생했습니다.');
+    } finally {
+      setIsLoadingProduction(false);
+    }
+  };
+
   useEffect(() => {
     fetchFacilities();
+    fetchDailyProduction();
   }, []);
 
   // 맵에 표시할 설비 위치 데이터
@@ -228,12 +255,27 @@ export default function SimulationPage() {
             {/* 설비 시뮬레이션 타이틀 및 통계 */}
             <div className="flex items-center justify-between mb-6">
               <h1 className="text-2xl font-bold text-gray-900">잉크젯 프린트 공정</h1>
-              {!isLoading && !error && <FacilityStatistics facilities={facilities} />}
-              {error && (
-                <div className="text-sm text-red-600">
-                  {error}
-                </div>
-              )}
+              <div className="flex items-center gap-6">
+                {!isLoading && !error && <FacilityStatistics facilities={facilities} />}
+                {/* 일일 패널 생산량 */}
+                {!isLoadingProduction && dailyProduction && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">일일 패널 생산량:</span>
+                    <span className="text-sm font-semibold text-blue-600">{dailyProduction.totalSheetCount}장</span>
+                    <span className="text-xs text-gray-500">({dailyProduction.completedDate})</span>
+                  </div>
+                )}
+                {productionError && (
+                  <div className="text-xs text-red-600">
+                    {productionError}
+                  </div>
+                )}
+                {error && (
+                  <div className="text-sm text-red-600">
+                    {error}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* 로딩 상태 */}
@@ -293,8 +335,13 @@ export default function SimulationPage() {
                   setSelectedFacility(null);
                   setDetailError(null);
                 }}
+                onDelete={async (facilityId: string) => {
+                  // 삭제 후 목록 새로고침
+                  await fetchFacilities();
+                }}
                 isLoading={isLoadingDetail}
                 error={detailError}
+                isAdmin={isAdmin}
               />
             )}
           </div>
