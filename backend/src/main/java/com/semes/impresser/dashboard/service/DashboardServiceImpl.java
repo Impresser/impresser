@@ -15,10 +15,13 @@ import com.semes.impresser.dashboard.dto.response.InkjetDailyUsageResponse;
 import com.semes.impresser.dashboard.dto.response.InkjetDailyUsageStatResponse;
 import com.semes.impresser.dashboard.dto.response.InkjetWeeklyUsageResponse;
 import com.semes.impresser.inkjet.repository.InkjetRepository;
+import java.sql.Date;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -137,27 +140,31 @@ public class DashboardServiceImpl implements DashboardService {
 
         LocalDate today = LocalDate.now();
 
-        LocalDate currentMonday = today.with(DayOfWeek.MONDAY);
-        LocalDate currentSunday = currentMonday.plusDays(6);
+        LocalDate currentSunday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.SUNDAY));
+        LocalDate currentSaturday = currentSunday.plusDays(6);
 
-        LocalDate previousMonday = currentMonday.minusWeeks(1);
-        LocalDate previousSunday = currentMonday.minusDays(1);
+        LocalDate previousSunday = currentSunday.minusWeeks(1);
+        LocalDate previousSaturday = previousSunday.plusDays(6);
 
         List<InkjetDailyUsageStatResponse> currentStats =
-            inkjetRepository.getDailyAvgUsage(currentMonday, currentSunday);
+            inkjetRepository.getDailyAvgUsage(currentSunday, currentSaturday);
 
         List<InkjetDailyUsageStatResponse> previousStats =
-            inkjetRepository.getDailyAvgUsage(previousMonday, previousSunday);
+            inkjetRepository.getDailyAvgUsage(previousSunday, previousSaturday);
 
         Map<LocalDate, Double> currentMap = currentStats.stream()
             .collect(Collectors.toMap(
-                stat -> stat.date().toLocalDate(),
+                stat -> (stat.date() instanceof Date)
+                    ? ((Date) stat.date()).toLocalDate()
+                    : stat.date().toInstant().atZone(ZoneId.systemDefault()).toLocalDate(),
                 InkjetDailyUsageStatResponse::usageHours
             ));
 
         Map<LocalDate, Double> previousMap = previousStats.stream()
             .collect(Collectors.toMap(
-                stat -> stat.date().toLocalDate(),
+                stat -> (stat.date() instanceof Date)
+                    ? ((Date) stat.date()).toLocalDate()
+                    : stat.date().toInstant().atZone(ZoneId.systemDefault()).toLocalDate(),
                 InkjetDailyUsageStatResponse::usageHours
             ));
 
@@ -165,31 +172,36 @@ public class DashboardServiceImpl implements DashboardService {
         List<InkjetDailyUsageResponse> previousDays = new ArrayList<>();
 
         for (int i = 0; i < 7; i++) {
-            LocalDate curDate = currentMonday.plusDays(i);
-            LocalDate prevDate = previousMonday.plusDays(i);
+            LocalDate curDate = currentSunday.plusDays(i);
+            LocalDate prevDate = previousSunday.plusDays(i);
 
-            Double curHours = currentMap.getOrDefault(curDate, 0.0);
-            Double prevHours = previousMap.getOrDefault(prevDate, 0.0);
+            double curHours = currentMap.getOrDefault(curDate, 0.0);
+            double prevHours = previousMap.getOrDefault(prevDate, 0.0);
 
-            String dayLabel = curDate.getDayOfWeek().name().substring(0, 3);
+            String dayLabel = switch (curDate.getDayOfWeek()) {
+                case SUNDAY -> "일";
+                case MONDAY -> "월";
+                case TUESDAY -> "화";
+                case WEDNESDAY -> "수";
+                case THURSDAY -> "목";
+                case FRIDAY -> "금";
+                case SATURDAY -> "토";
+            };
 
             currentDays.add(new InkjetDailyUsageResponse(dayLabel, curHours));
             previousDays.add(new InkjetDailyUsageResponse(dayLabel, prevHours));
         }
 
         InkjetWeeklyUsageResponse currentWeek = new InkjetWeeklyUsageResponse(
-            currentMonday + " ~ " + currentSunday,
+            currentSunday + " ~ " + currentSaturday,
             currentDays
         );
 
         InkjetWeeklyUsageResponse previousWeek = new InkjetWeeklyUsageResponse(
-            previousMonday + " ~ " + previousSunday,
+            previousSunday + " ~ " + previousSaturday,
             previousDays
         );
 
-        InkjetDailyUsageCompareResponse inkjetDailyUsageCompareResponse =
-            new InkjetDailyUsageCompareResponse(previousWeek, currentWeek);
-
-        return inkjetDailyUsageCompareResponse;
+        return new InkjetDailyUsageCompareResponse(previousWeek, currentWeek);
     }
 }
