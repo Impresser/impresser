@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Papa from 'papaparse';
 import CommonButton from '@/components/ui/CommonButton';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
@@ -11,6 +11,41 @@ export default function PatternForm() {
   const { form, setFormField } = usePatternForm();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const previewContainerRef = useRef<HTMLDivElement | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+
+  // 패턴 미리보기가 실제로 표시되는지 확인
+  const hasPatternPreview = React.useMemo(() => {
+    const hasAnyInput = (
+      form.gapRG.x !== '' || form.gapRG.y !== '' ||
+      form.gapGB.x !== '' || form.gapGB.y !== '' ||
+      form.channels.R.size.x !== '' || form.channels.R.size.y !== '' ||
+      form.channels.G.size.x !== '' || form.channels.G.size.y !== '' ||
+      form.channels.B.size.x !== '' || form.channels.B.size.y !== '' ||
+      form.channels.R.spacing.x !== '' || form.channels.R.spacing.y !== '' ||
+      form.channels.G.spacing.x !== '' || form.channels.G.spacing.y !== '' ||
+      form.channels.B.spacing.x !== '' || form.channels.B.spacing.y !== ''
+    );
+
+    if (!hasAnyInput) return false;
+
+    const rSizeX = Number(form.channels.R.size.x);
+    const rSizeY = Number(form.channels.R.size.y);
+    const gSizeX = Number(form.channels.G.size.x);
+    const gSizeY = Number(form.channels.G.size.y);
+    const bSizeX = Number(form.channels.B.size.x);
+    const bSizeY = Number(form.channels.B.size.y);
+
+    const hasR = Number.isFinite(rSizeX) && rSizeX > 0 && Number.isFinite(rSizeY) && rSizeY > 0;
+    const hasG = Number.isFinite(gSizeX) && gSizeX > 0 && Number.isFinite(gSizeY) && gSizeY > 0;
+    const hasB = Number.isFinite(bSizeX) && bSizeX > 0 && Number.isFinite(bSizeY) && bSizeY > 0;
+
+    return hasR || hasG || hasB;
+  }, [form]);
 
   const handleClickUpload = useCallback(() => {
     fileInputRef.current?.click();
@@ -90,6 +125,39 @@ export default function PatternForm() {
       setFormField(path, Number.isNaN(num) ? '' : num);
     };
 
+  // 확대/축소 핸들러
+  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setZoom((prev) => Math.max(0.5, Math.min(5, prev * delta)));
+  }, []);
+
+  // 팬(드래그) 핸들러
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button === 0) { // 왼쪽 클릭
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - panX, y: e.clientY - panY });
+    }
+  }, [panX, panY]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (isPanning) {
+      setPanX(e.clientX - panStart.x);
+      setPanY(e.clientY - panStart.y);
+    }
+  }, [isPanning, panStart]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
+  // 확대/축소 리셋
+  const handleResetZoom = useCallback(() => {
+    setZoom(1);
+    setPanX(0);
+    setPanY(0);
+  }, []);
+
   // 🔹 미리보기 캔버스 렌더러
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -117,9 +185,10 @@ export default function PatternForm() {
     // 이미지 크기 적용: 입력 이미지 크기로 좌표계를 설정하고 캔버스에 비율 유지하여 맞춤
     const imgW = Number(form.imageSize.w) || cssWidth;
     const imgH = Number(form.imageSize.h) || cssHeight;
-    const scale = Math.min(cssWidth / imgW, viewH / imgH);
-    const offsetX = (cssWidth - imgW * scale) / 2;
-    const offsetY = (viewH - imgH * scale) / 2;
+    const baseScale = Math.min(cssWidth / imgW, viewH / imgH);
+    const finalScale = baseScale * zoom;
+    const offsetX = (cssWidth - imgW * finalScale) / 2 + panX;
+    const offsetY = (viewH - imgH * finalScale) / 2 + panY;
 
     // 입력 여부에 따라 미리보기 표시 결정
     const hasAnyInput = (
@@ -234,7 +303,7 @@ export default function PatternForm() {
     // 이미지 영역에 클립 후, 이미지 좌표계로 변환
     ctx.save();
     ctx.translate(offsetX, offsetY);
-    ctx.scale(scale, scale);
+    ctx.scale(finalScale, finalScale);
     ctx.beginPath();
     ctx.rect(0, 0, imgW, imgH);
     ctx.clip();
@@ -290,7 +359,7 @@ export default function PatternForm() {
       rowIndex += 1;
     }
     ctx.restore();
-  }, [form]);
+  }, [form, zoom, panX, panY]);
 
   return (
     <div>
@@ -374,12 +443,51 @@ export default function PatternForm() {
         </div>
       </CommonContainerBox>
           <CommonContainerBox className="flex-1 md:basis-1/3 flex flex-col p-6">
-            {/* 제목 */}
-            <h2 className="text-lg font-semibold text-gray-800 mb-2">패턴 미리보기</h2>
-      
             {/* 🔹 남는 공간을 모두 사용하는 미리보기 박스 */}
-            <div className="w-full flex-1 bg-[#4B4B4B] rounded-lg shadow-inner overflow-hidden">
-              <canvas ref={canvasRef} className="w-full h-full" />
+            <div className="relative w-full flex-1 bg-[#4B4B4B] rounded-lg shadow-inner overflow-hidden">
+              <div
+                ref={previewContainerRef}
+                className="w-full h-full cursor-grab active:cursor-grabbing"
+                onWheel={handleWheel}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+              >
+                <canvas ref={canvasRef} className="w-full h-full" />
+              </div>
+              {/* 확대/축소 컨트롤 - 패턴이 표시될 때만 보임 */}
+              {hasPatternPreview && (
+                <>
+                  <div className="absolute top-2 right-2 flex flex-col gap-2">
+                    <button
+                      onClick={() => setZoom((prev) => Math.min(5, prev + 0.1))}
+                      className="bg-white/90 hover:bg-white text-gray-700 rounded px-2 py-1 text-sm font-semibold shadow cursor-pointer"
+                      title="확대"
+                    >
+                      +
+                    </button>
+                    <button
+                      onClick={() => setZoom((prev) => Math.max(0.5, prev - 0.1))}
+                      className="bg-white/90 hover:bg-white text-gray-700 rounded px-2 py-1 text-sm font-semibold shadow cursor-pointer"
+                      title="축소"
+                    >
+                      −
+                    </button>
+                    <button
+                      onClick={handleResetZoom}
+                      className="bg-white/90 hover:bg-white text-gray-700 rounded px-2 py-1 text-xs font-semibold shadow cursor-pointer"
+                      title="리셋"
+                    >
+                      x
+                    </button>
+                  </div>
+                  {/* 줌 레벨 표시 */}
+                  <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                    {Math.round(zoom * 100)}%
+                  </div>
+                </>
+              )}
             </div>
           </CommonContainerBox>
       </div>

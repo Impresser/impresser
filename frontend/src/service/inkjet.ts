@@ -56,7 +56,7 @@ export interface GetInkjetPrintersResponse {
   pagination: PaginationInfo;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://k13s404.p.ssafy.io/dev/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://k13s404.p.ssafy.io:8443/api/v1";
 
 /**
  * 설비 목록 조회 API 호출

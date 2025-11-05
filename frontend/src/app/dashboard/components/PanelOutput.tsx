@@ -23,11 +23,11 @@ export default function PanelOutput() {
   const avg = DATA.reduce((s, d) => s + d.value, 0) / DATA.length;
   return (
     <CommonContainerBox>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <div style={{ fontWeight: 700, fontSize: 20 }}>일일 패널 생산량</div>
-        <div style={{ color: "#374151", fontWeight: 600, fontSize: 14 }}>(25/10/13 ~ 25/10/19)</div>
+      <div className="flex justify-between items-center mb-2">
+        <div className="font-bold text-xl">일일 패널 생산량</div>
+        <div className="text-gray-700 font-semibold text-sm">(25/10/13 ~ 25/10/19)</div>
       </div>
-      <div style={{ width: "100%", height: 320, minWidth: 0, minHeight: 0 }}>
+      <div className="w-full h-80 min-w-0 min-h-0">
         {mounted && (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={DATA} margin={{ top: 8, right: 26, bottom: 1, left: 0 }}>
