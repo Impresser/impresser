@@ -34,6 +34,7 @@ public class ConvertHistoryRepositoryCustomImpl implements ConvertHistoryReposit
         List<ConvertAvgSpeedListResponse> content = queryFactory
             .select(Projections.constructor(
                 ConvertAvgSpeedListResponse.class,
+                ctype.uuid,
                 ctype.compressionType,
                 ctype.processingUnit,
                 ctype.version,
@@ -41,7 +42,7 @@ public class ConvertHistoryRepositoryCustomImpl implements ConvertHistoryReposit
             ))
             .from(hist)
             .join(hist.compressionType, ctype)
-            .groupBy(ctype.compressionType, ctype.processingUnit, ctype.version)
+            .groupBy(ctype.uuid, ctype.compressionType, ctype.processingUnit, ctype.version)
             .orderBy(avgSpeedExpr.desc())
             .offset(pageable.getOffset())
             .limit(pageable.getPageSize())
@@ -70,6 +71,7 @@ public class ConvertHistoryRepositoryCustomImpl implements ConvertHistoryReposit
         List<ConvertHistoryListResponse> content = queryFactory
             .select(Projections.constructor(
                 ConvertHistoryListResponse.class,
+                hist.uuid,
                 hist.tiffKey,
                 ctype.compressionType,
                 ctype.processingUnit,
