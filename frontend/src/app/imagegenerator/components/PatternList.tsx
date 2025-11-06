@@ -1,12 +1,41 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import CommonPagination from '@/components/ui/CommonPagination';
 import CommonModal from '@/components/ui/CommonModal';
 import CommonButton from '@/components/ui/CommonButton';
 import { getBmpList, getBmpDetail } from '@/service/imageGenerator';
 import { BmpListItem, BmpDetailResult } from '@/types/imageGenerator';
+import CommonTableFrame from '@/components/ui/CommonTableFrame';
+
+// CSV 내보내기 함수
+const exportToCSV = (data: BmpDetailResult) => {
+  const csvRows = [
+    'image_width,image_height,,rg_gap_w,,gb_gap_w',
+    `${data.bmpWidth},${data.bmpHeight},,${data.rgGap},,${data.gbGap}`,
+    ',,,,,,,',
+    'r_size_x,r_size_y,,r_count_x,r_count_y,,r_gap_x,r_gap_y',
+    `${data.redSizeX},${data.redSizeY},,${data.redCountX},${data.redCountY},,${data.redGapX},${data.redGapY}`,
+    'g_size_x,g_size_y,,g_count_x,g_count_y,,g_gap_x,g_gap_y',
+    `${data.greenSizeX},${data.greenSizeY},,${data.greenCountX},${data.greenCountY},,${data.greenGapX},${data.greenGapY}`,
+    'b_size_x,b_size_y,,b_count_x,b_count_y,,b_gap_x,b_gap_y',
+    `${data.blueSizeX},${data.blueSizeY},,${data.blueCountX},${data.blueCountY},,${data.blueGapX},${data.blueGapY}`,
+    '',
+  ];
+
+  const csvContent = csvRows.join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute('href', url);
+  link.setAttribute('download', `pattern-${data.generationUuid}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
 
 // 취소 아이콘
 const CancelIcon = () => (
@@ -39,12 +68,18 @@ export default function PatternTable() {
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   // API에서 목록 조회
-  const fetchBmpList = async () => {
+  const fetchBmpList = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await getBmpList({ page, size: pageSize });
       if (response.isSuccess && response.result) {
-        setBmpList(response.result.content);
+        // 생성일시 기준 내림차순 정렬 (최신이 위로)
+        const sortedList = [...response.result.content].sort((a, b) => {
+          const dateA = new Date(a.requestedAt).getTime();
+          const dateB = new Date(b.requestedAt).getTime();
+          return dateB - dateA; // 내림차순
+        });
+        setBmpList(sortedList);
         setTotalPages(response.result.pagination.totalPages);
         setTotalElements(response.result.pagination.totalElements);
       }
@@ -53,28 +88,67 @@ export default function PatternTable() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [page, pageSize]);
 
   useEffect(() => {
     fetchBmpList();
+  }, [fetchBmpList]);
+
+  // 페이지 변경 시 스크롤 초기화 (새 항목이 위에 보이도록)
+  useEffect(() => {
+    if (page === 0) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }, [page]);
 
   // 외부에서 새로고침할 수 있도록 이벤트 리스너 등록
   useEffect(() => {
-    const handleRefresh = () => {
-      fetchBmpList();
+    const handleRefresh = (event?: CustomEvent) => {
+      // 새로 생성된 경우 첫 페이지로 이동하고 목록 새로고침
+      if (event?.detail?.resetPage) {
+        if (page !== 0) {
+          setPage(0);
+        } else {
+          // 이미 첫 페이지에 있으면 바로 새로고침
+          fetchBmpList();
+        }
+      } else {
+        fetchBmpList();
+      }
     };
     
-    window.addEventListener('refreshBmpList', handleRefresh);
+    window.addEventListener('refreshBmpList', handleRefresh as EventListener);
     
     return () => {
-      window.removeEventListener('refreshBmpList', handleRefresh);
+      window.removeEventListener('refreshBmpList', handleRefresh as EventListener);
     };
-  }, [page]);
+  }, [page, fetchBmpList]);
 
   const formatKST = useMemo(() => {
     const toStr = (iso: string) => {
-      const d = new Date(iso);
+      // API에서 받은 시간 문자열 처리
+      // ISO 8601 형식이면 그대로 사용, 타임존 정보가 없으면 UTC로 간주
+      let dateString = iso.trim();
+      
+      // 이미 타임존 정보가 있는지 확인 (Z, +, -)
+      const hasTimezone = dateString.includes('Z') || 
+                          dateString.includes('+') || 
+                          (dateString.match(/[-+]\d{2}:\d{2}$/) !== null);
+      
+      // 타임존 정보가 없으면 UTC로 간주 (Z 추가)
+      if (!hasTimezone && dateString.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+        dateString = dateString + 'Z';
+      }
+      
+      const d = new Date(dateString);
+      
+      // 유효한 날짜인지 확인
+      if (isNaN(d.getTime())) {
+        console.warn('Invalid date string:', iso);
+        return iso; // 변환 실패 시 원본 반환
+      }
+      
+      // UTC 시간을 한국 시간(Asia/Seoul)으로 변환
       const formatter = new Intl.DateTimeFormat('ko-KR', {
         timeZone: 'Asia/Seoul',
         year: 'numeric',
@@ -85,10 +159,12 @@ export default function PatternTable() {
         second: '2-digit',
         hour12: false,
       });
+      
       const parts = formatter.formatToParts(d).reduce<Record<string, string>>((acc, p) => {
         if (p.type !== 'literal') acc[p.type] = p.value;
         return acc;
       }, {});
+      
       return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
     };
     return toStr;
@@ -126,13 +202,13 @@ export default function PatternTable() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-800 mb-4">목록</h2>
+      <h2 className="text-lg font-semibold text-gray-800 mb-3">목록</h2>
 
       <CommonContainerBox className="p-6">
         {/* 데스크톱: 표 */}
         <div className="hidden md:block">
-          <div className="overflow-hidden rounded-md border border-gray-200">
-            <table className="w-full text-sm">
+          <CommonTableFrame
+            header={(
               <thead className="bg-gray-50">
                 <tr className="text-gray-700">
                   <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">No.</th>
@@ -147,7 +223,8 @@ export default function PatternTable() {
                   <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">작업</th>
                 </tr>
               </thead>
-
+            )}
+            body={(
               <tbody>
                 {isLoading ? (
                   <tr>
@@ -222,8 +299,8 @@ export default function PatternTable() {
                   })
                 )}
               </tbody>
-            </table>
-          </div>
+            )}
+          />
         </div>
 
         {/* 모바일: 카드 리스트 */}
@@ -312,14 +389,24 @@ export default function PatternTable() {
           <div className="space-y-2">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-2xl font-semibold text-gray-800">작업 상세 정보</h2>
-              {detailData?.isGenerated && detailData?.bmpUrl && (
-                <a
-                  href={detailData.bmpUrl}
-                  download
-                  className="text-blue-600 hover:underline text-sm"
-                >
-                  다운로드
-                </a>
+              {detailData && (
+                <div className="flex gap-3">
+                  {detailData.isGenerated && detailData.bmpUrl && (
+                    <a
+                      href={detailData.bmpUrl}
+                      download
+                      className="text-blue-600 hover:underline text-sm"
+                    >
+                      다운로드
+                    </a>
+                  )}
+                  <button
+                    onClick={() => detailData && exportToCSV(detailData)}
+                    className="text-blue-600 hover:underline text-sm cursor-pointer"
+                  >
+                    내보내기
+                  </button>
+                </div>
               )}
             </div>
             
@@ -330,7 +417,7 @@ export default function PatternTable() {
                 <CommonContainerBox className="p-4">
                   <div className="space-y-3 text-sm">
                     {/* 첫 번째 줄: UUID, 상태, 이미지 크기, 이미지 용량 */}
-                    <div className="grid grid-cols-5 gap-4">
+                    <div className="grid grid-cols-4 gap-4">
                       <div>
                         <span className="text-gray-500">상태</span>
                         <div className="font-medium text-gray-800">
@@ -357,16 +444,6 @@ export default function PatternTable() {
                           {detailData.completedAt ? formatKST(detailData.completedAt) : '-'}
                         </div>
                       </div>
-                      {detailData.bmpUrl && (
-                        <div className="">
-                          <span className="text-gray-500">이미지 URL</span>
-                          <div className="font-medium text-gray-800 break-all">
-                            <a href={detailData.bmpUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                              {detailData.bmpUrl}
-                            </a>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </CommonContainerBox>
@@ -374,80 +451,79 @@ export default function PatternTable() {
                 {/* 채널별 파라미터 */}
                 <CommonContainerBox className="p-4">
                   <h3 className="text-lg font-semibold text-gray-800 mb-3">패턴 파라미터</h3>
-                  <div className="space-y-3">
-                    {/* 이미지 크기 및 간격 */}
-                    <div className="grid grid-cols-3 gap-4 text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500 whitespace-nowrap">이미지 크기</span>
-                        <span className="font-medium text-gray-800">
-                          W: {detailData.bmpWidth} × H: {detailData.bmpHeight}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500 whitespace-nowrap">R-G 간격</span>
-                        <span className="font-medium text-gray-800">
-                          {detailData.rgGap}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-500 whitespace-nowrap">G-B 간격</span>
-                        <span className="font-medium text-gray-800">
-                          {detailData.gbGap}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* 채널별 파라미터 테이블 */}
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm border-collapse">
-                        <thead>
-                          <tr className="border-b border-gray-200">
-                            <th className="text-left py-2 px-0 font-semibold text-gray-700">채널</th>
-                            <th className="text-center py-2 px-0 font-semibold text-gray-700">크기</th>
-                            <th className="text-center py-2 px-0 font-semibold text-gray-700">개수</th>
-                            <th className="text-center py-2 px-0 font-semibold text-gray-700">간격</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="border-b border-gray-100">
-                            <td className="py-2 px-0 font-semibold text-gray-700">R</td>
-                            <td className="py-2 px-0 text-center text-gray-600">
-                              X: {detailData.redSizeX} × Y: {detailData.redSizeY}
-                            </td>
-                            <td className="py-2 px-0 text-center text-gray-600">
-                              X: {detailData.redCountX} × Y: {detailData.redCountY}
-                            </td>
-                            <td className="py-2 px-0 text-center text-gray-600">
-                              X: {detailData.redGapX} × Y: {detailData.redGapY}
-                            </td>
-                          </tr>
-                          <tr className="border-b border-gray-100">
-                            <td className="py-2 px-0 font-semibold text-gray-700">G</td>
-                            <td className="py-2 px-0 text-center text-gray-600">
-                              X: {detailData.greenSizeX} × Y: {detailData.greenSizeY}
-                            </td>
-                            <td className="py-2 px-0 text-center text-gray-600">
-                              X: {detailData.greenCountX} × Y: {detailData.greenCountY}
-                            </td>
-                            <td className="py-2 px-0 text-center text-gray-600">
-                              X: {detailData.greenGapX} × Y: {detailData.greenGapY}
-                            </td>
-                          </tr>
-                          <tr className="border-b border-gray-100">
-                            <td className="py-2 px-0 font-semibold text-gray-700">B</td>
-                            <td className="py-2 px-0 text-center text-gray-600">
-                              X: {detailData.blueSizeX} × Y: {detailData.blueSizeY}
-                            </td>
-                            <td className="py-2 px-0 text-center text-gray-600">
-                              X: {detailData.blueCountX} × Y: {detailData.blueCountY}
-                            </td>
-                            <td className="py-2 px-0 text-center text-gray-600">
-                              X: {detailData.blueGapX} × Y: {detailData.blueGapY}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        {/* IMG 헤더 행 */}
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-2 px-0 font-semibold text-gray-700"></th>
+                          <th className="text-center py-2 px-3 font-semibold text-gray-700">이미지 크기</th>
+                          <th className="text-center py-2 px-3 font-semibold text-gray-700">R-G 간격</th>
+                          <th className="text-center py-2 px-3 font-semibold text-gray-700">G-B 간격</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {/* 이미지 데이터 행 */}
+                        <tr className="border-b border-gray-100">
+                          <td className="py-2 px-0 font-semibold text-gray-700"></td>
+                          <td className="py-2 px-3 text-center text-gray-700">
+                            W: {detailData.bmpWidth} × H: {detailData.bmpHeight}
+                          </td>
+                          <td className="py-2 px-3 text-center text-gray-600">
+                            W: {detailData.rgGap}
+                          </td>
+                          <td className="py-2 px-3 text-center text-gray-600">
+                            W: {detailData.gbGap}
+                          </td>
+                        </tr>
+                        {/* 채널 헤더 행 */}
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-2 px-0 font-semibold text-gray-700">채널</th>
+                          <th className="text-center py-2 px-0 font-semibold text-gray-700">크기</th>
+                          <th className="text-center py-2 px-0 font-semibold text-gray-700">개수</th>
+                          <th className="text-center py-2 px-0 font-semibold text-gray-700">간격</th>
+                        </tr>
+                        {/* R 채널 데이터 행 */}
+                        <tr className="border-b border-gray-100">
+                          <td className="py-2 px-0 font-semibold text-gray-700">R</td>
+                          <td className="py-2 px-0 text-center text-gray-600">
+                            X: {detailData.redSizeX} × Y: {detailData.redSizeY}
+                          </td>
+                          <td className="py-2 px-0 text-center text-gray-600">
+                            X: {detailData.redCountX} × Y: {detailData.redCountY}
+                          </td>
+                          <td className="py-2 px-0 text-center text-gray-600">
+                            X: {detailData.redGapX} × Y: {detailData.redGapY}
+                          </td>
+                        </tr>
+                        {/* G 채널 데이터 행 */}
+                        <tr className="border-b border-gray-100">
+                          <td className="py-2 px-0 font-semibold text-gray-700">G</td>
+                          <td className="py-2 px-0 text-center text-gray-600">
+                            X: {detailData.greenSizeX} × Y: {detailData.greenSizeY}
+                          </td>
+                          <td className="py-2 px-0 text-center text-gray-600">
+                            X: {detailData.greenCountX} × Y: {detailData.greenCountY}
+                          </td>
+                          <td className="py-2 px-0 text-center text-gray-600">
+                            X: {detailData.greenGapX} × Y: {detailData.greenGapY}
+                          </td>
+                        </tr>
+                        {/* B 채널 데이터 행 */}
+                        <tr className="border-b border-gray-100">
+                          <td className="py-2 px-0 font-semibold text-gray-700">B</td>
+                          <td className="py-2 px-0 text-center text-gray-600">
+                            X: {detailData.blueSizeX} × Y: {detailData.blueSizeY}
+                          </td>
+                          <td className="py-2 px-0 text-center text-gray-600">
+                            X: {detailData.blueCountX} × Y: {detailData.blueCountY}
+                          </td>
+                          <td className="py-2 px-0 text-center text-gray-600">
+                            X: {detailData.blueGapX} × Y: {detailData.blueGapY}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
                 </CommonContainerBox>
               </>
@@ -466,3 +542,4 @@ export default function PatternTable() {
     </div>
   );
 }
+

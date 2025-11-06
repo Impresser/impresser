@@ -37,8 +37,8 @@ export function convertFormToApiRequest(form: PatternFormState): CreateBmpPatter
     blueSizeY: getNum(form.channels.B.size.y),
     blueGapX: getNum(form.channels.B.spacing.x),
     blueGapY: getNum(form.channels.B.spacing.y),
-    rgGap: getNum(form.gapRG.x), // API는 단일 값만 받는 것 같지만, 폼에는 x, y가 있음. x 값을 사용
-    gbGap: getNum(form.gapGB.x), // API는 단일 값만 받는 것 같지만, 폼에는 x, y가 있음. x 값을 사용
+    rgGap: getNum(form.gapRG.w),
+    gbGap: getNum(form.gapGB.w),
   };
 }
 
@@ -140,16 +140,19 @@ export function subscribeSSEWithAuth(
     headers["Authorization"] = `Bearer ${accessToken}`;
   }
 
+  console.log('SSE 연결 시도:', `${API_BASE_URL}/sse/subscribe`);
   fetch(`${API_BASE_URL}/sse/subscribe`, {
     method: "GET",
     headers,
     signal: abortController.signal,
   })
     .then(async (response) => {
+      console.log('SSE 응답 상태:', response.status, response.ok);
       if (!response.ok) {
         throw new Error(`SSE 연결 실패: ${response.status}`);
       }
 
+      console.log('SSE 연결 성공, 스트림 읽기 시작');
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
 
@@ -163,6 +166,7 @@ export function subscribeSSEWithAuth(
         const { done, value } = await reader.read();
         
         if (done) {
+          console.log('SSE 스트림 종료');
           break;
         }
 
@@ -171,12 +175,21 @@ export function subscribeSSEWithAuth(
         buffer = lines.pop() || "";
 
         for (const line of lines) {
-          if (line.startsWith("data: ")) {
+          // data: 로 시작하는 라인 처리 (공백 있거나 없거나)
+          if (line.startsWith("data:")) {
+            const dataContent = line.slice(5).trim(); // "data:" 제거하고 공백 제거
+            
+            // 빈 데이터나 "ok", "ping" 같은 하트비트 메시지는 무시
+            if (dataContent === "" || dataContent === "ok" || dataContent === "ping") {
+              continue;
+            }
+            
             try {
-              const data: SSEEventData = JSON.parse(line.slice(6));
+              const data: SSEEventData = JSON.parse(dataContent);
+              console.log('SSE 메시지 파싱 성공:', data);
               onMessage(data);
             } catch (error) {
-              console.error("SSE 메시지 파싱 오류:", error);
+              console.error("SSE 메시지 파싱 오류:", error, "원본:", dataContent);
             }
           }
         }

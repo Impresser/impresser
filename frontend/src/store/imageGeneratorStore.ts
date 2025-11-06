@@ -12,8 +12,8 @@ export type ChannelConfig = {
 
 export type PatternFormState = {
   imageSize: { w: number | ""; h: number | "" };
-  gapRG: AxisPair;
-  gapGB: AxisPair;
+  gapRG: { w: number | "" };
+  gapGB: { w: number | "" };
   channels: Record<"R" | "G" | "B", ChannelConfig>;
   rgb: { r: number | ""; g: number | ""; b: number | "" };
 };
@@ -51,8 +51,8 @@ const emptyAxis = (): AxisPair => ({ x: "", y: "" });
 
 const initialForm: PatternFormState = {
   imageSize: { w: "", h: "" },
-  gapRG: emptyAxis(),
-  gapGB: emptyAxis(),
+  gapRG: { w: "" },
+  gapGB: { w: "" },
   channels: {
     R: { count: emptyAxis(), size: emptyAxis(), spacing: emptyAxis() },
     G: { count: emptyAxis(), size: emptyAxis(), spacing: emptyAxis() },
@@ -88,7 +88,7 @@ export const useImageGeneratorStore = create<ImageGeneratorStore>((set, get) => 
   setFormField: (path, value) => {
     set((state) => {
       const draft: any = structuredClone(state.form);
-      // path 예: "imageSize.w", "gapRG.x", "channels.R.count.x"
+      // path 예: "imageSize.w", "gapRG.w", "channels.R.count.x"
       const parts = path.split(".");
       let cursor: any = draft;
       for (let i = 0; i < parts.length - 1; i++) {

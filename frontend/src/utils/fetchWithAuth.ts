@@ -33,6 +33,8 @@ export async function fetchWithAuth(
   let response = await fetch(url, {
     ...options,
     headers,
+    // 쿠키 기반 인증(리프레시용)을 위해 항상 포함
+    credentials: 'include',
   });
 
   // 401 에러 발생 시 토큰 재발급 후 재시도
@@ -50,6 +52,7 @@ export async function fetchWithAuth(
         const retryOptions: RequestInit = {
           ...options,
           headers,
+          credentials: 'include',
         };
 
         // body가 이미 읽혔을 수 있으므로, 원본 options에서 body를 사용
@@ -58,10 +61,18 @@ export async function fetchWithAuth(
         }
 
         response = await fetch(url, retryOptions);
+      } else {
+        // 재발급은 성공했지만 토큰이 없는 경우
+        console.error('토큰 재발급 후 토큰을 찾을 수 없습니다.');
+        return response;
       }
     } catch (error) {
-      // 토큰 재발급 실패 시 그대로 401 에러 반환
-      console.error('토큰 재발급 실패:', error);
+      // 토큰 재발급 실패 시 에러 상세 정보 로깅
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('토큰 재발급 실패:', errorMessage);
+      
+      // 토큰 재발급 실패 시 401 에러를 그대로 반환
+      // (이미 reissueToken에서 localStorage 정리 및 에러 메시지 처리 완료)
       return response;
     }
   }

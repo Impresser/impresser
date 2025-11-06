@@ -10,6 +10,7 @@ import { usePatternJobs } from '@/app/imagegenerator/hooks/usePatternJobs';
 import { useImageGeneratorStore } from '@/store/imageGeneratorStore';
 import { createBmpPattern, subscribeSSEWithAuth, SSEEventData } from '@/service/imageGenerator';
 import AuthGuard from '@/components/auth/AuthGuard';
+import { useToast } from '@/components/ui/CommonToast';
 
 export default function PatternGeneratorPage() {
   const { generatedCount, addJob, updateJobProgress, markJobDone } = usePatternJobs();
@@ -17,6 +18,7 @@ export default function PatternGeneratorPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
   const [sseControllers, setSseControllers] = useState<Map<string, AbortController>>(new Map());
+  const { showToast } = useToast();
 
   // 메시지 자동 숨김
   useEffect(() => {
@@ -82,17 +84,31 @@ export default function PatternGeneratorPage() {
         const jobId = addJob(undefined, generationUuid);
         
         // SSE 연결 시작
+        console.log('SSE 연결 시작:', generationUuid);
         const sseController = subscribeSSEWithAuth(
           (data: SSEEventData) => {
+            console.log('SSE 이벤트 수신:', data);
             // SSE 이벤트 처리
             if (data.progress !== undefined) {
+              console.log('진행률 업데이트:', data.progress);
               // progress 업데이트
               updateJobProgress(jobId, data.progress);
             }
             
-            if (data.status === 'COMPLETED' || data.status === '완료' || data.progress === 100) {
+            // 완료 상태 확인 (여러 가능한 상태 값 체크)
+            const isCompleted = 
+              data.status === 'COMPLETED' || 
+              data.status === '완료' || 
+              data.status === 'Success' ||
+              data.status === 'SUCCESS' ||
+              data.progress === 100;
+            
+            if (isCompleted) {
+              console.log('SSE 완료 이벤트:', data);
               // 완료 처리
               markJobDone(jobId);
+              // 완료 토스트 알림
+              showToast('패턴 생성이 완료되었습니다.');
               // SSE 연결 종료
               sseController.abort();
               setSseControllers((prev) => {
@@ -121,9 +137,9 @@ export default function PatternGeneratorPage() {
           return next;
         });
 
-        // 목록 새로고침
-        window.dispatchEvent(new Event('refreshBmpList'));
-        setMessage({ text: '패턴 생성이 시작되었습니다.', type: 'success' });
+        // 목록 새로고침 (첫 페이지로 이동)
+        window.dispatchEvent(new CustomEvent('refreshBmpList', { detail: { resetPage: true } }));
+        showToast('패턴 생성이 시작되었습니다.');
         console.log('패턴 생성 성공:', generationUuid);
       }
     } catch (error) {

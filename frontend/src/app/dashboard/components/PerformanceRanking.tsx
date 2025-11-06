@@ -8,6 +8,7 @@ import RadioButton from "@/components/ui/RadioButton";
 import { usePerformanceRankingStore } from "@/store/performanceRankingStore";
 import { DashboardRankItem, AlgorithmPerf, JobDetailRow, ConvertDetailItem, ConvertHistoryDetailResult } from "@/types/dashboard";
 import { getDashboardConvertDetail, getDashboardConvertHistoryDetail } from "@/service/dashboard";
+import CommonTableFrame from "@/components/ui/CommonTableFrame";
 
 // API 데이터 → 컴포넌트 표시용으로 매핑
 function mapApiToPerf(items: DashboardRankItem[]): AlgorithmPerf[] {
@@ -312,7 +313,13 @@ export default function EquipmentUsage() {
                       return value;
                     }}
                   />
-                  <Tooltip formatter={(v: number) => `${v.toLocaleString(undefined, { maximumFractionDigits: 1 })} MB/s`} />
+                  <Tooltip 
+                    formatter={(value: number, name: string, props: any) => {
+                      // API에서 받아온 원본 avgSpeed 값 사용
+                      const originalValue = props.payload?.originalItem?.avgSpeed ?? value;
+                      return `${originalValue} MB/s`;
+                    }} 
+                  />
                   {/* 불릿 차트: 정성 구간 배경 */}
                   <ReferenceArea x1={0} x2={range1} fill="#f7f7f8" strokeOpacity={0} />
                   <ReferenceArea x1={range1} x2={range2} fill="#eceef2" strokeOpacity={0} />
@@ -334,8 +341,8 @@ export default function EquipmentUsage() {
 
         {/* 우측 순위 표 */}
         <div className="flex-1 min-w-[280px] border border-gray-200 rounded-lg p-4 flex flex-col">
-          <div className="overflow-hidden rounded-md border border-gray-200">
-            <table className="w-full text-sm">
+          <CommonTableFrame
+            header={(
               <thead className="bg-gray-50">
                 <tr className="text-gray-700">
                   <th className="text-center font-semibold text-xs tracking-wide py-2 px-3 w-16">순위</th>
@@ -345,6 +352,8 @@ export default function EquipmentUsage() {
                   <th className="text-right font-semibold text-xs tracking-wide py-2 px-3 w-36">평균압축속도</th>
                 </tr>
               </thead>
+            )}
+            body={(
               <tbody>
                 {loading ? (
                   <tr><td colSpan={5} className="py-6 text-center text-gray-500 text-sm">불러오는 중…</td></tr>
@@ -382,8 +391,8 @@ export default function EquipmentUsage() {
                   );
                 })}
               </tbody>
-            </table>
-          </div>
+            )}
+          />
           {/* 페이지네이션: 공통 컴포넌트 사용 */}
           <div>
             <CommonPagination
@@ -546,9 +555,9 @@ export default function EquipmentUsage() {
                 <div className="flex-1">
                   <div className="grid grid-cols-[160px_1fr] gap-y-2 gap-x-3">
                     <div className="text-gray-500">시작일시</div>
-                    <div>{new Date(historyDetailData.requestAt).toLocaleString('ko-KR')}</div>
+                    <div>{new Date(historyDetailData.requestAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</div>
                     <div className="text-gray-500">완료일시</div>
-                    <div>{new Date(historyDetailData.completedAt).toLocaleString('ko-KR')}</div>
+                    <div>{new Date(historyDetailData.completedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</div>
                     <div className="text-gray-500">원본확장자</div>
                     <div>{historyDetailData.sourceExtension}</div>
                     <div className="text-gray-500">압축확장자</div>

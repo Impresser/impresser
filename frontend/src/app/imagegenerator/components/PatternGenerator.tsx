@@ -21,8 +21,8 @@ export default function PatternForm() {
   // 패턴 미리보기가 실제로 표시되는지 확인
   const hasPatternPreview = React.useMemo(() => {
     const hasAnyInput = (
-      form.gapRG.x !== '' || form.gapRG.y !== '' ||
-      form.gapGB.x !== '' || form.gapGB.y !== '' ||
+      form.gapRG.w !== '' || 
+      form.gapGB.w !== '' || 
       form.channels.R.size.x !== '' || form.channels.R.size.y !== '' ||
       form.channels.G.size.x !== '' || form.channels.G.size.y !== '' ||
       form.channels.B.size.x !== '' || form.channels.B.size.y !== '' ||
@@ -51,20 +51,49 @@ export default function PatternForm() {
     fileInputRef.current?.click();
   }, []);
 
+  const handleDownloadTemplate = useCallback(() => {
+    const link = document.createElement('a');
+    link.href = '/pattern-template.csv';
+    link.download = 'pattern-template.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, []);
+
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    Papa.parse<Record<string, string | number>>(file as any, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results: Papa.ParseResult<Record<string, string | number>>) => {
+    Papa.parse<string[]>(file as any, {
+      header: false,
+      skipEmptyLines: false,
+      complete: (results: Papa.ParseResult<string[]>) => {
         try {
-          const rows = results.data as Record<string, string | number>[];
+          const rows = results.data as string[][];
           if (!rows || rows.length === 0) return;
-          const row = rows[0];
+
+          // CSV 데이터를 맵으로 저장
+          const dataMap: Record<string, string> = {};
+
+          // 헤더-값 쌍을 찾아서 맵에 저장
+          for (let i = 0; i < rows.length - 1; i++) {
+            const headerRow = rows[i];
+            const valueRow = rows[i + 1];
+
+            if (!headerRow || !valueRow) continue;
+
+            // 헤더 행과 값 행을 매칭
+            for (let j = 0; j < Math.max(headerRow.length, valueRow.length); j++) {
+              const header = (headerRow[j] || '').toString().trim();
+              const value = (valueRow[j] || '').toString().trim();
+
+              if (header && value) {
+                dataMap[header] = value;
+              }
+            }
+          }
 
           const getNum = (key: string) => {
-            const v = (row[key] ?? '').toString().trim();
+            const v = (dataMap[key] ?? '').toString().trim();
             if (v === '') return '' as const;
             const n = Number(v);
             return Number.isFinite(n) ? n : ('' as const);
@@ -73,10 +102,8 @@ export default function PatternForm() {
           const mappings: Array<[string, string]> = [
             ['image_width', 'imageSize.w'],
             ['image_height', 'imageSize.h'],
-            ['rg_gap_x', 'gapRG.x'],
-            ['rg_gap_y', 'gapRG.y'],
-            ['gb_gap_x', 'gapGB.x'],
-            ['gb_gap_y', 'gapGB.y'],
+            ['rg_gap', 'gapRG.w'],
+            ['gb_gap', 'gapGB.w'],
 
             ['r_size_x', 'channels.R.size.x'],
             ['r_size_y', 'channels.R.size.y'],
@@ -112,7 +139,7 @@ export default function PatternForm() {
         console.error('CSV 파싱 실패:', error);
       },
     });
-  }, []);
+  }, [setFormField]);
 
   const onNumChange = (path: string) =>
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -192,8 +219,8 @@ export default function PatternForm() {
 
     // 입력 여부에 따라 미리보기 표시 결정
     const hasAnyInput = (
-      form.gapRG.x !== '' || form.gapRG.y !== '' ||
-      form.gapGB.x !== '' || form.gapGB.y !== '' ||
+      form.gapRG.w !== '' ||
+      form.gapGB.w !== '' ||
       form.channels.R.size.x !== '' || form.channels.R.size.y !== '' ||
       form.channels.G.size.x !== '' || form.channels.G.size.y !== '' ||
       form.channels.B.size.x !== '' || form.channels.B.size.y !== '' ||
@@ -228,8 +255,8 @@ export default function PatternForm() {
     const hasG = Number.isFinite(gSizeX) && gSizeX > 0 && Number.isFinite(gSizeY) && gSizeY > 0;
     const hasB = Number.isFinite(bSizeX) && bSizeX > 0 && Number.isFinite(bSizeY) && bSizeY > 0;
 
-    const gapRGx = Number(form.gapRG.x) || 3;
-    const gapGBx = Number(form.gapGB.x) || 3;
+    const gapRGw = Number(form.gapRG.w) || 3;
+    const gapGBw = Number(form.gapGB.w) || 3;
 
     const spacingR_X = Number(form.channels.R.spacing.x) || 6;
     const spacingG_X = Number(form.channels.G.spacing.x) || 6;
@@ -291,9 +318,9 @@ export default function PatternForm() {
     for (let i = 1; i < present.length; i++) {
       const prev = present[i - 1].key;
       const curr = present[i].key;
-      if (prev === 'R' && curr === 'G') internalGaps += gapRGx;
-      else if (prev === 'G' && curr === 'B') internalGaps += gapGBx;
-      else internalGaps += gapRGx + gapGBx; // R-B 인접 시 두 간격 합산
+      if (prev === 'R' && curr === 'G') internalGaps += gapRGw;
+      else if (prev === 'G' && curr === 'B') internalGaps += gapGBw;
+      else internalGaps += gapRGw + gapGBw; // R-B 인접 시 두 간격 합산
     }
     const widthsSum = chFootprints.reduce((s, fp) => s + fp.effW, 0);
     const lastKey = present[present.length - 1].key;
@@ -337,9 +364,9 @@ export default function PatternForm() {
           // 이전 채널과의 간격 적용
           if (i > 0) {
             const prev = present[i - 1].key;
-            if (prev === 'R' && ch.key === 'G') cursorX += gapRGx;
-            else if (prev === 'G' && ch.key === 'B') cursorX += gapGBx;
-            else cursorX += gapRGx + gapGBx;
+            if (prev === 'R' && ch.key === 'G') cursorX += gapRGw;
+            else if (prev === 'G' && ch.key === 'B') cursorX += gapGBw;
+            else cursorX += gapRGw + gapGBw;
           }
           // 수직 중앙 정렬을 위해 오프셋 계산
           const offsetY = y + (rowH - fp.effH) / 2;
@@ -366,7 +393,7 @@ export default function PatternForm() {
       {/* 제목 & 불러오기 버튼 */}
       <div className="flex justify-between items-center mb-3">
         <h2 className="text-lg font-semibold text-gray-800">생성할 패턴</h2>
-        <div>
+        <div className="flex items-center gap-3">
           <input
             ref={fileInputRef}
             type="file"
@@ -374,41 +401,64 @@ export default function PatternForm() {
             className="hidden"
             onChange={handleFileChange}
           />
+          <button
+            onClick={handleDownloadTemplate}
+            className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#0059FF] underline cursor-pointer"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-4 h-4"
+            >
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+            </svg>
+            pattern-template.csv
+          </button>
           <CommonButton variant="blue" onClick={handleClickUpload}>불러오기</CommonButton>
         </div>
       </div>
 
       <div className="flex flex-col md:flex-row w-full gap-4 items-stretch">
       <CommonContainerBox className="flex-1 md:basis-2/3">
-        {/* 🔹 이미지 크기 / 간격 입력 (모바일 1열, 데스크톱 3열) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 text-sm">
-          {/* 이미지 크기 */}
-          <div className="flex items-center gap-2">
-            <label className="text-gray-600 whitespace-nowrap">이미지 크기</label>
+        {/* 🔹 이미지 크기 / 간격 입력 (채널 행과 동일한 1행 정렬) */}
+        {/* 헤더 라벨 (데스크톱 전용) */}
+        <div className="hidden md:flex gap-11 text-sm font-semibold text-gray-700 mb-2">
+          <div className="w-8"></div>
+          <div className="flex-1">이미지 크기</div>
+          <div className="flex-1">R-G 간격</div>
+          <div className="flex-1">G-B 간격</div>
+        </div>
+        <div className="flex gap-3 md:gap-11 text-sm items-center">
+          {/* 라벨 영역 */}
+          <span className="font-semibold text-gray-700 w-8">IMG</span>
+
+          {/* 크기 */}
+          <div className="flex-1 grid grid-cols-2 gap-2">
             <CommonInput fixedPlaceholder="W" fixedPlaceholderPadding="sm" value={form.imageSize.w} onChange={onNumChange('imageSize.w')} />
             <CommonInput fixedPlaceholder="H" fixedPlaceholderPadding="sm" value={form.imageSize.h} onChange={onNumChange('imageSize.h')} />
           </div>
 
           {/* R-G 간격 */}
-          <div className="flex items-center gap-2">
-            <label className="text-gray-600 whitespace-nowrap">R-G 간격</label>
-            <CommonInput fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.gapRG.x} onChange={onNumChange('gapRG.x')} />
-            <CommonInput fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.gapRG.y} onChange={onNumChange('gapRG.y')} />
+          <div className="flex-1 grid grid-cols-1 gap-2">
+            <CommonInput fixedPlaceholder="W" fixedPlaceholderPadding="sm" value={form.gapRG.w} onChange={onNumChange('gapRG.w')} />
           </div>
 
           {/* G-B 간격 */}
-          <div className="flex items-center gap-2">
-            <label className="text-gray-600 whitespace-nowrap">G-B 간격</label>
-            <CommonInput fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.gapGB.x} onChange={onNumChange('gapGB.x')} />
-            <CommonInput fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.gapGB.y} onChange={onNumChange('gapGB.y')} />
+          <div className="flex-1 grid grid-cols-1 gap-2">
+            <CommonInput fixedPlaceholder="W" fixedPlaceholderPadding="sm" value={form.gapGB.w} onChange={onNumChange('gapGB.w')} />
           </div>
         </div>
 
 
         {/* 🔹 R, G, B 채널 설정 (모바일 스택, 데스크톱 테이블) */}
-        <div className="mt-6">
+        <div className="mt-4">
           
-          <div className="hidden md:flex gap-7 text-sm font-semibold text-gray-700 mb-2">
+          <div className="hidden md:flex gap-11 text-sm font-semibold text-gray-700 mb-2">
             <div className="w-8"></div>
             <div className="flex-1">크기</div>
             <div className="flex-1">개수</div>
@@ -417,7 +467,7 @@ export default function PatternForm() {
 
           {(['R', 'G', 'B'] as const).map((color) => (
             <div key={color} className="mb-4 last:mb-0">
-              <div className="flex gap-3 md:gap-7 text-sm items-center">
+              <div className="flex gap-3 md:gap-11 text-sm items-center">
                 {/* 색상 레이블 */}
                 <span className="font-semibold text-gray-700 w-8">{color}</span>
                 {/* 크기 */}
