@@ -21,6 +21,8 @@ export async function login(loginData: LoginRequest): Promise<LoginResponse> {
     headers: {
       "Content-Type": "application/json",
     },
+    // 리프레시 토큰을 쿠키로 수신하기 위해 필요
+    credentials: "include",
     body: JSON.stringify(loginData),
   });
 
@@ -55,6 +57,8 @@ export async function logout(): Promise<LogoutResponse> {
   const response = await fetch(`${API_BASE_URL}/auth/logout`, {
     method: "POST",
     headers,
+    // 서버에 저장된 리프레시 쿠키를 함께 전송
+    credentials: "include",
   });
 
   if (!response.ok) {
@@ -84,28 +88,54 @@ export async function logout(): Promise<LogoutResponse> {
  * @note 이 함수는 fetchWithAuth에서 사용되므로 순환 참조를 피하기 위해 일반 fetch 사용
  */
 export async function reissueToken(): Promise<ReissueResponse> {
-  const accessToken = localStorage.getItem("accessToken");
-
+  // 재발급은 리프레시 토큰(쿠키) 기반으로 수행. Authorization 헤더를 보내지 않음
   const headers: HeadersInit = {
     "Content-Type": "application/json",
   };
-
-  // 현재 토큰이 있으면 Authorization 헤더에 추가
-  if (accessToken) {
-    headers["Authorization"] = `Bearer ${accessToken}`;
-  }
 
   // 토큰 재발급은 fetchWithAuth를 사용하지 않음 (순환 참조 방지)
   const response = await fetch(`${API_BASE_URL}/auth/reissue`, {
     method: "POST",
     headers,
+    // 리프레시 쿠키를 전송해야 함
+    credentials: "include",
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.message || `토큰 재발급 실패: ${response.status} ${response.statusText}`
-    );
+    // 에러 응답 본문 파싱 시도
+    let errorMessage = `토큰 재발급 실패: ${response.status} ${response.statusText}`;
+    
+    try {
+      const errorData = await response.json();
+      // 서버에서 반환한 에러 메시지 사용
+      if (errorData.message) {
+        errorMessage = errorData.message;
+      } else if (errorData.code) {
+        errorMessage = `토큰 재발급 실패 [${errorData.code}]: ${errorData.message || errorMessage}`;
+      }
+    } catch {
+      // JSON 파싱 실패 시 기본 메시지 사용
+    }
+
+    // 401 에러는 인증 문제(리프레시 토큰 없음/만료)를 의미
+    if (response.status === 401) {
+      // 인증 상태 초기화
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem("accessToken");
+        if (authStore) {
+          // authStore의 clearAuth를 호출하려면 순환 참조를 피하기 위해 직접 호출
+          // authStore.clearAuth() 대신 localStorage만 정리
+          localStorage.removeItem("userUuid");
+          localStorage.removeItem("employeeNo");
+          localStorage.removeItem("userName");
+          localStorage.removeItem("userRole");
+          localStorage.removeItem("profileUrl");
+        }
+      }
+      errorMessage = "세션이 만료되었습니다. 다시 로그인해주세요.";
+    }
+
+    throw new Error(errorMessage);
   }
 
   const data: ReissueResponse = await response.json();
