@@ -34,8 +34,10 @@ import org.springframework.stereotype.Service;
 public class InkjetServiceImpl implements InkjetService {
 
     private final InkjetRepository inkjetRepository;
+    private final InkjetSlotService slotService;
 
     @Override
+    @Transactional
     public void createInkjet(CreateInkjetRequest createInkjetRequest) {
         Optional<UUID> currentUserUuid = SecurityUtil.getCurrentUserUuid();
 
@@ -50,7 +52,9 @@ public class InkjetServiceImpl implements InkjetService {
         InkjetPrinter inkjetPrinter = createInkjetRequest
             .toEntity(printerStatus, processStatus);
 
-        inkjetRepository.save(inkjetPrinter);
+        InkjetPrinter savedInkjetPrinter = inkjetRepository.save(inkjetPrinter);
+
+        slotService.assignToSlot(savedInkjetPrinter.getUuid());
     }
 
     @Override
@@ -66,9 +70,19 @@ public class InkjetServiceImpl implements InkjetService {
             () -> new BusinessException(ErrorCode.NOT_FOUND));
 
         inkjetPrinter.update(updateInkjetRequest);
+
+        PrinterStatus updatedStatus = inkjetPrinter.getPrinterStatus();
+
+        if (updateInkjetRequest.printerStatus() != null) {
+            switch (updatedStatus) {
+                case BROKEN, UNDER_REPAIR -> slotService.changeToDraining(inkjetUuid);
+                case OPERATIONAL -> slotService.changeToActive(inkjetUuid);
+            }
+        }
     }
 
     @Override
+    @Transactional
     public void deleteInkjet(UUID inkjetUuid) {
         Optional<UUID> currentUserUuid = SecurityUtil.getCurrentUserUuid();
 
@@ -78,6 +92,8 @@ public class InkjetServiceImpl implements InkjetService {
 
         InkjetPrinter inkjetPrinter = inkjetRepository.findByUuid(inkjetUuid).orElseThrow(
             () -> new BusinessException(ErrorCode.NOT_FOUND));
+
+        slotService.retireSlot(inkjetUuid);
 
         inkjetRepository.delete(inkjetPrinter);
     }
