@@ -66,6 +66,9 @@ public class ConvertHistory extends BaseEntity {
     @Column(name = "compression_ratio")
     private Long compressionRatio;
 
+    @Column(name = "compression_time")
+    private Long compressionTime;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "compression_type_id", nullable = false)
     private CompressionType compressionType;

@@ -4,12 +4,15 @@ import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.semes.impresser.convertImage.dto.response.ConvertHistoryDetailResponse;
+import com.semes.impresser.convertImage.dto.response.ConvertHistoryItemResponse;
 import com.semes.impresser.convertImage.entity.QCompressionType;
 import com.semes.impresser.convertImage.entity.QConvertHistory;
 import com.semes.impresser.dashboard.dto.response.ConvertAvgSpeedListResponse;
 import com.semes.impresser.dashboard.dto.response.ConvertHistoryListResponse;
 import com.semes.impresser.user.entity.QUser;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -98,5 +101,87 @@ public class ConvertHistoryRepositoryCustomImpl implements ConvertHistoryReposit
             .fetchOne();
 
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
+    }
+
+    @Override
+    public Page<ConvertHistoryItemResponse> getCompletedHistories(Pageable pageable) {
+        NumberExpression<Long> secsExpr = Expressions.numberTemplate(
+            Long.class,
+            "COALESCE({0}, timestampdiff(SECOND, {1}, {2}))",
+            hist.compressionTime, hist.requestedAt, hist.completedAt
+        );
+
+        List<ConvertHistoryItemResponse> content = queryFactory
+            .select(Projections.constructor(
+                ConvertHistoryItemResponse.class,
+                hist.uuid,
+                hist.tiffKey,
+                ctype.processingUnit,
+                ctype.compressionType,
+                ctype.version,
+                hist.bmpVolume,
+                hist.tiffVolume,
+                hist.compressionRatio,
+                user.userName,
+                Expressions.stringTemplate("DATE_FORMAT({0}, '%Y-%m-%dT%H:%i:%s')", hist.completedAt),
+                secsExpr,
+                hist.tiffKey
+            ))
+            .from(hist)
+            .join(hist.compressionType, ctype)
+            .join(hist.user, user)
+            .where(hist.completedAt.isNotNull())
+            .orderBy(hist.completedAt.desc())
+            .offset(pageable.getOffset())
+            .limit(pageable.getPageSize())
+            .fetch();
+
+        Long total = queryFactory
+            .select(hist.id.count())
+            .from(hist)
+            .join(hist.compressionType, ctype)
+            .where(hist.completedAt.isNotNull())
+            .fetchOne();
+
+        return new PageImpl<>(content, pageable, total == null ? 0L : total);
+    }
+
+    @Override
+    public Optional<ConvertHistoryDetailResponse> getCompletedHistoryDetail(
+        UUID convertHistoryUuid) {
+        NumberExpression<Long> elapsedSecExpr = Expressions.numberTemplate(
+            Long.class, "timestampdiff(SECOND, {0}, {1})", hist.requestedAt, hist.completedAt
+        );
+
+        NumberExpression<Long> compressionSecExpr = Expressions.numberTemplate(
+            Long.class, "COALESCE({0}, {1})", hist.compressionTime, elapsedSecExpr
+        );
+
+        var requestedIsoExpr = Expressions.stringTemplate(
+            "DATE_FORMAT({0}, '%Y-%m-%dT%H:%i:%s')", hist.requestedAt
+        );
+        var completedIsoExpr = Expressions.stringTemplate(
+            "DATE_FORMAT({0}, '%Y-%m-%dT%H:%i:%s')", hist.completedAt
+        );
+
+        var row = queryFactory
+            .select(Projections.constructor(
+                ConvertHistoryDetailResponse.class,
+                hist.avgGpuUtilization,
+                hist.avgSpeed,
+                hist.maxSpeed,
+                hist.minSpeed,
+                requestedIsoExpr,
+                completedIsoExpr,
+                elapsedSecExpr,
+                Expressions.constant("BMP"),
+                Expressions.constant("TIFF"),
+                compressionSecExpr
+            ))
+            .from(hist)
+            .where(hist.uuid.eq(convertHistoryUuid))
+            .fetchOne();
+
+        return Optional.ofNullable(row);
     }
 }
