@@ -3,11 +3,19 @@ package com.semes.impresser.s3.service;
 import com.semes.impresser.common.config.S3Config;
 import com.semes.impresser.common.exception.BusinessException;
 import com.semes.impresser.common.exception.ErrorCode;
-import com.semes.impresser.s3.dto.response.InitMultipartUploadResponse;
+import com.semes.impresser.s3.dto.request.CompleteMultipartRequest;
+import com.semes.impresser.s3.dto.request.TiffUploadItemRequest;
+import com.semes.impresser.s3.dto.request.UrlsBatchRequest;
+import com.semes.impresser.s3.dto.response.CompleteBatchResultResponse;
 import com.semes.impresser.s3.dto.response.CreateTiffUploadResponse;
+import com.semes.impresser.s3.dto.response.InitBmpBatchResponse;
+import com.semes.impresser.s3.dto.response.InitMultipartUploadResponse;
 import com.semes.impresser.s3.dto.response.PresignedUrlListResponse;
+import com.semes.impresser.s3.dto.response.UrlsBatchItem;
+import com.semes.impresser.s3.dto.response.UrlsBatchResponse;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -101,9 +109,9 @@ public class FilePresignedServiceImpl implements FilePresignedService {
 
     @Override
     public void completeMultipartUpload(
-        com.semes.impresser.s3.dto.request.CompleteMultipartUploadRequest request) {
+        CompleteMultipartRequest completeMultipartRequest) {
         try {
-            List<Map<String, String>> parts = request.parts().stream()
+            List<Map<String, String>> parts = completeMultipartRequest.parts().stream()
                 .map(p -> Map.of(
                     "partNumber", String.valueOf(p.partNumber()),
                     "etag", p.eTag()
@@ -113,14 +121,14 @@ public class FilePresignedServiceImpl implements FilePresignedService {
             ListPartsResponse uploadedPartsResponse = s3Client.listParts(
                 ListPartsRequest.builder()
                     .bucket(s3Config.getBucket())
-                    .key(request.objectName())
-                    .uploadId(request.uploadId())
+                    .key(completeMultipartRequest.objectName())
+                    .uploadId(completeMultipartRequest.uploadId())
                     .build()
             );
 
             List<Part> uploadedParts = uploadedPartsResponse.parts();
 
-            String key = "upload:" + request.uploadId();
+            String key = "upload:" + completeMultipartRequest.uploadId();
             String expectedCountStr = redisTemplate.opsForValue().get(key);
             int expectedCount = expectedCountStr != null ? Integer.parseInt(expectedCountStr) : -1;
 
@@ -154,8 +162,8 @@ public class FilePresignedServiceImpl implements FilePresignedService {
             s3Client.completeMultipartUpload(
                 CompleteMultipartUploadRequest.builder()
                     .bucket(s3Config.getBucket())
-                    .key(request.objectName())
-                    .uploadId(request.uploadId())
+                    .key(completeMultipartRequest.objectName())
+                    .uploadId(completeMultipartRequest.uploadId())
                     .multipartUpload(completedMultipartUpload)
                     .build()
             );
@@ -198,6 +206,50 @@ public class FilePresignedServiceImpl implements FilePresignedService {
     }
 
     @Override
+    public InitBmpBatchResponse initMultipartUploadBatch(List<String> fileNames) {
+        List<InitMultipartUploadResponse> items = new ArrayList<>(fileNames.size());
+        for (String fileName : fileNames) {
+            InitMultipartUploadResponse init = initMultipartUpload("bmp", fileName);
+            items.add(init);
+        }
+        InitBmpBatchResponse initBmpBatchResponse = new InitBmpBatchResponse(items);
+        return initBmpBatchResponse;
+    }
+
+    @Override
+    public UrlsBatchResponse createPartPresignedUrlsBatch(List<UrlsBatchRequest.Job> jobs) {
+        List<UrlsBatchItem> items = new ArrayList<>(jobs.size());
+        for (UrlsBatchRequest.Job j : jobs) {
+            PresignedUrlListResponse urls =
+                createPartPresignedUrls(j.objectName(), j.uploadId(), j.partCount());
+            UrlsBatchItem item = new UrlsBatchItem(j.objectName(), j.uploadId(), urls);
+            items.add(item);
+        }
+        UrlsBatchResponse urlsBatchResponse = new UrlsBatchResponse(items);
+        return urlsBatchResponse;
+    }
+
+    @Override
+    public CompleteBatchResultResponse completeMultipartUploadBatch(
+        List<CompleteMultipartRequest> items) {
+        List<String> ok = new ArrayList<>();
+        Map<String, String> fail = new LinkedHashMap<>();
+
+        for (CompleteMultipartRequest item : items) {
+            try {
+                completeMultipartUpload(item);
+                ok.add(item.uploadId());
+            } catch (BusinessException be) {
+                fail.put(item.uploadId(), be.getErrorCode().name());
+            } catch (Exception e) {
+                fail.put(item.uploadId(), "INTERNAL_SERVER_ERROR");
+            }
+        }
+        CompleteBatchResultResponse completeBatchResult = new CompleteBatchResultResponse(ok, fail);
+        return completeBatchResult;
+    }
+
+    @Override
     public CreateTiffUploadResponse createTiffUpload(String fileName, String contentType) {
         try {
             String savedFileName = UUID.randomUUID() + "_" + fileName;
@@ -219,5 +271,17 @@ public class FilePresignedServiceImpl implements FilePresignedService {
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    @Override
+    public List<CreateTiffUploadResponse> createTiffUploadBatch(
+        List<TiffUploadItemRequest> items,
+        String contentType) {
+        List<CreateTiffUploadResponse> responses = new ArrayList<>();
+        for (TiffUploadItemRequest it : items) {
+            CreateTiffUploadResponse response = createTiffUpload(it.fileName(), contentType);
+            responses.add(response);
+        }
+        return responses;
     }
 }
