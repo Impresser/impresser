@@ -4,7 +4,8 @@ public record CreateTiffUploadResponse(
     String objectName,
     String fileName,
     String savedFileName,
-    String uploadUrl
+    String uploadUrl,
+    String imageUrl
 ) {
 
 }

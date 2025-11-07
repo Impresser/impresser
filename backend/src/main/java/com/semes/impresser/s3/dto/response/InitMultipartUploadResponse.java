@@ -4,7 +4,8 @@ public record InitMultipartUploadResponse(
     String uploadId,
     String objectName,
     String fileName,
-    String savedFileName
+    String savedFileName,
+    String imageUrl
 ) {
 
 }

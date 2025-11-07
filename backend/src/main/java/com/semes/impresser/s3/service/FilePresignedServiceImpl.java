@@ -3,6 +3,7 @@ package com.semes.impresser.s3.service;
 import com.semes.impresser.common.config.S3Config;
 import com.semes.impresser.common.exception.BusinessException;
 import com.semes.impresser.common.exception.ErrorCode;
+import com.semes.impresser.common.util.S3Util;
 import com.semes.impresser.s3.dto.request.CompleteMultipartRequest;
 import com.semes.impresser.s3.dto.request.TiffUploadItemRequest;
 import com.semes.impresser.s3.dto.request.UrlsBatchRequest;
@@ -11,7 +12,7 @@ import com.semes.impresser.s3.dto.response.CreateTiffUploadResponse;
 import com.semes.impresser.s3.dto.response.InitBmpBatchResponse;
 import com.semes.impresser.s3.dto.response.InitMultipartUploadResponse;
 import com.semes.impresser.s3.dto.response.PresignedUrlListResponse;
-import com.semes.impresser.s3.dto.response.UrlsBatchItem;
+import com.semes.impresser.s3.dto.response.UrlsBatchItemResponse;
 import com.semes.impresser.s3.dto.response.UrlsBatchResponse;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -49,6 +50,10 @@ public class FilePresignedServiceImpl implements FilePresignedService {
     private final S3Config s3Config;
     private final StringRedisTemplate redisTemplate;
 
+    private String buildPublicUrl(String key) {
+        return S3Util.buildUrlFromKey(s3Config.getEndpoint(), key);
+    }
+
     @Override
     public InitMultipartUploadResponse initMultipartUpload(String fileType, String fileName) {
         try {
@@ -59,15 +64,18 @@ public class FilePresignedServiceImpl implements FilePresignedService {
                 CreateMultipartUploadRequest.builder()
                     .bucket(s3Config.getBucket())
                     .key(objectName)
-                    .contentType("application/octet-stream")
+                    .contentType("image/bmp")
                     .build()
             );
+
+            String imageUrl = buildPublicUrl(objectName);
 
             return new InitMultipartUploadResponse(
                 response.uploadId(),
                 objectName,
                 fileName,
-                uniqueFileName
+                uniqueFileName,
+                imageUrl
             );
 
         } catch (Exception e) {
@@ -218,11 +226,20 @@ public class FilePresignedServiceImpl implements FilePresignedService {
 
     @Override
     public UrlsBatchResponse createPartPresignedUrlsBatch(List<UrlsBatchRequest.Job> jobs) {
-        List<UrlsBatchItem> items = new ArrayList<>(jobs.size());
+        List<UrlsBatchItemResponse> items = new ArrayList<>(jobs.size());
+
         for (UrlsBatchRequest.Job j : jobs) {
             PresignedUrlListResponse urls =
                 createPartPresignedUrls(j.objectName(), j.uploadId(), j.partCount());
-            UrlsBatchItem item = new UrlsBatchItem(j.objectName(), j.uploadId(), urls);
+
+            String imageUrl = buildPublicUrl(j.objectName());
+
+            UrlsBatchItemResponse item = new UrlsBatchItemResponse(
+                j.objectName(),
+                j.uploadId(),
+                urls,
+                imageUrl
+            );
             items.add(item);
         }
         UrlsBatchResponse urlsBatchResponse = new UrlsBatchResponse(items);
@@ -265,8 +282,10 @@ public class FilePresignedServiceImpl implements FilePresignedService {
                 .signatureDuration(Duration.ofMinutes(10))
                 .putObjectRequest(por));
 
+            String imageUrl = buildPublicUrl(objectName);
+
             return new CreateTiffUploadResponse(
-                objectName, fileName, savedFileName, presigned.url().toString()
+                objectName, fileName, savedFileName, presigned.url().toString(), imageUrl
             );
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
