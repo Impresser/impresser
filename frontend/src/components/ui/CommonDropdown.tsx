@@ -15,6 +15,7 @@ interface CommonDropdownProps {
   disabled?: boolean;
   className?: string;
   label?: string;
+  size?: 'sm' | 'md';
 }
 
 export default function CommonDropdown({
@@ -25,24 +26,53 @@ export default function CommonDropdown({
   disabled = false,
   className = '',
   label,
+  size = 'md',
 }: CommonDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const selectedOption = options.find(option => option.value === value);
 
+  const updateMenuPosition = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      setMenuPosition({
+        top: rect.bottom + 4, // fixed positioning은 viewport 기준이므로 scrollY 불필요
+        left: rect.left, // fixed positioning은 viewport 기준이므로 scrollX 불필요
+        width: rect.width,
+      });
+    }
+  };
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(target) &&
+        menuRef.current &&
+        !menuRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+    if (isOpen) {
+      updateMenuPosition();
+      document.addEventListener('mousedown', handleClickOutside);
+      window.addEventListener('scroll', updateMenuPosition, true);
+      window.addEventListener('resize', updateMenuPosition);
+
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        window.removeEventListener('scroll', updateMenuPosition, true);
+        window.removeEventListener('resize', updateMenuPosition);
+      };
+    }
+  }, [isOpen]);
 
   const handleSelect = (option: DropdownOption) => {
     onChange(option.value);
@@ -58,22 +88,23 @@ export default function CommonDropdown({
       )}
       <div ref={dropdownRef} className="relative">
         <button
+          ref={buttonRef}
           type="button"
           onClick={() => !disabled && setIsOpen(!isOpen)}
           disabled={disabled}
           className={`
-            w-full px-3 py-2 text-left bg-white border border-gray-300 rounded-md shadow-sm
+            w-full bg-white border border-gray-300 rounded-md shadow-sm text-left
             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
             ${disabled ? 'bg-gray-100 cursor-not-allowed' : 'cursor-pointer hover:border-gray-400'}
-            ${className}
+            ${size === 'sm' ? 'px-2 py-1 text-xs' : 'px-3 py-2 text-sm'}
           `}
         >
-          <span className={`block truncate text-sm ${selectedOption ? 'text-gray-900' : 'text-gray-500'}`}>
+          <span className={`block truncate ${selectedOption ? 'text-gray-900' : 'text-gray-500'}`}>
             {selectedOption ? selectedOption.label : placeholder}
           </span>
           <span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
             <svg
-              className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${
+              className={`${size === 'sm' ? 'w-4 h-4' : 'w-5 h-5'} text-gray-400 transition-transform duration-200 ${
                 isOpen ? 'rotate-180' : ''
               }`}
               fill="none"
@@ -91,15 +122,24 @@ export default function CommonDropdown({
         </button>
 
         {isOpen && (
-          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+          <div
+            ref={menuRef}
+            className="fixed z-[9999] bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
+            style={{
+              top: `${menuPosition.top}px`,
+              left: `${menuPosition.left}px`,
+              width: `${menuPosition.width}px`,
+            }}
+          >
             {options.map((option) => (
               <button
                 key={option.value}
                 type="button"
                 onClick={() => handleSelect(option)}
                 className={`
-                  w-full px-3 py-2 text-left text-sm hover:bg-gray-100 focus:bg-gray-100 focus:outline-none
+                  w-full text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none
                   ${option.value === value ? 'bg-blue-50 text-blue-900' : 'text-gray-900'}
+                  ${size === 'sm' ? 'px-2 py-1.5 text-xs' : 'px-3 py-2 text-sm'}
                 `}
               >
                 {option.label}

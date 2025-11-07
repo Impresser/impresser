@@ -348,7 +348,7 @@ export default function EquipmentUsage() {
                   <th className="text-center font-semibold text-xs tracking-wide py-2 px-3 w-16">순위</th>
                   <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">알고리즘</th>
                   <th className="text-center font-semibold text-xs tracking-wide py-2 px-3 w-20">버전</th>
-                  <th className="text-center font-semibold text-xs tracking-wide py-2 px-3 w-16">방식</th>
+                  <th className="text-center font-semibold text-xs tracking-wide py-2 px-3 w-20 whitespace-nowrap">처리 방식</th>
                   <th className="text-right font-semibold text-xs tracking-wide py-2 px-3 w-36">평균압축속도</th>
                 </tr>
               </thead>
