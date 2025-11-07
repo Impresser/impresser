@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Button from './CommonButton';
+import CommonTableFrame from './CommonTableFrame';
 
 export interface QueueItem {
   id: string;
@@ -29,6 +30,7 @@ export interface HistoryItem {
   assignedUser: string;
   completedTime: Date;
   duration: number; // 초 단위
+  tiffUrl?: string; // 다운로드 URL (선택적)
 }
 
 interface CommonTableProps {
@@ -96,136 +98,146 @@ export default function CommonTable({ data, emptyMessage = '데이터가 없습�
   };
 
   return (
-    <div className="space-y-4">
-      {/* 테이블 헤더 */}
-      <div className="grid grid-cols-12 gap-4 pb-3 border-b border-gray-200 text-sm font-semibold text-gray-700">
-        <div className="col-span-2">파일명</div>
-        <div className="col-span-1">처리방식</div>
-        <div className="col-span-1">알고리즘</div>
-        <div className="col-span-1">버전</div>
-        <div className="col-span-1">파일용량</div>
-        <div className="col-span-1">상태</div>
-        <div className="col-span-1">담당자</div>
-        {mode === 'queue' ? (
-          <>
-            <div className="col-span-1">시작시각</div>
-            <div className="col-span-1">경과시간</div>
-            <div className="col-span-1">예상시간</div>
-            <div className="col-span-1">진행률</div>
-          </>
-        ) : (
-          <>
-            <div className="col-span-2">완료일시</div>
-            <div className="col-span-1">소요시간</div>
-            <div className="col-span-1">다운로드</div>
-          </>
-        )}
-      </div>
-
-      {/* 테이블 행 또는 빈 메시지 */}
-      {data.length === 0 ? (
-        <div className="py-12 text-center text-gray-500 text-sm">
-          {emptyMessage}
-        </div>
-      ) : (
-        data.map((item) => {
-          if (mode === 'queue' && isQueueItem(item)) {
-            return (
-              <div
-                key={item.id}
-                className="grid grid-cols-12 gap-4 py-3 border-b border-gray-100 text-sm text-gray-900"
+    <CommonTableFrame
+      header={
+        <thead className="bg-gray-50">
+          <tr className="text-gray-700">
+            <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">파일명</th>
+            <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">처리방식</th>
+            <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">알고리즘</th>
+            <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">버전</th>
+            <th className="text-right font-semibold text-xs tracking-wide py-2 px-3">파일용량</th>
+            <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">상태</th>
+            <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">담당자</th>
+            {mode === 'queue' ? (
+              <>
+                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">시작시각</th>
+                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">경과시간</th>
+                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">예상시간</th>
+                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">진행률</th>
+              </>
+            ) : (
+              <>
+                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">완료일시</th>
+                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">소요시간</th>
+                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">다운로드</th>
+              </>
+            )}
+          </tr>
+        </thead>
+      }
+      body={
+        <tbody>
+          {data.length === 0 ? (
+            <tr>
+              <td
+                colSpan={mode === 'queue' ? 12 : 11}
+                className="py-12 text-center text-gray-500 text-sm"
               >
-                <div className="col-span-2 truncate" title={item.fileName}>
-                  {item.fileName}
-                </div>
-                <div className="col-span-1">{item.processingMethod}</div>
-                <div className="col-span-1 truncate" title={item.algorithm}>
-                  {item.algorithm}
-                </div>
-                <div className="col-span-1">{item.version}</div>
-                <div className="col-span-1">{formatFileSize(item.fileSize)}</div>
-                <div className="col-span-1">
-                  <span
-                    className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                      item.status === '진행'
-                        ? 'bg-blue-100 text-blue-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}
+                {emptyMessage}
+              </td>
+            </tr>
+          ) : (
+            data.map((item) => {
+              if (mode === 'queue' && isQueueItem(item)) {
+                return (
+                  <tr
+                    key={item.id}
+                    className="border-b border-gray-100 text-sm text-gray-900 hover:bg-gray-50"
                   >
-                    {item.status}
-                  </span>
-                </div>
-                <div className="col-span-1">{item.assignedUser}</div>
-                <div className="col-span-1 text-xs">
-                  {item.startTime ? formatDateTime(item.startTime) : '-'}
-                </div>
-                <div className="col-span-1">
-                  {item.status === '진행' ? formatTime(item.elapsedTime) : '-'}
-                </div>
-                <div className="col-span-1">
-                  {item.estimatedTime > 0 ? formatTime(item.estimatedTime) : '-'}
-                </div>
-                <div className="col-span-1">
-                  {item.status === '진행' ? (
-                    <div className="flex items-center space-x-2">
-                      <div className="flex-1 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${item.progress}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-gray-600 min-w-12">
-                        {item.progress}%
+                    <td className="py-3 px-3 truncate max-w-xs" title={item.fileName}>
+                      {item.fileName}
+                    </td>
+                    <td className="py-3 px-3 text-center">{item.processingMethod}</td>
+                    <td className="py-3 px-3 truncate max-w-xs" title={item.algorithm}>
+                      {item.algorithm}
+                    </td>
+                    <td className="py-3 px-3 text-center">{item.version}</td>
+                    <td className="py-3 px-3 text-right">{formatFileSize(item.fileSize)}</td>
+                    <td className="py-3 px-3 text-center">
+                      <span
+                        className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                          item.status === '진행'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {item.status}
                       </span>
-                    </div>
-                  ) : (
-                    '-'
-                  )}
-                </div>
-              </div>
-            );
-          } else if (mode === 'history' && isHistoryItem(item)) {
-            return (
-              <div
-                key={item.id}
-                className="grid grid-cols-12 gap-4 py-3 border-b border-gray-100 text-sm text-gray-900"
-              >
-                <div className="col-span-2 truncate" title={item.fileName}>
-                  {item.fileName}
-                </div>
-                <div className="col-span-1">{item.processingMethod}</div>
-                <div className="col-span-1 truncate" title={item.algorithm}>
-                  {item.algorithm}
-                </div>
-                <div className="col-span-1">{item.version}</div>
-                <div className="col-span-1">{formatFileSize(item.fileSize)}</div>
-                <div className="col-span-1">
-                  <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
-                    {item.status}
-                  </span>
-                </div>
-                <div className="col-span-1">{item.assignedUser}</div>
-                <div className="col-span-2 text-xs">
-                  {formatDateTime(item.completedTime)}
-                </div>
-                <div className="col-span-1">
-                  {formatTime(item.duration)}
-                </div>
-                <div className="col-span-1">
-                  <Button
-                    onClick={() => handleDownload(item)}
-                    variant="blue"
-                    className="px-3 py-1 text-xs"
+                    </td>
+                    <td className="py-3 px-3 text-center">{item.assignedUser}</td>
+                    <td className="py-3 px-3 text-center text-xs">
+                      {item.startTime ? formatDateTime(item.startTime) : '-'}
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      {item.status === '진행' ? formatTime(item.elapsedTime) : '-'}
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      {item.estimatedTime > 0 ? formatTime(item.estimatedTime) : '-'}
+                    </td>
+                    <td className="py-3 px-3">
+                      {item.status === '진행' ? (
+                        <div className="flex items-center space-x-2">
+                          <div className="flex-1 bg-gray-200 rounded-full h-2">
+                            <div
+                              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${item.progress}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-gray-600 min-w-12">
+                            {item.progress}%
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-center">-</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              } else if (mode === 'history' && isHistoryItem(item)) {
+                return (
+                  <tr
+                    key={item.id}
+                    className="border-b border-gray-100 text-sm text-gray-900 hover:bg-gray-50"
                   >
-                    다운로드
-                  </Button>
-                </div>
-              </div>
-            );
-          }
-          return null;
-        })
-      )}
-    </div>
+                    <td className="py-3 px-3 truncate max-w-xs" title={item.fileName}>
+                      {item.fileName}
+                    </td>
+                    <td className="py-3 px-3 text-center">{item.processingMethod}</td>
+                    <td className="py-3 px-3 truncate max-w-xs" title={item.algorithm}>
+                      {item.algorithm}
+                    </td>
+                    <td className="py-3 px-3 text-center">{item.version}</td>
+                    <td className="py-3 px-3 text-right">{formatFileSize(item.fileSize)}</td>
+                    <td className="py-3 px-3 text-center">
+                      <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
+                        {item.status}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-center">{item.assignedUser}</td>
+                    <td className="py-3 px-3 text-center text-xs">
+                      {formatDateTime(item.completedTime)}
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      {formatTime(item.duration)}
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      <Button
+                        onClick={() => handleDownload(item)}
+                        variant="blue"
+                        className="px-3 py-1 text-xs"
+                      >
+                        다운로드
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              }
+              return null;
+            })
+          )}
+        </tbody>
+      }
+    />
   );
 }

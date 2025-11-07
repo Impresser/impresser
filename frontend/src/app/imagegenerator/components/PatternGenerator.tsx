@@ -424,72 +424,74 @@ export default function PatternForm() {
       </div>
 
       <div className="flex flex-col md:flex-row w-full gap-4 items-stretch">
-      <CommonContainerBox className="flex-1 md:basis-2/3">
-        {/* 🔹 이미지 크기 / 간격 입력 (채널 행과 동일한 1행 정렬) */}
-        {/* 헤더 라벨 (데스크톱 전용) */}
-        <div className="hidden md:flex gap-11 text-sm font-semibold text-gray-700 mb-2">
-          <div className="w-8"></div>
-          <div className="flex-1">이미지 크기</div>
-          <div className="flex-1">R-G 간격</div>
-          <div className="flex-1">G-B 간격</div>
-        </div>
-        <div className="flex gap-3 md:gap-11 text-sm items-center">
-          {/* 라벨 영역 */}
-          <span className="font-semibold text-gray-700 w-8">IMG</span>
-
-          {/* 크기 */}
-          <div className="flex-1 grid grid-cols-2 gap-2">
-            <CommonInput fixedPlaceholder="W" fixedPlaceholderPadding="sm" value={form.imageSize.w} onChange={onNumChange('imageSize.w')} />
-            <CommonInput fixedPlaceholder="H" fixedPlaceholderPadding="sm" value={form.imageSize.h} onChange={onNumChange('imageSize.h')} />
-          </div>
-
-          {/* R-G 간격 */}
-          <div className="flex-1 grid grid-cols-1 gap-2">
-            <CommonInput fixedPlaceholder="W" fixedPlaceholderPadding="sm" value={form.gapRG.w} onChange={onNumChange('gapRG.w')} />
-          </div>
-
-          {/* G-B 간격 */}
-          <div className="flex-1 grid grid-cols-1 gap-2">
-            <CommonInput fixedPlaceholder="W" fixedPlaceholderPadding="sm" value={form.gapGB.w} onChange={onNumChange('gapGB.w')} />
-          </div>
-        </div>
-
-
-        {/* 🔹 R, G, B 채널 설정 (모바일 스택, 데스크톱 테이블) */}
-        <div className="mt-4">
-          
+      <CommonContainerBox className="flex-1 md:basis-2/3 flex flex-col justify-center items-center">
+        <div className="w-full max-w-full">
+          {/* 🔹 이미지 크기 / 간격 입력 (채널 행과 동일한 1행 정렬) */}
+          {/* 헤더 라벨 (데스크톱 전용) */}
           <div className="hidden md:flex gap-11 text-sm font-semibold text-gray-700 mb-2">
             <div className="w-8"></div>
-            <div className="flex-1">크기</div>
-            <div className="flex-1">개수</div>
-            <div className="flex-1">간격</div>
+            <div className="flex-1">이미지 크기</div>
+            <div className="flex-1">R-G 간격</div>
+            <div className="flex-1">G-B 간격</div>
+          </div>
+          <div className="flex gap-3 md:gap-11 text-sm items-center">
+            {/* 라벨 영역 */}
+            <span className="font-semibold text-gray-700 w-8">IMG</span>
+
+            {/* 크기 */}
+            <div className="flex-1 grid grid-cols-2 gap-2">
+              <CommonInput fixedPlaceholder="W" fixedPlaceholderPadding="sm" value={form.imageSize.w} onChange={onNumChange('imageSize.w')} />
+              <CommonInput fixedPlaceholder="H" fixedPlaceholderPadding="sm" value={form.imageSize.h} onChange={onNumChange('imageSize.h')} />
+            </div>
+
+            {/* R-G 간격 */}
+            <div className="flex-1 grid grid-cols-1 gap-2">
+              <CommonInput fixedPlaceholder="W" fixedPlaceholderPadding="sm" value={form.gapRG.w} onChange={onNumChange('gapRG.w')} />
+            </div>
+
+            {/* G-B 간격 */}
+            <div className="flex-1 grid grid-cols-1 gap-2">
+              <CommonInput fixedPlaceholder="W" fixedPlaceholderPadding="sm" value={form.gapGB.w} onChange={onNumChange('gapGB.w')} />
+            </div>
           </div>
 
-          {(['R', 'G', 'B'] as const).map((color) => (
-            <div key={color} className="mb-4 last:mb-0">
-              <div className="flex gap-3 md:gap-11 text-sm items-center">
-                {/* 색상 레이블 */}
-                <span className="font-semibold text-gray-700 w-8">{color}</span>
-                {/* 크기 */}
-                <div className="flex-1 grid grid-cols-2 gap-2">
-                  <CommonInput fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.channels[color].size.x} onChange={onNumChange(`channels.${color}.size.x`)} />
-                  <CommonInput fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.channels[color].size.y} onChange={onNumChange(`channels.${color}.size.y`)} />
-                </div>
 
-                {/* 개수 */}
-                <div className="flex-1 grid grid-cols-2 gap-2">
-                  <CommonInput fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.channels[color].count.x} onChange={onNumChange(`channels.${color}.count.x`)} />
-                  <CommonInput fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.channels[color].count.y} onChange={onNumChange(`channels.${color}.count.y`)} />
-                </div>
+          {/* 🔹 R, G, B 채널 설정 (모바일 스택, 데스크톱 테이블) */}
+          <div className="mt-4">
+            
+            <div className="hidden md:flex gap-11 text-sm font-semibold text-gray-700 mb-2">
+              <div className="w-8"></div>
+              <div className="flex-1">크기</div>
+              <div className="flex-1">개수</div>
+              <div className="flex-1">간격</div>
+            </div>
 
-                {/* 간격 */}
-                <div className="flex-1 grid grid-cols-2 gap-2">
-                  <CommonInput fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.channels[color].spacing.x} onChange={onNumChange(`channels.${color}.spacing.x`)} />
-                  <CommonInput fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.channels[color].spacing.y} onChange={onNumChange(`channels.${color}.spacing.y`)} />
+            {(['R', 'G', 'B'] as const).map((color) => (
+              <div key={color} className="mb-4 last:mb-0">
+                <div className="flex gap-3 md:gap-11 text-sm items-center">
+                  {/* 색상 레이블 */}
+                  <span className="font-semibold text-gray-700 w-8">{color}</span>
+                  {/* 크기 */}
+                  <div className="flex-1 grid grid-cols-2 gap-2">
+                    <CommonInput fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.channels[color].size.x} onChange={onNumChange(`channels.${color}.size.x`)} />
+                    <CommonInput fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.channels[color].size.y} onChange={onNumChange(`channels.${color}.size.y`)} />
+                  </div>
+
+                  {/* 개수 */}
+                  <div className="flex-1 grid grid-cols-2 gap-2">
+                    <CommonInput fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.channels[color].count.x} onChange={onNumChange(`channels.${color}.count.x`)} />
+                    <CommonInput fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.channels[color].count.y} onChange={onNumChange(`channels.${color}.count.y`)} />
+                  </div>
+
+                  {/* 간격 */}
+                  <div className="flex-1 grid grid-cols-2 gap-2">
+                    <CommonInput fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.channels[color].spacing.x} onChange={onNumChange(`channels.${color}.spacing.x`)} />
+                    <CommonInput fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.channels[color].spacing.y} onChange={onNumChange(`channels.${color}.spacing.y`)} />
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </CommonContainerBox>
           <CommonContainerBox className="flex-1 md:basis-1/3 flex flex-col p-6">

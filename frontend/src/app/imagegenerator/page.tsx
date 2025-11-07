@@ -163,7 +163,7 @@ export default function PatternGeneratorPage() {
       <div className="flex-1 flex flex-col">
         <Navbar />
 
-        <main className="flex-1 p-8 overflow-y-auto">
+        <main className="flex-1 p-6 overflow-y-auto">
           {/* 메시지 표시 영역 */}
           {message && (
             <div
