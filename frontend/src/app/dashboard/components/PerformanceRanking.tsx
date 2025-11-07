@@ -33,7 +33,10 @@ function mapApiToPerf(items: DashboardRankItem[]): AlgorithmPerf[] {
 // 각 알고리즘+버전+방식 조합별 작업 목록 (API 연동 전까지 빈 배열 유지)
 const JOB_LISTS: JobDetailRow[] = [];
 
-function PrettyNumber({ value, unit }: { value: number; unit: string }) {
+function PrettyNumber({ value, unit }: { value: number | null | undefined; unit: string }) {
+  if (value == null || isNaN(value)) {
+    return <span>-</span>;
+  }
   return <span>{value.toLocaleString(undefined, { maximumFractionDigits: 1 })}{unit}</span>;
 }
 
@@ -160,8 +163,8 @@ export default function EquipmentUsage() {
       inputFormat: "TIFF",
       outputFormat: "TIFF",
       avgGpuUtilPercent: 0, // API 응답에 없음
-      avgSpeedMBps: item.avgSpeed,
-      maxSpeedMBps: item.avgSpeed, // API 응답에 없음
+      avgSpeedMBps: item.avgSpeed ?? 0,
+      maxSpeedMBps: item.avgSpeed ?? 0, // API 응답에 없음
       minSpeedKBps: 0, // API 응답에 없음
       convertHistoryUuid: item.convertHistoryUuid, // 작업 상세 조회용 UUID
     }));

@@ -5,9 +5,8 @@ import Sidebar from '@/components/layout/sidebar';
 import Navbar from '@/components/layout/navbar';
 import CommonTable, { QueueItem } from '@/components/ui/CommonTable';
 import AuthGuard from '@/components/auth/AuthGuard';
-import CompressionSettings, {
-  FileInfo,
-} from './components/CompressionSettings';
+import CompressionSettings from './components/CompressionSettings';
+import { FileInfo } from '@/types/imageCompressor';
 import CompressionQueue from './components/CompressionQueue';
 import CompressionHistory from './components/CompressionHistory';
 
