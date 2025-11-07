@@ -122,7 +122,7 @@ public class S3Controller {
         @RequestParam @NotBlank String fileName
     ) {
         CreateTiffUploadResponse response = filePresignedService.createTiffUpload(
-            fileName, "image/tiff");
+            fileName);
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(BaseResponse.onSuccess(response));
     }

@@ -39,7 +39,7 @@ public interface FilePresignedService {
      */
     String getPresignedUrl(String objectName);
 
-    CreateTiffUploadResponse createTiffUpload(String fileName, String contentType);
+    CreateTiffUploadResponse createTiffUpload(String fileName);
 
     /**
      * ========= 배치 =========
