@@ -85,3 +85,12 @@ export interface ConvertHistoryDetailItem {
   compressedExtension: string;
 }
 
+// 파일 정보 타입
+export interface FileInfo {
+  name: string;
+  size: number;
+  format: string;
+  dimensions: { width: number; height: number };
+  preview: string;
+}
+

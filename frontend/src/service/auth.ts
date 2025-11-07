@@ -20,10 +20,8 @@ function checkCookies(): void {
   // document.cookie는 HTTPOnly 쿠키를 읽을 수 없습니다
   // 일반 쿠키만 확인 가능
   const cookies = document.cookie.split(';').map(c => c.trim());
-  console.log("현재 저장된 쿠키 (일반 쿠키만, HTTPOnly 쿠키는 제외):", cookies);
   
   if (cookies.length === 0 || (cookies.length === 1 && cookies[0] === '')) {
-    console.warn("⚠️ 쿠키가 저장되지 않았습니다. HTTPOnly 쿠키는 JavaScript에서 확인할 수 없으므로, 개발자 도구의 Application > Cookies에서 확인하세요.");
   }
 }
 
@@ -48,14 +46,9 @@ export async function login(loginData: LoginRequest): Promise<LoginResponse> {
   try {
     const setCookieHeader = response.headers.get("set-cookie");
     if (setCookieHeader) {
-      console.log("✅ 서버가 Set-Cookie 헤더를 보냈습니다:", setCookieHeader);
     } else {
-      console.warn("⚠️ Set-Cookie 헤더를 확인할 수 없습니다. (브라우저 보안 정책 또는 서버가 헤더를 보내지 않음)");
-      console.warn("💡 개발자 도구의 Network 탭에서 로그인 요청 응답 헤더를 직접 확인하세요.");
     }
   } catch (error) {
-    console.warn("⚠️ Set-Cookie 헤더 확인 중 오류:", error);
-    console.warn("💡 개발자 도구의 Network 탭에서 로그인 요청 응답 헤더를 직접 확인하세요.");
   }
 
   // 모든 응답 헤더 확인 (디버깅용, Set-Cookie는 포함되지 않을 수 있음)
@@ -64,7 +57,7 @@ export async function login(loginData: LoginRequest): Promise<LoginResponse> {
     response.headers.forEach((value, key) => {
       headers[key] = value;
     });
-    console.log("응답 헤더 (Set-Cookie 제외):", headers);
+ 
   } catch (error) {
     console.warn("응답 헤더 확인 중 오류:", error);
   }
@@ -82,11 +75,6 @@ export async function login(loginData: LoginRequest): Promise<LoginResponse> {
   if (data.isSuccess) {
     setTimeout(() => {
       checkCookies();
-      console.log("💡 쿠키 확인 방법:");
-      console.log("1. 개발자 도구 (F12) 열기");
-      console.log("2. Application 탭 선택");
-      console.log("3. 왼쪽에서 'Cookies' > 'http://localhost:3000' 선택");
-      console.log("4. Refresh Token 쿠키가 있는지 확인");
     }, 100);
   }
   
