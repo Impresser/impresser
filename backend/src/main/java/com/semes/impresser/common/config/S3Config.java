@@ -1,5 +1,8 @@
 package com.semes.impresser.common.config;
 
+import com.semes.impresser.common.util.S3Util;
+import jakarta.annotation.PostConstruct;
+import java.net.URI;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -10,8 +13,6 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-
-import java.net.URI;
 
 @Configuration
 public class S3Config {
@@ -63,5 +64,11 @@ public class S3Config {
 
     public String getBucket() {
         return bucket;
+    }
+    public String getEndpoint() {return  endpoint;}
+
+    @PostConstruct
+    void initS3UtilDefaultBucket() {
+        S3Util.setDefaultBucket(bucket);
     }
 }

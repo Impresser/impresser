@@ -250,7 +250,7 @@ public class FilePresignedServiceImpl implements FilePresignedService {
     }
 
     @Override
-    public CreateTiffUploadResponse createTiffUpload(String fileName, String contentType) {
+    public CreateTiffUploadResponse createTiffUpload(String fileName) {
         try {
             String savedFileName = UUID.randomUUID() + "_" + fileName;
             String objectName = "tiff/" + savedFileName;
@@ -258,7 +258,7 @@ public class FilePresignedServiceImpl implements FilePresignedService {
             PutObjectRequest por = PutObjectRequest.builder()
                 .bucket(s3Config.getBucket())
                 .key(objectName)
-                .contentType(contentType)
+                .contentType("image/tiff")
                 .build();
 
             PresignedPutObjectRequest presigned = s3Presigner.presignPutObject(b -> b
@@ -279,7 +279,7 @@ public class FilePresignedServiceImpl implements FilePresignedService {
         String contentType) {
         List<CreateTiffUploadResponse> responses = new ArrayList<>();
         for (TiffUploadItemRequest it : items) {
-            CreateTiffUploadResponse response = createTiffUpload(it.fileName(), contentType);
+            CreateTiffUploadResponse response = createTiffUpload(it.fileName());
             responses.add(response);
         }
         return responses;
