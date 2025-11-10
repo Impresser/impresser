@@ -1,6 +1,7 @@
 package com.semes.impresser.convertImage.entity;
 
 import com.semes.impresser.common.entity.BaseEntity;
+import com.semes.impresser.convertImage.dto.request.CompleteConvertRequest;
 import com.semes.impresser.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -23,6 +24,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ConvertHistory extends BaseEntity {
+
+    @Column(name = "bmp_key", nullable = false)
+    private String bmpKey;
 
     @Column(name = "bmp_volume", nullable = false)
     private Long bmpVolume;
@@ -67,7 +71,7 @@ public class ConvertHistory extends BaseEntity {
     private Long compressionRatio;
 
     @Column(name = "compression_time")
-    private Long compressionTime;
+    private BigDecimal compressionTime;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "compression_type_id", nullable = false)
@@ -76,4 +80,38 @@ public class ConvertHistory extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
+
+    public void update(CompleteConvertRequest completeConvertRequest) {
+        if (completeConvertRequest.tiffVolume() != null) {
+            this.tiffVolume = completeConvertRequest.tiffVolume() / 1000;
+        }
+        if (completeConvertRequest.tiffWidth() != null) {
+            this.tiffWidth = completeConvertRequest.tiffWidth();
+        }
+        if (completeConvertRequest.tiffHeight() != null) {
+            this.tiffHeight = completeConvertRequest.tiffHeight();
+        }
+        if (completeConvertRequest.avgGpuUtilization() != null) {
+            this.avgGpuUtilization = completeConvertRequest.avgGpuUtilization();
+        }
+        if (completeConvertRequest.avgSpeed() != null) {
+            this.avgSpeed = completeConvertRequest.avgSpeed();
+        }
+        if (completeConvertRequest.maxSpeed() != null) {
+            this.maxSpeed = completeConvertRequest.maxSpeed();
+        }
+        if (completeConvertRequest.minSpeed() != null) {
+            this.minSpeed = completeConvertRequest.minSpeed();
+        }
+        if (completeConvertRequest.compressionTime() != null) {
+            this.compressionTime = completeConvertRequest.compressionTime();
+        }
+        if (this.completedAt == null) {
+            this.completedAt = LocalDateTime.now();
+        }
+        if (this.bmpVolume != null && this.tiffVolume != null && this.bmpVolume > 0) {
+            double ratio = (1 - (double) this.tiffVolume / this.bmpVolume) * 100;
+            this.compressionRatio = Math.round(ratio);
+        }
+    }
 }

@@ -5,16 +5,18 @@ import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 public class S3Util {
 
     private static volatile String DEFAULT_BUCKET;
+    private static volatile String DEFAULT_ENDPOINT;
 
     public static void setDefaultBucket(String bucket) {
         DEFAULT_BUCKET = bucket;
+    }
+
+    public static void setDefaultEndpoint(String endpoint) {
+        DEFAULT_ENDPOINT = endpoint;
     }
 
     /**
@@ -49,7 +51,8 @@ public class S3Util {
             }
 
             String p = path.startsWith("/") ? path.substring(1) : path;
-            if (DEFAULT_BUCKET != null && !DEFAULT_BUCKET.isBlank() && p.startsWith(DEFAULT_BUCKET + "/")) {
+            if (DEFAULT_BUCKET != null && !DEFAULT_BUCKET.isBlank() && p.startsWith(
+                DEFAULT_BUCKET + "/")) {
                 return decode(p.substring(DEFAULT_BUCKET.length() + 1));
             }
 
@@ -75,12 +78,12 @@ public class S3Util {
     /**
      * key -> url 변환
      */
-    public static String buildUrlFromKey(String endpoint, String key) {
+    public static String buildUrlFromKey(String key) {
         if (key == null || key.isBlank()) {
             return null;
         }
 
-        String base = (endpoint == null) ? "" : endpoint.trim();
+        String base = (DEFAULT_ENDPOINT == null) ? "" : DEFAULT_ENDPOINT.trim();
         if (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);
         }
