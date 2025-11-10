@@ -1,13 +1,9 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 import CommonButton from '@/components/ui/CommonButton';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import type { Facility } from '../types';
-import type { QueueItem, HistoryItem } from '@/components/ui/CommonTable';
-import FacilityQueueSection from './FacilityQueueSection';
-import FacilityHistorySection from './FacilityHistorySection';
 
 interface FacilityInfoSectionProps {
   facility: Facility;
@@ -21,7 +17,6 @@ interface FacilityInfoSectionProps {
   processLabel: string;
   formattedInstallDate: string;
   isDeleting: boolean;
-  onClose: () => void;
   onDelete: () => void;
   onOpenEditModal: () => void;
   onAddToPerformanceComparison: () => void;
@@ -29,13 +24,6 @@ interface FacilityInfoSectionProps {
   onDragEndPerformance: () => void;
   onToggleTaskSections: () => void;
   isTaskSectionVisible: boolean;
-  queueItems: QueueItem[];
-  processingItems: QueueItem[];
-  overallProgress: number;
-  historyItems: HistoryItem[];
-  isLoadingHistory: boolean;
-  historyError: string | null;
-  onHistoryDownload?: (item: HistoryItem) => void;
 }
 
 export default function FacilityInfoSection({
@@ -50,7 +38,6 @@ export default function FacilityInfoSection({
   processLabel,
   formattedInstallDate,
   isDeleting,
-  onClose,
   onDelete,
   onOpenEditModal,
   onAddToPerformanceComparison,
@@ -58,13 +45,6 @@ export default function FacilityInfoSection({
   onDragEndPerformance,
   onToggleTaskSections,
   isTaskSectionVisible,
-  queueItems,
-  processingItems,
-  overallProgress,
-  historyItems,
-  isLoadingHistory,
-  historyError,
-  onHistoryDownload,
 }: FacilityInfoSectionProps) {
   const renderValue = (value?: string | number | null) =>
     value !== undefined && value !== null && value !== '' ? value : '-';

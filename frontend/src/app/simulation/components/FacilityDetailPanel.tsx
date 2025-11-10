@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import type { Facility } from '../types';
-import type { QueueItem, HistoryItem } from '@/components/ui/CommonTable';
 import { deleteInkjetPrinter } from '@/service/inkjet';
 import FacilityInfoSection from './FacilityInfoSection';
 
@@ -20,13 +19,6 @@ interface FacilityDetailPanelProps {
   onAddToPerformanceComparison?: (facility: Facility) => void;
   onDragStartPerformance?: (facility: Facility) => void;
   onDragEndPerformance?: () => void;
-  queueItems: QueueItem[];
-  processingItems: QueueItem[];
-  overallProgress: number;
-  historyItems: HistoryItem[];
-  isLoadingHistory: boolean;
-  historyError: string | null;
-  onHistoryDownload?: (item: HistoryItem) => void;
 }
 
 export default function FacilityDetailPanel({
@@ -43,13 +35,6 @@ export default function FacilityDetailPanel({
   onAddToPerformanceComparison,
   onDragStartPerformance,
   onDragEndPerformance,
-  queueItems,
-  processingItems,
-  overallProgress,
-  historyItems,
-  isLoadingHistory,
-  historyError,
-  onHistoryDownload,
 }: FacilityDetailPanelProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -155,7 +140,6 @@ export default function FacilityDetailPanel({
         processLabel={processLabel}
         formattedInstallDate={formattedInstallDate}
         isDeleting={isDeleting}
-        onClose={onClose}
         onDelete={handleDelete}
         onOpenEditModal={() => onOpenEditModal?.(facility)}
         onAddToPerformanceComparison={() => onAddToPerformanceComparison?.(facility)}
@@ -163,13 +147,6 @@ export default function FacilityDetailPanel({
         onDragEndPerformance={() => onDragEndPerformance?.()}
         onToggleTaskSections={onToggleTaskSections}
         isTaskSectionVisible={showTaskSections}
-        queueItems={queueItems}
-        processingItems={processingItems}
-        overallProgress={overallProgress}
-        historyItems={historyItems}
-        isLoadingHistory={isLoadingHistory}
-        historyError={historyError}
-        onHistoryDownload={onHistoryDownload}
       />
     </div>
   );
