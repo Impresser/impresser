@@ -1,9 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import Image from 'next/image';
 import type { Facility } from '../types';
 import CommonButton from '@/components/ui/CommonButton';
+import FacilityQueueSection from './FacilityQueueSection';
+import type { QueueItem } from '@/components/ui/CommonTable';
 
 interface FacilityPerformanceComparisonProps {
   facility: Facility | null;
@@ -13,7 +15,22 @@ interface FacilityPerformanceComparisonProps {
   onDrop: (facility: Facility) => void;
   draggingFacility: Facility | null;
   onDragOverChange: (isOver: boolean) => void;
-  onAddTask?: (facility: Facility) => void;
+  onAddTask?: (
+    facility: Facility,
+    settings: {
+      processingMethod: 'cpu' | 'gpu';
+      algorithm: string;
+      version: string;
+    }
+  ) => void;
+  queueItems?: QueueItem[];
+  processingItems?: QueueItem[];
+  overallProgress?: number;
+  settings: {
+    processingMethod: 'cpu' | 'gpu';
+    algorithm: string;
+    version: string;
+  };
 }
 
 export default function FacilityPerformanceComparison({
@@ -25,6 +42,10 @@ export default function FacilityPerformanceComparison({
   draggingFacility,
   onDragOverChange,
   onAddTask,
+  queueItems,
+  processingItems,
+  overallProgress,
+  settings,
 }: FacilityPerformanceComparisonProps) {
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -48,14 +69,19 @@ export default function FacilityPerformanceComparison({
     }
   };
 
+  const readyToUpload = useMemo(
+    () => Boolean(facility && settings.algorithm && settings.version),
+    [facility, settings.algorithm, settings.version]
+  );
+
   return (
     <div
-      className={`rounded-2xl border-2 transition-colors ${
+      className={`rounded-2xl transition-colors ${
         facility
-          ? 'border-gray-200 bg-white shadow-sm'
+          ? 'border border-gray-200 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)]'
           : draggingFacility
-            ? 'border-blue-400 border-dashed bg-blue-50/50'
-            : 'border-gray-200 border-dashed bg-white/60'
+            ? 'border-2 border-blue-400 border-dashed bg-blue-50/50'
+            : 'border-2 border-gray-200 border-dashed bg-white/60'
       } ${isDragOver ? 'border-blue-500 bg-blue-50' : ''}`}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
@@ -81,10 +107,7 @@ export default function FacilityPerformanceComparison({
             </svg>
           </button>
           <div className="flex flex-col gap-4">
-            <p className="text-lg font-semibold text-gray-900">
-              {facility.name}
-              {facility.modelName && <span className="ml-2 text-base text-gray-500">{facility.modelName}</span>}
-            </p>
+            <p className="text-lg font-semibold text-gray-900">{facility.name}</p>
             <div className="flex flex-col gap-4 md:flex-row md:gap-6">
               <div
                 className="relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-gray-100 md:max-w-[320px]"
@@ -100,6 +123,12 @@ export default function FacilityPerformanceComparison({
                 />
               </div>
               <div className="flex-1 space-y-3 text-sm text-gray-600">
+                <div>
+                  <p className="flex items-center justify-between text-sm text-gray-800">
+                    <span className="font-medium text-gray-500">모델명</span>
+                    <span>{facility.modelName || '-'}</span>
+                  </p>
+                </div>
                 <div>
                   <p className="flex items-center justify-between text-sm text-gray-800">
                     <span className="font-medium text-gray-500">CPU</span>
@@ -139,15 +168,46 @@ export default function FacilityPerformanceComparison({
               </div>
             </div>
           </div>
-          <div className="mt-6 flex justify-end">
-            <CommonButton
-              type="button"
-              variant="blue"
-              className="px-4 py-2 text-sm"
-              onClick={() => facility && onAddTask?.(facility)}
-            >
-              작업 추가
-            </CommonButton>
+          <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50/70 p-4">
+            <h4 className="mb-4 text-sm font-semibold text-gray-800">선택된 압축 설정</h4>
+            <div className="grid gap-4 md:grid-cols-3 text-sm text-gray-700">
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500">처리방식</p>
+                <p className="font-semibold text-gray-900">
+                  {settings.processingMethod === 'cpu' ? 'CPU' : 'GPU'}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500">알고리즘</p>
+                <p className="font-semibold text-gray-900">{settings.algorithm || '-'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-gray-500">버전</p>
+                <p className="font-semibold text-gray-900">{settings.version || '-'}</p>
+              </div>
+            </div>
+          </div>
+          <div className="mt-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-gray-800">작업대기열</h4>
+              <CommonButton
+                type="button"
+                variant={readyToUpload ? 'blue' : 'gray'}
+                className="px-4 py-2 text-sm"
+                onClick={() => facility && readyToUpload && onAddTask?.(facility, settings)}
+                disabled={!readyToUpload}
+              >
+                작업 추가
+              </CommonButton>
+            </div>
+            <FacilityQueueSection
+              queueItems={queueItems ?? []}
+              processingItems={processingItems ?? []}
+              overallProgress={overallProgress ?? 0}
+              isLoading={false}
+              withContainer={false}
+              showTitle={false}
+            />
           </div>
         </div>
       ) : (

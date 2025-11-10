@@ -1,15 +1,10 @@
 import React from 'react';
 import CommonModal from '@/components/ui/CommonModal';
-import FacilityQueueSection from './FacilityQueueSection';
 import type { Facility } from '../types';
-import type { QueueItem } from '@/components/ui/CommonTable';
-import FacilityJobUpload from './FacilityJobUpload';
+import FacilityWorkUpload from './FacilityWorkUpload';
 
 interface FacilityQueueModalProps {
   facility: Facility | null;
-  queueItems: QueueItem[];
-  processingItems: QueueItem[];
-  overallProgress: number;
   isOpen: boolean;
   onClose: () => void;
   topOffset?: number;
@@ -22,23 +17,26 @@ interface FacilityQueueModalProps {
       version: string;
     }
   ) => void;
+  settings: {
+    processingMethod: 'cpu' | 'gpu';
+    algorithm: string;
+    version: string;
+  } | null;
 }
 
 export default function FacilityQueueModal({
   facility,
-  queueItems,
-  processingItems,
-  overallProgress,
   isOpen,
   onClose,
   topOffset,
   onUpload,
+  settings,
 }: FacilityQueueModalProps) {
   return (
-    <CommonModal isOpen={isOpen} onClose={onClose} className="w-full max-w-3xl" topOffset={topOffset}>
+    <CommonModal isOpen={isOpen} onClose={onClose} className="w-full max-w-[64.8rem]" topOffset={topOffset}>
       {facility && (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="mb-4 flex items-center justify-between">
             <h3 className="text-xl font-semibold text-gray-900">{facility.name} 작업대기열</h3>
             <button
               type="button"
@@ -51,19 +49,13 @@ export default function FacilityQueueModal({
               </svg>
             </button>
           </div>
-          <FacilityJobUpload
-            facility={facility}
+          <FacilityWorkUpload
+            settings={
+              settings ?? { processingMethod: 'cpu' as const, algorithm: '', version: '' }
+            }
             onSubmit={(payload) => {
               onUpload?.(facility, payload);
             }}
-          />
-          <FacilityQueueSection
-            queueItems={queueItems}
-            processingItems={processingItems}
-            overallProgress={overallProgress}
-            isLoading={false}
-            withContainer={false}
-            showTitle={false}
           />
         </div>
       )}

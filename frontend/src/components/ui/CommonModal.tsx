@@ -39,10 +39,10 @@ export default function CommonModal({ children, isOpen, onClose, className = '',
           backdrop-blur-xl
           rounded-xl
           shadow-[0_12px_15px_rgba(0,0,0,0.15),0_4px_10px_rgba(0,0,0,0.1),inset_2px_2px_6px_rgba(255,255,255,0.6),inset_-2px_-2px_25px_rgba(0,0,0,0.05)]
-          p-8
           min-w-[500px]
           transition-all duration-300
-          max-h-[90vh] overflow-visible
+          max-h-[90vh]
+          overflow-hidden
           ${className}
           before:absolute before:inset-0
           before:rounded-xl
@@ -52,7 +52,9 @@ export default function CommonModal({ children, isOpen, onClose, className = '',
         style={style}
         onClick={(e) => e.stopPropagation()}
       >
-        {children}
+        <div className="rounded-xl p-8 overflow-auto max-h-[90vh]">
+          {children}
+        </div>
       </div>
     </div>
   );

@@ -86,7 +86,7 @@ export default function FacilityList({
           </div>
         ) : (
           <>
-            <div className="px-4 pt-4 pb-2">
+            <div className="p-2">
               <FacilityStatisticsSummary
                 total={totalCount}
                 operational={totalOperational}
