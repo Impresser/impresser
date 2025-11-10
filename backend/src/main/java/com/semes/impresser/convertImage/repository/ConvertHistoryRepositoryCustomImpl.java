@@ -32,7 +32,11 @@ public class ConvertHistoryRepositoryCustomImpl implements ConvertHistoryReposit
 
     @Override
     public Page<ConvertAvgSpeedListResponse> getConvertAvgSpeeds(Pageable pageable) {
-        NumberExpression<Double> avgSpeedExpr = hist.avgSpeed.avg();
+        NumberExpression<Double> avgSpeedExpr = Expressions.numberTemplate(
+            Double.class,
+            "ROUND(AVG({0}), 2)",
+            hist.avgSpeed
+        );
 
         List<ConvertAvgSpeedListResponse> content = queryFactory
             .select(Projections.constructor(
@@ -123,7 +127,8 @@ public class ConvertHistoryRepositoryCustomImpl implements ConvertHistoryReposit
                 hist.tiffVolume,
                 hist.compressionRatio,
                 user.userName,
-                Expressions.stringTemplate("DATE_FORMAT({0}, '%Y-%m-%dT%H:%i:%s')", hist.completedAt),
+                Expressions.stringTemplate("DATE_FORMAT({0}, '%Y-%m-%dT%H:%i:%s')",
+                    hist.completedAt),
                 secsExpr,
                 hist.tiffKey
             ))
