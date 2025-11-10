@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4-openssl-dev \
     libtiff-dev \
     zlib1g-dev \
+    libnvidia-ml-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb /tmp/
@@ -14,15 +15,12 @@ RUN dpkg -i /tmp/nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb \
  && apt-get update \
  && apt-get install -y nvtiff
 
-RUN mkdir -p /opt/nvtiff/lib \
- && cp /usr/lib/x86_64-linux-gnu/libnvtiff/12/libnvtiff.so.0 /opt/nvtiff/lib/libnvtiff.so \
- && mkdir -p /opt/nvtiff/include
-
 WORKDIR /app
 COPY . .
 
 RUN cmake -DNVTIFF_INCLUDE_DIR=/opt/nvtiff/include \
           -DNVTIFF_LIBRARY=/opt/nvtiff/lib/libnvtiff.so \
+          -DNVML_LIBRARY=/usr/lib/x86_64-linux-gnu/libnvidia-ml.so \
           . \
  && make -j"$(nproc)"
 
