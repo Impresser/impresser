@@ -7,7 +7,7 @@ import CommonButton from '@/components/ui/CommonButton';
 import FacilityQueueSection from './FacilityQueueSection';
 import type { QueueItem } from '@/components/ui/CommonTable';
 
-interface FacilityPerformanceComparisonProps {
+interface PerformanceComparisonCardProps {
   facility: Facility | null;
   slotIndex: number;
   isDragOver: boolean;
@@ -33,7 +33,7 @@ interface FacilityPerformanceComparisonProps {
   };
 }
 
-export default function FacilityPerformanceComparison({
+export default function PerformanceComparisonCard({
   facility,
   slotIndex,
   isDragOver,
@@ -46,7 +46,7 @@ export default function FacilityPerformanceComparison({
   processingItems,
   overallProgress,
   settings,
-}: FacilityPerformanceComparisonProps) {
+}: PerformanceComparisonCardProps) {
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.stopPropagation();
@@ -95,7 +95,7 @@ export default function FacilityPerformanceComparison({
       tabIndex={0}
     >
       {facility ? (
-        <div className="relative px-5 py-4">
+        <div className="relative px-6 py-6">
           <button
             type="button"
             aria-label="슬롯에서 제거"
@@ -110,7 +110,7 @@ export default function FacilityPerformanceComparison({
             <p className="text-lg font-semibold text-gray-900">{facility.name}</p>
             <div className="flex flex-col gap-4 md:flex-row md:gap-6">
               <div
-                className="relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-gray-100 md:max-w-[320px]"
+                className="relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-gray-100 md:w-1/2"
                 style={{ aspectRatio: '3 / 2' }}
               >
                 <Image
@@ -168,37 +168,9 @@ export default function FacilityPerformanceComparison({
               </div>
             </div>
           </div>
-          <div className="mt-6 rounded-2xl border border-gray-200 bg-gray-50/70 p-4">
-            <h4 className="mb-4 text-sm font-semibold text-gray-800">선택된 압축 설정</h4>
-            <div className="grid gap-4 md:grid-cols-3 text-sm text-gray-700">
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-gray-500">처리방식</p>
-                <p className="font-semibold text-gray-900">
-                  {settings.processingMethod === 'cpu' ? 'CPU' : 'GPU'}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-gray-500">알고리즘</p>
-                <p className="font-semibold text-gray-900">{settings.algorithm || '-'}</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-gray-500">버전</p>
-                <p className="font-semibold text-gray-900">{settings.version || '-'}</p>
-              </div>
-            </div>
-          </div>
           <div className="mt-6">
             <div className="mb-4 flex items-center justify-between">
               <h4 className="text-sm font-semibold text-gray-800">작업대기열</h4>
-              <CommonButton
-                type="button"
-                variant={readyToUpload ? 'blue' : 'gray'}
-                className="px-4 py-2 text-sm"
-                onClick={() => facility && readyToUpload && onAddTask?.(facility, settings)}
-                disabled={!readyToUpload}
-              >
-                작업 추가
-              </CommonButton>
             </div>
             <FacilityQueueSection
               queueItems={queueItems ?? []}
@@ -224,3 +196,4 @@ export default function FacilityPerformanceComparison({
     </div>
   );
 }
+

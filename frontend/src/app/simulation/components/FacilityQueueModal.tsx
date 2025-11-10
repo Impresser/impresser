@@ -1,7 +1,7 @@
 import React from 'react';
 import CommonModal from '@/components/ui/CommonModal';
 import type { Facility } from '../types';
-import FacilityWorkUpload from './FacilityWorkUpload';
+import FacilityFileUpload from './FacilityFileUpload';
 
 interface FacilityQueueModalProps {
   facility: Facility | null;
@@ -49,13 +49,14 @@ export default function FacilityQueueModal({
               </svg>
             </button>
           </div>
-          <FacilityWorkUpload
+          <FacilityFileUpload
             settings={
               settings ?? { processingMethod: 'cpu' as const, algorithm: '', version: '' }
             }
             onSubmit={(payload) => {
               onUpload?.(facility, payload);
             }}
+            submitLabel="대기열 추가"
           />
         </div>
       )}

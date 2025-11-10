@@ -8,7 +8,6 @@ import FacilityDetailPanel from './components/FacilityDetailPanel';
 import FacilityAddModal from './components/FacilityAddModal';
 import AuthGuard from '@/components/auth/AuthGuard';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
-import PerformanceSimulator from './components/PerformanceSimulator';
 import ProductionSimulator from './components/ProductionSimulator';
 import TileMap, { type TileType } from './components/TileMap';
 import CommonButton from '@/components/ui/CommonButton';
@@ -19,6 +18,9 @@ import type { Facility } from './types';
 import FacilityEditModal from './components/FacilityEditModal';
 import PerformanceSimulatorContainer from './components/PerformanceSimulatorContainer';
 import FacilityQueueModal from './components/FacilityQueueModal';
+import FacilityComparisonModal from './components/FacilityComparisonModal';
+import FacilityQueueSection from './components/FacilityQueueSection';
+import FacilityHistorySection from './components/FacilityHistorySection';
 
 const getQueueItems = (facilityId: string): QueueItem[] => {
   const queueData: Record<string, QueueItem[]> = {
@@ -167,7 +169,7 @@ export default function SimulationPage() {
     totalRunning: 0,
   });
   const isLocationSelectMode = locationSelectionTarget !== null;
-  const mapData: TileType[][] = Array.from({ length: 15 }, () =>
+  const mapData: TileType[][] = Array.from({ length: 16 }, () =>
     Array.from({ length: 25 }, () => 'g' as TileType)
   );
 
@@ -179,6 +181,8 @@ export default function SimulationPage() {
   const [performanceSlotSettings, setPerformanceSlotSettings] = useState<SlotSettings[]>(
     () => performanceComparisonSlots.map(() => ({ ...DEFAULT_SLOT_SETTINGS }))
   );
+  const [comparisonModalFacility, setComparisonModalFacility] = useState<Facility | null>(null);
+  const [comparisonModalSettings, setComparisonModalSettings] = useState<SlotSettings>({ ...DEFAULT_SLOT_SETTINGS });
 
   const closeFacilityAddModal = useCallback((options?: { preserveSelection?: boolean }) => {
     setIsAddModalOpen(false);
@@ -748,12 +752,62 @@ export default function SimulationPage() {
     handleCloseEditModal();
   };
 
+  const handleOpenComparisonModal = useCallback(
+    (facility: Facility) => {
+      setComparisonModalFacility(facility);
+      setComparisonModalSettings({ ...DEFAULT_SLOT_SETTINGS });
+    },
+    [DEFAULT_SLOT_SETTINGS]
+  );
+
+  const handleCloseComparisonModal = useCallback(() => {
+    setComparisonModalFacility(null);
+    setComparisonModalSettings({ ...DEFAULT_SLOT_SETTINGS });
+  }, [DEFAULT_SLOT_SETTINGS]);
+
+  const handleConfirmComparisonModal = useCallback(() => {
+    if (!comparisonModalFacility) return;
+
+    let assignedIndex = -1;
+
+    setPerformanceComparisonSlots((prev) => {
+      const next = [...prev];
+      const existingIndex = next.findIndex((slot) => slot?.id === comparisonModalFacility.id);
+      if (existingIndex !== -1) {
+        assignedIndex = existingIndex;
+        next[existingIndex] = comparisonModalFacility;
+        return next;
+      }
+      const emptyIndex = next.findIndex((slot) => slot === null);
+      assignedIndex = emptyIndex !== -1 ? emptyIndex : 0;
+      next[assignedIndex] = comparisonModalFacility;
+      return next;
+    });
+
+    setPerformanceSlotSettings((prev) => {
+      if (assignedIndex === -1) return prev;
+      const next = [...prev];
+      next[assignedIndex] = { ...comparisonModalSettings };
+      return next;
+    });
+
+    setComparisonModalFacility(null);
+    setComparisonModalSettings({ ...DEFAULT_SLOT_SETTINGS });
+  }, [comparisonModalFacility, comparisonModalSettings, DEFAULT_SLOT_SETTINGS]);
+
   const handleAddFacilityToPerformanceFromDetail = useCallback(
     (facility: Facility) => {
-      addFacilityToPerformanceSlots(facility);
+      handleOpenComparisonModal(facility);
     },
-    [addFacilityToPerformanceSlots]
+    [handleOpenComparisonModal]
   );
+
+  const handleComparisonSettingsChange = useCallback((update: Partial<SlotSettings>) => {
+    setComparisonModalSettings((prev) => ({
+      ...prev,
+      ...update,
+    }));
+  }, []);
 
   const handleDragStartPerformance = useCallback((facility: Facility) => {
     setDraggingFacility(facility);
@@ -768,6 +822,9 @@ export default function SimulationPage() {
     facilityStats.totalOperational > 0
       ? `${((facilityStats.totalRunning / facilityStats.totalOperational) * 100).toFixed(1)}%`
       : '0%';
+
+  const focusPaddingBottomValue =
+    selectedFacility && !locationSelectionTarget ? 320 : 120;
 
   return (
     <AuthGuard>
@@ -845,15 +902,58 @@ export default function SimulationPage() {
                         handleFacilityClick(facility);
                       }
                     }}
+                    onTileClick={() => {
+                      if (locationSelectionTarget) {
+                        return;
+                      }
+                      setSelectedFacility(null);
+                      setDetailError(null);
+                      setShowTaskSections(false);
+                      setHoveredFacilityId(null);
+                    }}
+                    onBackgroundClick={() => {
+                      if (locationSelectionTarget) {
+                        return;
+                      }
+                      setSelectedFacility(null);
+                      setDetailError(null);
+                      setShowTaskSections(false);
+                      setHoveredFacilityId(null);
+                    }}
                     selectedFacilityId={selectedFacility?.id ?? null}
                     focusFacility={
                       selectedFacility?.canvasX !== undefined && selectedFacility?.canvasY !== undefined
                         ? { x: selectedFacility.canvasX, y: selectedFacility.canvasY }
                         : null
                     }
-                    focusPaddingBottom={120}
+                    focusPaddingBottom={focusPaddingBottomValue}
                     focusPaddingTop={48}
                   />
+                  {selectedFacility && !locationSelectionTarget && (
+                    <div className="absolute inset-x-0 bottom-0 z-20">
+                      <FacilityDetailPanel
+                        facility={selectedFacility}
+                        onClose={() => {
+                          setSelectedFacility(null);
+                          setDetailError(null);
+                          setShowTaskSections(false);
+                    }}
+                        onDelete={async (facilityId: string) => {
+                          await fetchFacilities();
+                          await fetchFacilityStats();
+                        }}
+                        isLoading={isLoadingDetail}
+                        error={detailError}
+                        isAdmin={isAdmin}
+                        showTaskSections={showTaskSections}
+                        onToggleTaskSections={() => setShowTaskSections((prev) => !prev)}
+                        onOpenEditModal={handleOpenEditModal}
+                        onAddToPerformanceComparison={handleAddFacilityToPerformanceFromDetail}
+                        onDragStartPerformance={handleDragStartPerformance}
+                        onDragEndPerformance={handleDragEndPerformance}
+                      />
+                    </div>
+                  )}
                 </CommonContainerBox>
 
                 <div className="w-80 mb-6">
@@ -869,44 +969,34 @@ export default function SimulationPage() {
                       totalOperational={facilityStats.totalOperational}
                       totalRunning={facilityStats.totalRunning}
                       availabilityRate={availabilityRate}
-                    />
+                  />
                   </div>
                 </div>
               </div>
-              {selectedFacility && !locationSelectionTarget && (
-                <div className="mt-1">
-                  <FacilityDetailPanel
-                    facility={selectedFacility}
-                    onClose={() => {
-                      setSelectedFacility(null);
-                      setDetailError(null);
-                    }}
-                    onDelete={async (facilityId: string) => {
-                      await fetchFacilities();
-                      await fetchFacilityStats();
-                    }}
-                    isLoading={isLoadingDetail}
-                    error={detailError}
-                    isAdmin={isAdmin}
-                    showTaskSections={showTaskSections}
-                    onToggleTaskSections={() => setShowTaskSections((prev) => !prev)}
-                    onOpenEditModal={handleOpenEditModal}
-                    onAddToPerformanceComparison={handleAddFacilityToPerformanceFromDetail}
-                    onDragStartPerformance={handleDragStartPerformance}
-                    onDragEndPerformance={handleDragEndPerformance}
+              </>
+            )}
+
+            {selectedFacility && showTaskSections && (
+              <CommonContainerBox className="mt-1">
+                <div className="space-y-6">
+                  <FacilityQueueSection
                     queueItems={queueItems}
                     processingItems={processingItems}
                     overallProgress={overallProgress}
+                    isLoading={false}
+                    withContainer={false}
+                  />
+                  <FacilityHistorySection
                     historyItems={historyItems}
                     isLoadingHistory={isLoadingHistory}
                     historyError={historyError}
-                    onHistoryDownload={(item) => {
+                    onDownload={(item) => {
                       console.log('다운로드:', item.fileName);
                     }}
+                    withContainer={false}
                   />
-                </div>
-              )}
-              </>
+              </div>
+              </CommonContainerBox>
             )}
 
             <div className="mt-10">
@@ -968,6 +1058,15 @@ export default function SimulationPage() {
         topOffset={navbarHeight}
         onUpload={handleQueueUpload}
         settings={queueModalSettings}
+      />
+
+      <FacilityComparisonModal
+        facility={comparisonModalFacility}
+        isOpen={Boolean(comparisonModalFacility)}
+        settings={comparisonModalSettings}
+        onSettingsChange={handleComparisonSettingsChange}
+        onConfirm={handleConfirmComparisonModal}
+        onClose={handleCloseComparisonModal}
       />
 
     </div>
