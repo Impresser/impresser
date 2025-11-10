@@ -1,18 +1,129 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import Sidebar from '@/components/layout/sidebar';
 import Navbar from '@/components/layout/navbar';
-import IsometricMap from './components/IsometricMap';
 import FacilityList from './components/FacilityList';
-import FacilityStatistics from './components/FacilityStatistics';
 import FacilityDetailPanel from './components/FacilityDetailPanel';
-import AddFacilityModal from './components/AddFacilityModal';
+import FacilityQueueSection from './components/FacilityQueueSection';
+import FacilityHistorySection from './components/FacilityHistorySection';
+import FacilityAddModal from './components/FacilityAddModal';
 import AuthGuard from '@/components/auth/AuthGuard';
+import CommonContainerBox from '@/components/ui/CommonContainerBox';
+import PerformanceSimulator from './components/PerformanceSimulator';
+import ProductionSimulator from './components/ProductionSimulator';
+import TileMap, { type TileType } from './components/TileMap';
+import CommonButton from '@/components/ui/CommonButton';
 import { useAuthStore } from '@/store/authStore';
-import { getInkjetPrinters, getInkjetPrinterDetail, getDailyProduction, type InkjetPrinter, type InkjetPrinterDetail, type DailyProductionResponse } from '@/service/inkjet';
-import type { TileType } from './components/IsometricMap';
-import type { Facility } from './components/FacilityStatistics';
+import { getInkjetPrinters, getInkjetPrinterDetail, getDailyProduction, getInkjetJobs, type InkjetPrinter, type InkjetPrinterDetail, type DailyProductionResponse, type InkjetJob } from '@/service/inkjet';
+import { QueueItem, HistoryItem } from '@/components/ui/CommonTable';
+import type { Facility } from './types';
+import FacilityEditModal from './components/FacilityEditModal';
+import PerformanceSimulatorContainer from './components/PerformanceSimulatorContainer';
+import FacilityQueueModal from './components/FacilityQueueModal';
+
+const getQueueItems = (facilityId: string): QueueItem[] => {
+  const queueData: Record<string, QueueItem[]> = {
+    '1': [
+      {
+        id: '1-1',
+        fileName: 'image001.bmp',
+        processingMethod: 'CPU',
+        algorithm: 'LZW (Lempel-Ziv-Welch)',
+        version: '1.0',
+        fileSize: 1048576,
+        status: '진행',
+        assignedUser: '홍길동',
+        startTime: new Date(Date.now() - 120000),
+        elapsedTime: 120,
+        estimatedTime: 300,
+        progress: 40,
+      },
+      {
+        id: '1-2',
+        fileName: 'image002.bmp',
+        processingMethod: 'GPU',
+        algorithm: 'Huffman Coding',
+        version: '2.0',
+        fileSize: 2097152,
+        status: '대기',
+        assignedUser: '홍길동',
+        startTime: null,
+        elapsedTime: 0,
+        estimatedTime: 0,
+        progress: 0,
+      },
+    ],
+    '2': [
+      {
+        id: '2-1',
+        fileName: 'image005.bmp',
+        processingMethod: 'GPU',
+        algorithm: 'Arithmetic Coding',
+        version: '3.0',
+        fileSize: 3145728,
+        status: '대기',
+        assignedUser: '홍길동',
+        startTime: null,
+        elapsedTime: 0,
+        estimatedTime: 0,
+        progress: 0,
+      },
+    ],
+    '5': [
+      {
+        id: '5-1',
+        fileName: 'image006.bmp',
+        processingMethod: 'GPU',
+        algorithm: 'LZW (Lempel-Ziv-Welch)',
+        version: '2.0',
+        fileSize: 5242880,
+        status: '진행',
+        assignedUser: '홍길동',
+        startTime: new Date(Date.now() - 60000),
+        elapsedTime: 60,
+        estimatedTime: 600,
+        progress: 10,
+      },
+      {
+        id: '5-2',
+        fileName: 'image007.bmp',
+        processingMethod: 'GPU',
+        algorithm: 'RLE (Run-Length Encoding)',
+        version: '1.0',
+        fileSize: 2097152,
+        status: '진행',
+        assignedUser: '홍길동',
+        startTime: new Date(Date.now() - 180000),
+        elapsedTime: 180,
+        estimatedTime: 240,
+        progress: 75,
+      },
+    ],
+  };
+
+  return queueData[facilityId] || [];
+};
+
+const mapJobToHistoryItem = (job: InkjetJob): HistoryItem => {
+  const fileName = job.tiffImageUrl.split('/').pop() || job.tiffImageUrl;
+  const requestedTime = new Date(job.requestedAt).getTime();
+  const completedTime = new Date(job.completedAt).getTime();
+  const duration = Math.floor((completedTime - requestedTime) / 1000);
+
+  return {
+    id: job.jobUuid,
+    fileName,
+    processingMethod: '-',
+    algorithm: '-',
+    version: '-',
+    fileSize: 0,
+    status: '완료',
+    assignedUser: '-',
+    completedTime: new Date(job.completedAt),
+    duration,
+  };
+};
 
 export default function SimulationPage() {
   const [sidebarWidth, setSidebarWidth] = useState(192); // 기본값: w-48 = 192px
@@ -20,25 +131,280 @@ export default function SimulationPage() {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const navbarRef = useRef<HTMLDivElement>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isLocationSelectMode, setIsLocationSelectMode] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState<{ x: number; y: number } | null>(null);
+  const [locationSelectionTarget, setLocationSelectionTarget] = useState<{ type: 'add' | 'edit'; facilityId?: string } | null>(null);
+  const [pendingLocation, setPendingLocation] = useState<{ x: number; y: number } | null>(null);
+  const [facilityBeingEdited, setFacilityBeingEdited] = useState<Facility | null>(null);
+  const [isFacilityEditModalOpen, setIsFacilityEditModalOpen] = useState(false);
+  const [editDraftLocation, setEditDraftLocation] = useState<{ x: number; y: number } | null>(null);
   const [selectedFacility, setSelectedFacility] = useState<Facility | null>(null);
-  
-  // 사용자 역할 확인
-  const user = useAuthStore((state) => state.user);
-  const isAdmin = user?.userRole === 'ADMIN';
-  
-  // 설비 데이터 상태
+  const [showTaskSections, setShowTaskSections] = useState(false);
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [queueModalFacility, setQueueModalFacility] = useState<Facility | null>(null);
+  const [queuedUploadsByFacility, setQueuedUploadsByFacility] = useState<Record<string, QueueItem[]>>({});
   const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalElements, setTotalElements] = useState(0);
+  const [hoveredFacilityId, setHoveredFacilityId] = useState<string | null>(null);
+  const [performanceComparisonSlots, setPerformanceComparisonSlots] = useState<(Facility | null)[]>([null, null]);
+  const [draggingFacility, setDraggingFacility] = useState<Facility | null>(null);
+  const [dragOverPerformanceSlot, setDragOverPerformanceSlot] = useState<number | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
-  
-  // 일일 패널 생산량 상태
-  const [dailyProduction, setDailyProduction] = useState<DailyProductionResponse | null>(null);
   const [isLoadingProduction, setIsLoadingProduction] = useState(false);
   const [productionError, setProductionError] = useState<string | null>(null);
+  const [dailyProduction, setDailyProduction] = useState<DailyProductionResponse | null>(null);
+  const isAdmin = useAuthStore((state) => state.user?.userRole === 'ADMIN') ?? false;
+  const [facilityStats, setFacilityStats] = useState({
+    totalOperational: 0,
+    totalRunning: 0,
+  });
+  const isLocationSelectMode = locationSelectionTarget !== null;
+  const mapData: TileType[][] = Array.from({ length: 15 }, () =>
+    Array.from({ length: 25 }, () => 'g' as TileType)
+  );
+  const facilityPanelRef = useRef<HTMLDivElement | null>(null);
+  const [facilityPanelHeight, setFacilityPanelHeight] = useState(240);
+
+  const closeFacilityAddModal = useCallback((options?: { preserveSelection?: boolean }) => {
+    setIsAddModalOpen(false);
+    if (!options?.preserveSelection) {
+      setLocationSelectionTarget((target) => (target?.type === 'add' ? null : target));
+      setPendingLocation(null);
+    }
+  }, []);
+
+  const facilityLocations = useMemo(
+    () =>
+      facilities
+        .filter(
+          (facility): facility is Facility & { canvasX: number; canvasY: number } =>
+            typeof facility.canvasX === 'number' && typeof facility.canvasY === 'number'
+        )
+        .map((facility) => ({
+          id: facility.id,
+          name: facility.name,
+          canvasX: facility.canvasX,
+          canvasY: facility.canvasY,
+          imagePath: '/images/facilities/topview02-1.png',
+          status: facility.status,
+          processStatus: facility.processStatus,
+        })),
+    [facilities]
+  );
+
+  const queueItems = useMemo(
+    () => (selectedFacility ? getQueueItems(selectedFacility.id) : []),
+    [selectedFacility?.id]
+  );
+
+  const processingItems = useMemo(
+    () => queueItems.filter((item) => item.status === '진행'),
+    [queueItems]
+  );
+
+  const overallProgress = useMemo(() => {
+    if (processingItems.length === 0) return 0;
+    const totalProgress = processingItems.reduce((sum, item) => sum + item.progress, 0);
+    return Math.round(totalProgress / processingItems.length);
+  }, [processingItems]);
+
+  const mapSelectedLocation = useMemo(() => {
+    if (locationSelectionTarget?.type === 'add') {
+      return pendingLocation;
+    }
+    if (locationSelectionTarget?.type === 'edit') {
+      return editDraftLocation;
+    }
+    return pendingLocation ?? editDraftLocation;
+  }, [locationSelectionTarget, pendingLocation, editDraftLocation]);
+
+  const addFacilityToPerformanceSlots = useCallback((facility: Facility) => {
+    if (facility.status === 'inactive') {
+      return;
+    }
+    setPerformanceComparisonSlots((prev) => {
+      if (prev.some((slot) => slot?.id === facility.id)) {
+        return prev;
+      }
+      const next = [...prev];
+      const emptyIndex = next.findIndex((slot) => slot === null);
+      if (emptyIndex !== -1) {
+        next[emptyIndex] = facility;
+      } else {
+        next[0] = facility;
+      }
+      return next;
+    });
+  }, []);
+
+  const removeFacilityFromPerformanceSlot = useCallback((index: number) => {
+    setPerformanceComparisonSlots((prev) => {
+      const next = [...prev];
+      next[index] = null;
+      return next;
+    });
+  }, []);
+
+  const handlePerformanceSlotDrop = useCallback((index: number, facility: Facility) => {
+    if (facility.status === 'inactive') {
+      return;
+    }
+    setPerformanceComparisonSlots((prev) => {
+      const next = [...prev];
+      const existingIndex = next.findIndex((slot) => slot?.id === facility.id);
+      if (existingIndex !== -1 && existingIndex !== index) {
+        next[existingIndex] = null;
+      }
+      next[index] = facility;
+      return next;
+    });
+    setDraggingFacility(null);
+    setDragOverPerformanceSlot(null);
+  }, []);
+
+  const handleOpenQueueModal = useCallback((facility: Facility) => {
+    setQueueModalFacility(facility);
+  }, []);
+
+  const handleCloseQueueModal = useCallback(() => {
+    setQueuedUploadsByFacility((prev) => {
+      if (!queueModalFacility) return prev;
+      const next = { ...prev };
+      delete next[queueModalFacility.id];
+      return next;
+    });
+    setQueueModalFacility(null);
+  }, [queueModalFacility]);
+
+  const handleQueueUpload = useCallback(
+    (
+      facility: Facility,
+      payload: {
+        files: File[];
+        processingMethod: string;
+        algorithm: string;
+        version: string;
+      }
+    ) => {
+      if (!payload.files.length) return;
+
+      const timestamp = Date.now();
+      const uploadItems: QueueItem[] = payload.files.map((file, index) => ({
+        id: `upload-${facility.id}-${timestamp}-${index}`,
+        fileName: file.name,
+        processingMethod: payload.processingMethod.toUpperCase(),
+        algorithm: payload.algorithm,
+        version: payload.version,
+        fileSize: file.size,
+        status: '대기',
+        assignedUser: '자동등록',
+        startTime: null,
+        elapsedTime: 0,
+        estimatedTime: 0,
+        progress: 0,
+      }));
+
+      setQueuedUploadsByFacility((prev) => {
+        const existing = prev[facility.id] ?? [];
+        return {
+          ...prev,
+          [facility.id]: [...uploadItems, ...existing],
+        };
+      });
+    },
+    []
+  );
+
+  const queueModalData = useMemo(() => {
+    if (!queueModalFacility) {
+      return {
+        queueItems: [] as QueueItem[],
+        processingItems: [] as QueueItem[],
+        overallProgress: 0,
+      };
+    }
+
+    const baseQueueItems = getQueueItems(queueModalFacility.id);
+    const uploadedItems = queuedUploadsByFacility[queueModalFacility.id] ?? [];
+    const queueItems = [...uploadedItems, ...baseQueueItems];
+    const processingItems = queueItems.filter((item) => item.status === '진행');
+    const overallProgress = processingItems.length
+      ? Math.round(processingItems.reduce((sum, item) => sum + item.progress, 0) / processingItems.length)
+      : 0;
+
+    return { queueItems, processingItems, overallProgress };
+  }, [queueModalFacility, queuedUploadsByFacility]);
+
+  useEffect(() => {
+    if (!selectedFacility) {
+      setFacilityPanelHeight(0);
+      return;
+    }
+
+    const element = facilityPanelRef.current;
+    if (!element) {
+      setFacilityPanelHeight(0);
+      return;
+    }
+
+    const updateHeight = () => {
+      setFacilityPanelHeight(element.getBoundingClientRect().height);
+    };
+
+    updateHeight();
+
+    const resizeObserver = new ResizeObserver(updateHeight);
+    resizeObserver.observe(element);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [selectedFacility]);
+
+  useEffect(() => {
+    if (!selectedFacility) {
+      setShowTaskSections(false);
+      setHistoryItems([]);
+      setHistoryError(null);
+      setIsLoadingHistory(false);
+      return;
+    }
+
+    setShowTaskSections(false);
+
+    const fetchHistory = async () => {
+      try {
+        setIsLoadingHistory(true);
+        setHistoryError(null);
+
+        const response = await getInkjetJobs(selectedFacility.id, {
+          page: 0,
+          size: 100,
+        });
+
+        if (response.isSuccess && response.result) {
+          const mappedHistory = response.result.content.content.map(mapJobToHistoryItem);
+          setHistoryItems(mappedHistory);
+        } else {
+          setHistoryError(response.message || '작업 내역 조회에 실패했습니다.');
+          setHistoryItems([]);
+        }
+      } catch (err) {
+        console.error('작업 내역 조회 실패:', err);
+        setHistoryError(err instanceof Error ? err.message : '작업 내역 조회 중 오류가 발생했습니다.');
+        setHistoryItems([]);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    fetchHistory();
+  }, [selectedFacility?.id]);
 
   // Sidebar 너비 측정
   useEffect(() => {
@@ -100,11 +466,6 @@ export default function SimulationPage() {
     };
   }, []);
 
-  // 20x20 맵 데이터 생성
-  const mapData: TileType[][] = Array(20).fill(null).map(() => 
-    Array(20).fill('g' as TileType)
-  );
-
   // API 응답을 Facility 타입으로 변환 (목록 조회용)
   const mapInkjetToFacility = (inkjet: InkjetPrinter): Facility => {
     // printerStatus 매핑: BROKEN -> inactive (고장), UNDER_REPAIR -> maintenance (수리 중), OPERATIONAL -> active (정상)
@@ -125,6 +486,8 @@ export default function SimulationPage() {
       modelName: inkjet.modelName,
       processStatus: inkjet.processStatus as 'WAITING' | 'RUNNING',
       installDate: inkjet.installDate,
+      canvasX: inkjet.canvasX,
+      canvasY: inkjet.canvasY,
     };
   };
 
@@ -152,6 +515,8 @@ export default function SimulationPage() {
       ram: detail.ram,
       vram: detail.vram,
       installDate: detail.installDate,
+      canvasX: detail.canvasX,
+      canvasY: detail.canvasY,
     };
   };
 
@@ -160,6 +525,7 @@ export default function SimulationPage() {
     try {
       setIsLoadingDetail(true);
       setDetailError(null);
+      setHoveredFacilityId(facility.id);
       
       const response = await getInkjetPrinterDetail(facility.id);
       
@@ -182,37 +548,13 @@ export default function SimulationPage() {
   };
 
   // 설비 목록 조회
-  const fetchFacilities = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      const response = await getInkjetPrinters({
-        page: 0,
-        size: 100, // 모든 설비를 가져오기 위해 큰 값 설정
-      });
-
-      if (response.isSuccess && response.result) {
-        const mappedFacilities = response.result.content.map(mapInkjetToFacility);
-        setFacilities(mappedFacilities);
-      } else {
-        setError(response.message || '설비 목록 조회에 실패했습니다.');
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '설비 목록 조회 중 오류가 발생했습니다.');
-      console.error('설비 목록 조회 실패:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // 일일 패널 생산량 조회
   const fetchDailyProduction = async () => {
     try {
       setIsLoadingProduction(true);
       setProductionError(null);
-      
+
       const response = await getDailyProduction();
-      
+
       if (response.isSuccess && response.result) {
         setDailyProduction(response.result);
       } else {
@@ -226,17 +568,206 @@ export default function SimulationPage() {
     }
   };
 
+  const fetchFacilityStats = async () => {
+    try {
+      const size = 100;
+      let pageIndex = 0;
+      let totalOperational = 0;
+      let totalRunning = 0;
+      let totalElementsFromApi = 0;
+      let hasNext = true;
+
+      while (hasNext) {
+        const response = await getInkjetPrinters({
+          page: pageIndex,
+          size,
+        });
+
+        if (!response.isSuccess || !response.result) break;
+
+        const { content, pagination } = response.result;
+
+        totalElementsFromApi = pagination?.totalElements ?? totalElementsFromApi;
+
+        content.forEach((item) => {
+          if (item.printerStatus === 'OPERATIONAL') {
+            totalOperational += 1;
+            if (item.processStatus === 'RUNNING') {
+              totalRunning += 1;
+            }
+          }
+        });
+
+        if (pagination?.last || !(pagination?.hasNext)) {
+          hasNext = false;
+        } else {
+          pageIndex += 1;
+        }
+      }
+
+      setFacilityStats({
+        totalOperational,
+        totalRunning,
+      });
+      setTotalElements(totalElementsFromApi);
+    } catch (err) {
+      console.error('설비 통계 조회 실패:', err);
+      setFacilityStats({
+        totalOperational: 0,
+        totalRunning: 0,
+      });
+      setTotalElements(0);
+    }
+  };
+
+  const fetchFacilities = async (pageToLoad = page) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await getInkjetPrinters({
+        page: pageToLoad,
+        size: 10,
+      });
+
+      if (response.isSuccess && response.result) {
+        const mappedFacilities = response.result.content.map(mapInkjetToFacility);
+
+        mappedFacilities.sort((a, b) => {
+          const rank = (facility: Facility) => {
+            const isRunning = facility.processStatus === 'RUNNING';
+            const isBroken = facility.status === 'inactive';
+            const isUnderRepair = facility.status === 'maintenance';
+
+            if (isRunning) return 0;
+            if (isBroken) return 3;
+            if (isUnderRepair) return 2;
+            return 1;
+          };
+
+          const rankDiff = rank(a) - rank(b);
+          if (rankDiff !== 0) return rankDiff;
+          return a.name.localeCompare(b.name);
+        });
+        setFacilities(mappedFacilities);
+        setHoveredFacilityId((prev) =>
+          prev && !mappedFacilities.some((item) => item.id === prev) ? null : prev
+        );
+        setTotalPages(response.result.pagination?.totalPages ?? 1);
+        setPage(response.result.pagination?.page ?? pageToLoad);
+      } else {
+        setError(response.message || '설비 목록 조회에 실패했습니다.');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '설비 목록 조회 중 오류가 발생했습니다.');
+      console.error('설비 목록 조회 실패:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    fetchFacilities();
+    fetchFacilities(0);
+    fetchFacilityStats();
     fetchDailyProduction();
   }, []);
 
-  // 맵에 표시할 설비 위치 데이터
-  const facilityLocations: Array<{ id: string; canvasX: number; canvasY: number; imagePath: string }> = [];
+  const handleFacilityPageChange = (nextPage: number) => {
+    const zeroBased = nextPage - 1;
+    setPage(zeroBased);
+    fetchFacilities(zeroBased);
+  };
+
+  const handleAddFacilityButtonClick = () => {
+    if (locationSelectionTarget?.type === 'add') {
+      setLocationSelectionTarget(null);
+      setHoveredFacilityId(null);
+    } else {
+      setHoveredFacilityId(null);
+      setSelectedFacility(null);
+      setDetailError(null);
+      setLocationSelectionTarget({ type: 'add' });
+    }
+  };
+
+  const handleLocationSelect = (x: number, y: number) => {
+    if (!locationSelectionTarget) return;
+
+    if (locationSelectionTarget.type === 'add') {
+      setPendingLocation({ x, y });
+      setLocationSelectionTarget(null);
+      setHoveredFacilityId(null);
+      setIsAddModalOpen(true);
+    } else if (locationSelectionTarget.type === 'edit') {
+      setEditDraftLocation({ x, y });
+      setLocationSelectionTarget(null);
+      setHoveredFacilityId(null);
+      setIsFacilityEditModalOpen(true);
+    }
+  };
+
+  const handleRequestLocationChange = () => {
+    closeFacilityAddModal({ preserveSelection: true });
+    setLocationSelectionTarget({ type: 'add' });
+    setHoveredFacilityId(null);
+  };
+
+  const handleOpenEditModal = (facility: Facility) => {
+    setFacilityBeingEdited(facility);
+    if (facility.canvasX !== undefined && facility.canvasY !== undefined) {
+      setEditDraftLocation({ x: facility.canvasX, y: facility.canvasY });
+    } else {
+      setEditDraftLocation(null);
+    }
+    setIsFacilityEditModalOpen(true);
+  };
+
+  const handleCloseEditModal = () => {
+    setIsFacilityEditModalOpen(false);
+    setFacilityBeingEdited(null);
+    setEditDraftLocation(null);
+    setLocationSelectionTarget((target) => (target?.type === 'edit' ? null : target));
+  };
+
+  const handleRequestEditLocationChange = () => {
+    if (!facilityBeingEdited) return;
+    setIsFacilityEditModalOpen(false);
+    setLocationSelectionTarget({ type: 'edit', facilityId: facilityBeingEdited.id });
+    setHoveredFacilityId(null);
+  };
+
+  const handleFacilityEditUpdated = async () => {
+    await fetchFacilities();
+    await fetchFacilityStats();
+    if (facilityBeingEdited) {
+      await handleFacilityClick(facilityBeingEdited);
+    }
+    handleCloseEditModal();
+  };
+
+  const handleAddFacilityToPerformanceFromDetail = useCallback(
+    (facility: Facility) => {
+      addFacilityToPerformanceSlots(facility);
+    },
+    [addFacilityToPerformanceSlots]
+  );
+
+  const handleDragStartPerformance = useCallback((facility: Facility) => {
+    setDraggingFacility(facility);
+  }, []);
+
+  const handleDragEndPerformance = useCallback(() => {
+    setDraggingFacility(null);
+    setDragOverPerformanceSlot(null);
+  }, []);
+
+  const availabilityRate =
+    facilityStats.totalOperational > 0
+      ? `${((facilityStats.totalRunning / facilityStats.totalOperational) * 100).toFixed(1)}%`
+      : '0%';
 
   return (
     <AuthGuard>
-      <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50">
       {/* Sidebar */}
       <div ref={sidebarRef}>
         <Sidebar />
@@ -252,23 +783,20 @@ export default function SimulationPage() {
         {/* Content */}
         <main className="flex-1 px-6 py-6 overflow-y-auto">
           <div className="w-full max-w-7xl mx-auto">
-            {/* 설비 시뮬레이션 타이틀 및 통계 */}
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold text-gray-900">잉크젯 프린트 공정</h1>
-              <div className="flex items-center gap-6">
-                {!isLoading && !error && <FacilityStatistics facilities={facilities} />}
-                {/* 일일 패널 생산량 */}
-                {!isLoadingProduction && dailyProduction && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">일일 패널 생산량:</span>
-                    <span className="text-sm font-semibold text-blue-600">{dailyProduction.totalSheetCount}장</span>
-                    <span className="text-xs text-gray-500">({dailyProduction.completedDate})</span>
-                  </div>
-                )}
-                {productionError && (
-                  <div className="text-xs text-red-600">
-                    {productionError}
-                  </div>
+            {/* 전체 설비 타이틀 및 통계 */}
+            <div className="flex items-center justify-between mb-4 gap-6">
+              <h1 className="text-lg font-bold text-gray-900 whitespace-nowrap">
+                전체 설비
+              </h1>
+              <div className="flex items-center gap-6 flex-wrap justify-end">
+                {isAdmin && (
+                  <CommonButton
+                    variant="blue"
+                    className="px-4 py-2 text-sm"
+                    onClick={handleAddFacilityButtonClick}
+                  >
+                    {isLocationSelectMode ? '취소하기' : '설비 등록'}
+                  </CommonButton>
                 )}
                 {error && (
                   <div className="text-sm text-red-600">
@@ -277,7 +805,8 @@ export default function SimulationPage() {
                 )}
               </div>
             </div>
-
+            
+            
             {/* 로딩 상태 */}
             {isLoading && (
               <div className="flex justify-center items-center py-12">
@@ -292,83 +821,183 @@ export default function SimulationPage() {
               </div>
             )}
             
-            {/* 맵과 설비 목록 레이아웃 */}
+            {/* 설비 목록 */}
             {!isLoading && !error && (
-              <div className="flex gap-6">
-                {/* 맵 섹션 */}
-                <div className="flex-1 mb-6">
-                  <div className="w-full h-[600px] border border-gray-300 rounded-lg overflow-hidden">
-                    <IsometricMap 
-                      mapData={mapData}
-                      facilities={facilityLocations}
-                      sidebarWidth={sidebarWidth}
-                      isLocationSelectMode={isLocationSelectMode}
-                      onLocationSelect={(x, y) => {
-                        setSelectedLocation({ x, y });
-                        setIsLocationSelectMode(false);
-                        setIsAddModalOpen(true);
+            <>
+            <div className="flex gap-6">
+                <CommonContainerBox className="flex-1 h-[570px] overflow-hidden p-0 relative">
+                  <TileMap 
+                    mapData={mapData}
+                    facilities={facilityLocations}
+                    sidebarWidth={sidebarWidth}
+                    isLocationSelectMode={isLocationSelectMode && !isFacilityEditModalOpen}
+                    onLocationSelect={handleLocationSelect}
+                    selectedLocation={mapSelectedLocation}
+                    hoveredFacilityId={hoveredFacilityId}
+                    onFacilityHoverChange={setHoveredFacilityId}
+                    onFacilityClick={(facilityId) => {
+                      const facility = facilities.find((item) => item.id === facilityId);
+                      if (facility) {
+                        handleFacilityClick(facility);
+                      }
+                    }}
+                    selectedFacilityId={selectedFacility?.id ?? null}
+                    focusFacility={
+                      selectedFacility?.canvasX !== undefined && selectedFacility?.canvasY !== undefined
+                        ? { x: selectedFacility.canvasX, y: selectedFacility.canvasY }
+                        : null
+                    }
+                    focusPaddingBottom={facilityPanelHeight + 48}
+                    focusPaddingTop={48}
+                  />
+                  {selectedFacility && !locationSelectionTarget && (
+                    <div
+                      className="absolute inset-x-0 bottom-0 z-30"
+                      onClick={() => {
+                        setSelectedFacility(null);
+                        setDetailError(null);
                       }}
-                      onAddFacilityClick={() => setIsAddModalOpen(true)}
-                      selectedLocation={selectedLocation}
-                      showManagementButton={isAdmin}
-                    />
-                  </div>
+                    >
+                      <div
+                        ref={facilityPanelRef}
+                        className="pointer-events-auto w-full"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <FacilityDetailPanel
+                          facility={selectedFacility}
+                          onClose={() => {
+                            setSelectedFacility(null);
+                            setDetailError(null);
+                    }}
+                          onDelete={async (facilityId: string) => {
+                            await fetchFacilities();
+                            await fetchFacilityStats();
+                          }}
+                          isLoading={isLoadingDetail}
+                          error={detailError}
+                          isAdmin={isAdmin}
+                          className="mt-0 rounded-t-none"
+                          showTaskSections={showTaskSections}
+                          onToggleTaskSections={() => setShowTaskSections((prev) => !prev)}
+                          onOpenEditModal={handleOpenEditModal}
+                          onAddToPerformanceComparison={handleAddFacilityToPerformanceFromDetail}
+                          onDragStartPerformance={handleDragStartPerformance}
+                          onDragEndPerformance={handleDragEndPerformance}
+                  />
                 </div>
+              </div>
+                  )}
+                </CommonContainerBox>
 
-                {/* 설비 목록 섹션 */}
-                <div className="w-72 mb-6">
-                  <div className="h-[600px]">
-                    <FacilityList 
+                <div className="w-80 mb-6">
+                <div className="h-[570px]">
+                    <FacilityList
                       facilities={facilities}
                       onFacilityClick={handleFacilityClick}
+                      onFacilityHover={setHoveredFacilityId}
+                      currentPage={page + 1}
+                      totalPages={totalPages}
+                      onPageChange={handleFacilityPageChange}
+                      totalCount={totalElements}
+                      totalOperational={facilityStats.totalOperational}
+                      totalRunning={facilityStats.totalRunning}
+                      availabilityRate={availabilityRate}
                     />
                   </div>
                 </div>
               </div>
+              {selectedFacility && showTaskSections && (
+                <CommonContainerBox className="mt-4 mb-10">
+                  <div className="mb-6 flex items-center justify-between">
+                    <h2 className="text-xl font-semibold text-gray-900">{selectedFacility.name}</h2>
+                    <button
+                      type="button"
+                      aria-label="작업 조회 닫기"
+                      className="rounded-full p-2 text-gray-400 transition-colors hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+                      onClick={() => setShowTaskSections(false)}
+                    >
+                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="space-y-6">
+                    <FacilityQueueSection
+                      queueItems={queueItems}
+                      processingItems={processingItems}
+                      overallProgress={overallProgress}
+                      isLoading={false}
+                      withContainer={false}
+                    />
+                    <FacilityHistorySection
+                      historyItems={historyItems}
+                      isLoadingHistory={isLoadingHistory}
+                      historyError={historyError}
+                      onDownload={(item) => {
+                        console.log('다운로드:', item.fileName);
+                      }}
+                      withContainer={false}
+                    />
+                  </div>
+                </CommonContainerBox>
+              )}
+              </>
             )}
 
-            {/* 설비 상세 정보 패널 */}
-            {selectedFacility && (
-              <FacilityDetailPanel
-                facility={selectedFacility}
-                onClose={() => {
-                  setSelectedFacility(null);
-                  setDetailError(null);
+            <div className="mt-10">
+              <PerformanceSimulatorContainer
+                slots={performanceComparisonSlots}
+                draggingFacility={draggingFacility}
+                dragOverIndex={dragOverPerformanceSlot}
+                onRemove={removeFacilityFromPerformanceSlot}
+                onDrop={(index, facility) => handlePerformanceSlotDrop(index, facility)}
+                onDragOverSlot={(index) => setDragOverPerformanceSlot(index)}
+                onRun={(currentSlots) => {
+                  console.log('성능 시뮬레이터 실행', currentSlots);
                 }}
-                onDelete={async (facilityId: string) => {
-                  // 삭제 후 목록 새로고침
-                  await fetchFacilities();
-                }}
-                isLoading={isLoadingDetail}
-                error={detailError}
-                isAdmin={isAdmin}
+                onAddTask={handleOpenQueueModal}
               />
-            )}
+            </div>
+            <ProductionSimulator className="mt-6" />
+
           </div>
         </main>
       </div>
 
       {/* 설비 추가 모달 */}
-      <AddFacilityModal
+      <FacilityAddModal
         isOpen={isAddModalOpen}
-        onClose={() => {
-          setIsAddModalOpen(false);
-          setSelectedLocation(null);
-        }}
+        onClose={() => closeFacilityAddModal()}
         onAdd={async (facilityData) => {
-          // 설비 추가 성공 후 목록 새로고침
-          await fetchFacilities();
-          setIsAddModalOpen(false);
-          setSelectedLocation(null);
+          await fetchFacilities(0);
+          await fetchFacilityStats();
+          closeFacilityAddModal();
         }}
         sidebarWidth={sidebarWidth}
         navbarHeight={navbarHeight}
-        selectedPosition={selectedLocation}
-        onSelectPosition={() => {
-          setIsAddModalOpen(false);
-          setIsLocationSelectMode(true);
-        }}
+        initialCanvasPosition={pendingLocation}
+        onRequestLocationChange={handleRequestLocationChange}
       />
+
+      <FacilityEditModal
+        facility={facilityBeingEdited}
+        isOpen={isFacilityEditModalOpen}
+        onClose={handleCloseEditModal}
+        onUpdated={handleFacilityEditUpdated}
+        onRequestLocationChange={handleRequestEditLocationChange}
+        draftLocation={editDraftLocation}
+      />
+      <FacilityQueueModal
+        facility={queueModalFacility}
+        queueItems={queueModalData.queueItems}
+        processingItems={queueModalData.processingItems}
+        overallProgress={queueModalData.overallProgress}
+        isOpen={Boolean(queueModalFacility)}
+        onClose={handleCloseQueueModal}
+        topOffset={navbarHeight}
+        onUpload={handleQueueUpload}
+      />
+
     </div>
     </AuthGuard>
   );

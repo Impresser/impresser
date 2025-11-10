@@ -29,7 +29,7 @@ export default function CommonDropdown({
   size = 'md',
 }: CommonDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 0, width: 0 });
+  const [menuStyles, setMenuStyles] = useState<React.CSSProperties>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -37,14 +37,20 @@ export default function CommonDropdown({
   const selectedOption = options.find(option => option.value === value);
 
   const updateMenuPosition = () => {
-    if (buttonRef.current) {
-      const rect = buttonRef.current.getBoundingClientRect();
-      setMenuPosition({
-        top: rect.bottom + 4, // fixed positioning은 viewport 기준이므로 scrollY 불필요
-        left: rect.left, // fixed positioning은 viewport 기준이므로 scrollX 불필요
-        width: rect.width,
-      });
-    }
+    if (!buttonRef.current || !dropdownRef.current) return;
+
+    const buttonRect = buttonRef.current.getBoundingClientRect();
+    const containerRect = dropdownRef.current.getBoundingClientRect();
+
+    const top = buttonRect.bottom - containerRect.top + 4;
+    const left = buttonRect.left - containerRect.left;
+    const width = buttonRect.width;
+
+    setMenuStyles({
+      top,
+      left,
+      width,
+    });
   };
 
   useEffect(() => {
@@ -124,12 +130,8 @@ export default function CommonDropdown({
         {isOpen && (
           <div
             ref={menuRef}
-            className="fixed z-[9999] bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
-            style={{
-              top: `${menuPosition.top}px`,
-              left: `${menuPosition.left}px`,
-              width: `${menuPosition.width}px`,
-            }}
+            className="absolute z-[999] bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
+            style={menuStyles}
           >
             {options.map((option) => (
               <button

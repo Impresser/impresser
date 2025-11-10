@@ -21,11 +21,11 @@ interface IsometricMapProps {
   isLocationSelectMode?: boolean;
   onLocationSelect?: (x: number, y: number) => void;
   onAddFacilityClick?: () => void;
+  onCancelLocationSelect?: () => void;
   selectedLocation?: { x: number; y: number } | null;
 }
 
-export default function IsometricMap({ mapData, facilities = [], onTileClick, showManagementButton = true, sidebarWidth = 192, isLocationSelectMode = false, onLocationSelect, onAddFacilityClick, selectedLocation = null }: IsometricMapProps) {
-  const [isManagementOpen, setIsManagementOpen] = useState(false);
+export default function IsometricMap({ mapData, facilities = [], onTileClick, showManagementButton = true, sidebarWidth = 192, isLocationSelectMode = false, onLocationSelect, onAddFacilityClick, onCancelLocationSelect, selectedLocation = null }: IsometricMapProps) {
   const [hoveredTile, setHoveredTile] = useState<{ x: number; y: number } | null>(null);
   
   const tileWidth = 30;
@@ -154,28 +154,17 @@ export default function IsometricMap({ mapData, facilities = [], onTileClick, sh
           }
         }
 
-        .isometric-map-container-wrapper.is-location-select-mode .isometric-map-tile.tile-active-3x3 {
-          transition: background 0.250s ease-in;
-          background: rgba(255, 255, 255, 0.2);
-        }
-
-        .isometric-map-container-wrapper.is-location-select-mode .isometric-map-tile.tile-active-3x3::after {
-          transform: translate(-6px, -6px);
-          box-shadow: 6px 6px 6px rgba(0, 0, 0, 0.24);
-          background: rgba(255, 255, 255, 0.8);
-        }
-
-        .isometric-map-container-wrapper.is-location-select-mode .isometric-map-tile.tile-invalid {
-          opacity: 0.3;
-          cursor: not-allowed;
-        }
-
         .isometric-map-container-wrapper.is-location-select-mode .isometric-map-tile.tile-selected-3x3 {
           background: rgba(59, 130, 246, 0.3);
         }
 
         .isometric-map-container-wrapper.is-location-select-mode .isometric-map-tile.tile-selected-3x3::after {
           background: rgba(59, 130, 246, 0.5);
+        }
+
+        .isometric-map-container-wrapper.is-location-select-mode .isometric-map-tile.tile-invalid {
+          opacity: 0.3;
+          cursor: not-allowed;
         }
 
         .isometric-map-tile.dirt {
@@ -228,48 +217,6 @@ export default function IsometricMap({ mapData, facilities = [], onTileClick, sh
           </div>
         )}
         
-        {/* 설비 관리 버튼 및 메뉴 */}
-        {showManagementButton && (
-        <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
-          {isManagementOpen ? (
-            <>
-              <CommonButton
-                onClick={() => setIsManagementOpen(false)}
-                variant="gray"
-                className="px-4 py-2 text-sm"
-              >
-                나가기
-              </CommonButton>
-              <CommonButton
-                onClick={() => {
-                  if (onAddFacilityClick) {
-                    onAddFacilityClick();
-                  }
-                }}
-                variant="blue"
-                className="px-4 py-2 text-sm"
-              >
-                설비 추가
-              </CommonButton>
-              <CommonButton
-                onClick={handleDeleteFacility}
-                variant="red"
-                className="px-4 py-2 text-sm"
-              >
-                설비 삭제
-              </CommonButton>
-            </>
-          ) : (
-            <CommonButton
-              onClick={() => setIsManagementOpen(true)}
-              variant="gray"
-              className="px-4 py-2 text-sm"
-            >
-              설비 관리
-            </CommonButton>
-          )}
-        </div>
-        )}
         
         <div 
           className="isometric-map-container"
@@ -292,8 +239,8 @@ export default function IsometricMap({ mapData, facilities = [], onTileClick, sh
                 const isInvalid = isLocationSelectMode && !isValid;
                 
                 return (
-                  <div
-                    key={`${y}-${x}`}
+                <div
+                  key={`${y}-${x}`}
                     className={`
                       isometric-map-tile 
                       ${getTileClassName(tile)}
@@ -301,87 +248,65 @@ export default function IsometricMap({ mapData, facilities = [], onTileClick, sh
                       ${isInSelectedArea && !isInHoverArea ? 'tile-selected-3x3' : ''}
                       ${isInvalid ? 'tile-invalid' : ''}
                     `.trim()}
-                    style={{
-                      width: tileWidth,
-                      height: tileHeight
-                    }}
+                  style={{
+                    width: tileWidth,
+                    height: tileHeight
+                  }}
                     onMouseEnter={() => {
                       if (isLocationSelectMode) {
                         setHoveredTile({ x, y });
                       }
                     }}
-                    onClick={() => {
-                      if (isLocationSelectMode && onLocationSelect) {
-                        // 3x3 영역이 유효한지 확인
+                  onClick={() => {
+                    if (isLocationSelectMode && onLocationSelect) {
                         if (isValid3x3Area(x, y)) {
-                          onLocationSelect(x, y);
+                      onLocationSelect(x, y);
                         }
-                      } else if (onTileClick) {
-                        onTileClick(x, y);
-                      }
-                    }}
-                  />
+                    } else if (onTileClick) {
+                      onTileClick(x, y);
+                    }
+                  }}
+                />
                 );
               })
             )}
           </div>
-          
-        </div>
-        
-        {/* 설비 이미지 레이어 (평면, isometric 변환 없음) */}
         <div className="isometric-map-facility-image-layer">
           {facilities.map((facility) => {
-            // isometric 변환된 타일의 실제 화면 위치 계산
-            // CSS transform: translate(-50%, -50%) rotateX(60deg) rotateZ(45deg)
-            // 3D 변환 행렬을 직접 계산하여 정확한 위치 산출
-            
-            // 타일 좌표 (타일 중심 기준)
             const tileX = facility.canvasX + 0.5;
             const tileY = facility.canvasY + 0.5;
             
-            // 타일 중심의 원본 좌표 (픽셀, map-container 내부 기준)
-            // map-container의 중심을 (0, 0)으로 하는 좌표계 사용
             const mapCenterX = (width * tileWidth) / 2;
             const mapCenterY = (height * tileHeight) / 2;
             
             const originX = tileX * tileWidth - mapCenterX;
             const originY = tileY * tileHeight - mapCenterY;
-            const originZ = 0; // 2D 타일이므로 Z는 0
-            
-            // rotateX(60deg) rotateZ(45deg) 변환 행렬 적용
-            // 먼저 rotateZ(45deg), 그 다음 rotateX(60deg)
-            const cos45 = Math.cos(Math.PI / 4); // cos(45deg) ≈ 0.707
-            const sin45 = Math.sin(Math.PI / 4); // sin(45deg) ≈ 0.707
-            const cos60 = Math.cos(Math.PI / 3); // cos(60deg) = 0.5
-            const sin60 = Math.sin(Math.PI / 3); // sin(60deg) ≈ 0.866
-            
-            // rotateZ(45deg) 적용
+              const originZ = 0;
+
+              const cos45 = Math.cos(Math.PI / 4);
+              const sin45 = Math.sin(Math.PI / 4);
+              const cos60 = Math.cos(Math.PI / 3);
+              const sin60 = Math.sin(Math.PI / 3);
+
             const zX = originX * cos45 - originY * sin45;
             const zY = originX * sin45 + originY * cos45;
             const zZ = originZ;
             
-            // rotateX(60deg) 적용 (Z축 중심으로 Y와 Z가 회전)
             const xX = zX;
             const xY = zY * cos60 - zZ * sin60;
             const xZ = zY * sin60 + zZ * cos60;
             
-            // perspective 변환 적용 (perspective: 1000px)
             const perspective = 1000;
             const scale = perspective / (perspective + xZ);
             const screenX = xX * scale;
             const screenY = xY * scale;
             
-            // map-container의 실제 크기
             const mapWidth = width * tileWidth;
             const mapHeight = height * tileHeight;
             
-            // wrapper의 중앙(50%, 50%)을 기준으로 상대 위치 계산
-            // map-container는 translate(-50%, -50%)로 중앙 배치되므로
-            // 변환된 좌표를 wrapper의 중앙에 더하면 됨
             const relativeX = (screenX / mapWidth) * 100;
             const relativeY = (screenY / mapHeight) * 100;
             
-            // wrapper 중앙을 기준으로 절대 위치
             const x = `calc(50% + ${relativeX}%)`;
             const y = `calc(50% + ${relativeY}%)`;
             
@@ -402,6 +327,7 @@ export default function IsometricMap({ mapData, facilities = [], onTileClick, sh
               </div>
             );
           })}
+          </div>
         </div>
       </div>
     </>

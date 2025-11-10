@@ -18,6 +18,8 @@ export interface InkjetPrinter {
   printerStatus: string; // "BROKEN" | "UNDER_REPAIR" | "OPERATIONAL"
   processStatus: string; // "WAITING" | "RUNNING"
   installDate: string; // YYYY-MM-DD 형식
+  canvasX: number;
+  canvasY: number;
 }
 
 // 설비 상세 정보 응답 타입
@@ -131,6 +133,19 @@ export interface CreateInkjetPrinterRequest {
   canvasY: number;
 }
 
+// 설비 수정 요청 타입
+export interface UpdateInkjetPrinterRequest {
+  modelName: string;
+  printerName: string;
+  cpu: string;
+  gpu: string;
+  ram: string;
+  vram: string;
+  printerStatus: string; // "BROKEN" | "UNDER_REPAIR" | "OPERATIONAL"
+  canvasX: number;
+  canvasY: number;
+}
+
 /**
  * 잉크젯 설비 등록 API 호출
  * @param data 설비 등록 요청 데이터
@@ -230,6 +245,44 @@ export async function deleteInkjetPrinter(
     const errorData = await response.json().catch(() => ({}));
     throw new Error(
       errorData.message || `설비 삭제 실패: ${response.status} ${response.statusText}`
+    );
+  }
+
+  // 204 No Content 응답이므로 body가 없음
+  return;
+}
+
+/**
+ * 잉크젯 설비 수정 API 호출
+ * @param inkjetUuid 설비 UUID
+ * @param data 설비 수정 요청 데이터
+ * @returns 수정 성공 여부
+ */
+export async function updateInkjetPrinter(
+  inkjetUuid: string,
+  data: UpdateInkjetPrinterRequest
+): Promise<void> {
+  const accessToken = localStorage.getItem("accessToken");
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  // 토큰이 있으면 Authorization 헤더에 추가
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/inkjet-printer/${inkjetUuid}`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `설비 수정 실패: ${response.status} ${response.statusText}`
     );
   }
 
