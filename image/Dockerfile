@@ -6,13 +6,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4-openssl-dev \
     libtiff-dev \
     zlib1g-dev \
-    nvidia-cuda-toolkit \
     && rm -rf /var/lib/apt/lists/*
 
 COPY nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb /tmp/
-RUN dpkg -i /tmp/nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb || apt-get -f install -y
-
-RUN mkdir -p /opt/nvtiff && cp -r /usr/local/nvtiff/* /opt/nvtiff/
+RUN dpkg -i /tmp/nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb \
+ && cp /var/nvtiff-local-repo-ubuntu2404-0.5.1/nvtiff-local-*-keyring.gpg /usr/share/keyrings/ \
+ && apt-get update \
+ && apt-get install -y nvtiff \
+ && mkdir -p /opt/nvtiff && cp -r /usr/local/nvtiff/* /opt/nvtiff/
 
 WORKDIR /app
 COPY . .
