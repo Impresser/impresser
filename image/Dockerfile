@@ -5,11 +5,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential cmake pkg-config \
     libcurl4-openssl-dev \
     libtiff-dev \
+    zlib1g-dev \
     nvidia-cuda-toolkit \
     && rm -rf /var/lib/apt/lists/*
 
-COPY nvtiff /opt/nvtiff
+COPY nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb /tmp/
+RUN dpkg -i /tmp/nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb || apt-get -f install -y
 
+RUN mkdir -p /opt/nvtiff && cp -r /usr/local/nvtiff/* /opt/nvtiff/
+
+WORKDIR /app
 COPY . .
 
 RUN cmake -DNVTIFF_INCLUDE_DIR=/opt/nvtiff/include \
@@ -24,6 +29,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libtiff6 \
     libcurl4 \
+    zlib1g \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=build /opt/nvtiff /opt/nvtiff

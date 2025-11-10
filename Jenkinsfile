@@ -275,6 +275,21 @@ pipeline {
               expression { (env.IMAGE_WORKER_CHANGED ?: "false").toBoolean() }
           }
           steps {
+            dir('image') {
+              withCredentials([string(credentialsId: 'nvtiff-url', variable: 'NVTIFF_URL')]) {
+                sh '''
+                  set -euo pipefail
+                  echo "[image-worker] Downloading nvTIFF .deb from presigned URL..."
+
+                  curl -fL --retry 5 --retry-delay 2 \
+                    -o nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb \
+                    "$NVTIFF_URL"
+
+                  ls -lh nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb
+                '''
+              }
+            }
+
             withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
               script {
                 def imageName = "${IMAGE_PREFIX}/impresser-image-worker:${env.BUILD_NUMBER}"
@@ -284,6 +299,10 @@ pipeline {
                 sh "docker logout"
               }
               script { env.BUILT_WORKER = "true" }
+            }
+
+            dir('image') {
+              sh 'rm -f nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb || true'
             }
           }
         }
