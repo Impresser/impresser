@@ -12,8 +12,11 @@ COPY nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb /tmp/
 RUN dpkg -i /tmp/nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb \
  && cp /var/nvtiff-local-repo-ubuntu2404-0.5.1/nvtiff-local-*-keyring.gpg /usr/share/keyrings/ \
  && apt-get update \
- && apt-get install -y nvtiff \
- && mkdir -p /opt/nvtiff && cp -r /usr/local/nvtiff/* /opt/nvtiff/
+ && apt-get install -y nvtiff
+
+RUN mkdir -p /opt/nvtiff/lib \
+ && cp /usr/lib/x86_64-linux-gnu/libnvtiff/12/libnvtiff.so.0 /opt/nvtiff/lib/libnvtiff.so \
+ && mkdir -p /opt/nvtiff/include
 
 WORKDIR /app
 COPY . .
@@ -36,7 +39,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=build /opt/nvtiff /opt/nvtiff
 ENV LD_LIBRARY_PATH=/opt/nvtiff/lib:${LD_LIBRARY_PATH}
 
+ARG CALLBACK_BASE_URL
+ENV CALLBACK_BASE_URL=${CALLBACK_BASE_URL}
+
 COPY --from=build /app/image /app/image
 
 EXPOSE 8080
-ENTRYPOINT ["/app/image"]
+ENTRYPOINT ["/app/image", "--server", "8080"]

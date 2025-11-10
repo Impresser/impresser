@@ -290,10 +290,20 @@ pipeline {
               }
             }
 
-            withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+            withCredentials([
+              string(credentialsId: 'callback_url', variable: 'CALLBACK_BASE_URL'),
+              usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')
+            ]) {
               script {
                 def imageName = "${IMAGE_PREFIX}/impresser-image-worker:${env.BUILD_NUMBER}"
-                sh "docker build -t ${imageName} -f image/Dockerfile image"
+
+                sh """
+                  docker build \
+                    --build-arg CALLBACK_BASE_URL=${CALLBACK_BASE_URL} \
+                    -t ${imageName} \
+                    -f image/Dockerfile image
+                """
+
                 sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin"
                 sh "docker push ${imageName}"
                 sh "docker logout"
@@ -306,6 +316,7 @@ pipeline {
             }
           }
         }
+
       }
     }
   
