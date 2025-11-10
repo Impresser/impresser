@@ -128,10 +128,10 @@ void worker_loop() {
 
             std::unique_ptr<IEncoder> enc;
             if (job.processingUnit == "GPU") {
-                enc = EncoderFactory::createDefault();
+                enc = EncoderFactory::createNvTiffEncoder();
             }
             else if (job.processingUnit == "CPU") {
-                throw std::runtime_error("CPU processing not implemented yet (libTIFF planned)");
+                enc = EncoderFactory::createLibTiffEncoder();
             }
             else {
                 throw std::runtime_error("Invalid processingUnit: " + job.processingUnit);
@@ -188,13 +188,14 @@ void worker_loop() {
 
 static void printUsage() {
     std::cerr << "Usage:\n"
-        << "  image <input.bmp> <output.tiff> <lzw|deflate|none> [rowsPerStrip]\n"
+        << "  image <input.bmp> <output.tiff> <lzw|deflate|packbits|none> [rowsPerStrip]\n"
         << "  image --server [port]\n";
 }
 
 static Compression parseComp(const std::string& s) {
     if (s == "lzw" || s == "LZW") return Compression::LZW;
-    if (s == "deflate" || s == "zip" || s == "DEFLATE") return Compression::Deflate;
+    if (s == "deflate" || s == "DEFLATE") return Compression::Deflate;
+    if (s == "packbits" || s == "PACKBITS") return Compression::PackBits;
     return Compression::None;
 }
 
@@ -279,6 +280,7 @@ int main(int argc, char* argv[]) {
     if (argc < 4) { printUsage(); return 1; }
 
     ConvertRequest req{};
+    std::string processingUnit = (argc >= 6) ? argv[5] : "GPU";
     req.inputPath = argv[1];
     req.outputPath = argv[2];
     req.options.compression = parseComp(argv[3]);
@@ -286,15 +288,13 @@ int main(int argc, char* argv[]) {
 
     if (!fileExists(req.inputPath)) { LOGE("Input not found: " << req.inputPath); return 1; }
 
-    if (req.options.compression == Compression::Deflate) {
-        LOGW("DEFLATE requested. nvTIFF v0.5 does not support DEFLATE. Use libTIFF path later.");
-    }
-
     LOGI("Request:");
     LOGI("  input       : " << req.inputPath);
     LOGI("  output      : " << req.outputPath);
+    LOGI("  processing unit  : " << processingUnit);
     LOGI("  compression : " << (req.options.compression == Compression::LZW ? "LZW" :
-        req.options.compression == Compression::Deflate ? "DEFLATE" : "NONE"));
+        req.options.compression == Compression::Deflate ? "DEFLATE" :
+        req.options.compression == Compression::PackBits ? "PACKBITS" : "NONE"));
     LOGI("  rowsPerStrip: " << (req.options.rowsPerStrip.has_value()
         ? std::to_string(req.options.rowsPerStrip.value())
         : "(none)"));
@@ -306,7 +306,17 @@ int main(int argc, char* argv[]) {
     if (!LoadBmp24ToRGB(req.inputPath, info, rgb)) { LOGE("BMP load failed"); return 2; }
     double tLoad = sw.elapsed(); LOGI("Loaded: " << info.width << "x" << info.height << " in " << tLoad << "s");
 
-    auto enc = EncoderFactory::createDefault();
+    std::unique_ptr<IEncoder> enc;
+    if (processingUnit == "GPU") {
+        enc = EncoderFactory::createNvTiffEncoder();
+    }
+    else if (processingUnit == "CPU") {
+        enc = EncoderFactory::createLibTiffEncoder();
+    }
+    else {
+        LOGE("Invalid processing unit");
+        return 1;
+    }
     LOGI("Encoder: " << enc->name());
 
     sw.reset();
@@ -314,6 +324,7 @@ int main(int argc, char* argv[]) {
     double tEnc = sw.elapsed();
 
     if (!ok) { LOGE("Encode failed"); return 3; }
-    LOGI("Done: total=" << (tLoad + tEnc) << "s (encode=" << tEnc << "s)");
+    LOGI("Conversion completed successfully: total=" << (tLoad + tEnc)
+        << "s (load=" << tLoad << "s, encode=" << tEnc << "s)");
     return 0;
 }

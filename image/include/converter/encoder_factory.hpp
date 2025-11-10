@@ -4,6 +4,7 @@
 
 namespace conv {
     struct EncoderFactory {
-        static std::unique_ptr<IEncoder> createDefault();
+        static std::unique_ptr<IEncoder> createNvTiffEncoder();
+        static std::unique_ptr<IEncoder> createLibTiffEncoder();
     };
 }
