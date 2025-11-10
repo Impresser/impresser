@@ -13,15 +13,17 @@ COPY nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb /tmp/
 RUN dpkg -i /tmp/nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb \
  && cp /var/nvtiff-local-repo-ubuntu2404-0.5.1/nvtiff-local-*-keyring.gpg /usr/share/keyrings/ \
  && apt-get update \
- && apt-get install -y nvtiff
+ && apt-get install -y nvtiff \
+ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY . .
 
-RUN cmake -DNVTIFF_INCLUDE_DIR=/opt/nvtiff/include \
-          -DNVTIFF_LIBRARY=/opt/nvtiff/lib/libnvtiff.so \
-          -DNVML_LIBRARY=/usr/lib/x86_64-linux-gnu/libnvidia-ml.so \
-          . \
+RUN cmake \
+      -DNVTIFF_INCLUDE_DIR=/usr/include \
+      -DNVTIFF_LIBRARY=/usr/lib/x86_64-linux-gnu/libnvtiff.so.0 \
+      -DNVML_LIBRARY=/usr/lib/x86_64-linux-gnu/libnvidia-ml.so \
+      . \
  && make -j"$(nproc)"
 
 FROM nvidia/cuda:12.8.0-runtime-ubuntu24.04 AS runtime
@@ -32,10 +34,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libtiff6 \
     libcurl4 \
     zlib1g \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=build /opt/nvtiff /opt/nvtiff
-ENV LD_LIBRARY_PATH=/opt/nvtiff/lib:${LD_LIBRARY_PATH}
+COPY nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb /tmp/
+RUN dpkg -i /tmp/nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb \
+ && cp /var/nvtiff-local-repo-ubuntu2404-0.5.1/nvtiff-local-*-keyring.gpg /usr/share/keyrings/ \
+ && apt-get update \
+ && apt-get install -y nvtiff \
+ && rm -rf /var/lib/apt/lists/* /tmp/*.deb
 
 ARG CALLBACK_BASE_URL
 ENV CALLBACK_BASE_URL=${CALLBACK_BASE_URL}
