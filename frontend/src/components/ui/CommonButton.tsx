@@ -24,7 +24,7 @@ export default function Button({
     rounded-full
     font-medium
     backdrop-blur-md
-    shadow-[0_4px_5px_rgba(0,0,0,0.2)]
+    shadow-[0_4px_5px_rgba(0,0,0,0.)]
     transition-all duration-200
     focus:outline-none
     hover:scale-103

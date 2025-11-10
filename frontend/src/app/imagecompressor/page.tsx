@@ -20,8 +20,73 @@ export default function ImageCompressorPage() {
   const idCounterRef = useRef(0);
   const queueSectionRef = useRef<HTMLDivElement | null>(null);
 
+  // BMP 파일 헤더에서 이미지 크기 추출 (처음 26바이트만 읽음)
+  const readBmpDimensions = (file: File): Promise<{ width: number; height: number }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const arrayBuffer = e.target?.result as ArrayBuffer;
+          const view = new DataView(arrayBuffer);
+          
+          // BMP 파일 시그니처 확인 (BM)
+          const signature = String.fromCharCode(view.getUint8(0), view.getUint8(1));
+          if (signature !== 'BM') {
+            reject(new Error('유효하지 않은 BMP 파일입니다.'));
+            return;
+          }
+          
+          // BMP 헤더에서 width, height 읽기 (오프셋 18-25)
+          const width = view.getInt32(18, true); // little-endian
+          const height = view.getInt32(22, true); // little-endian
+          
+          resolve({ width: Math.abs(width), height: Math.abs(height) });
+        } catch (error) {
+          reject(error);
+        }
+      };
+      
+      reader.onerror = () => {
+        reject(new Error('파일 읽기 실패'));
+      };
+      
+      // 처음 26바이트만 읽어서 헤더 정보 추출
+      const blob = file.slice(0, 26);
+      reader.readAsArrayBuffer(blob);
+    });
+  };
+
+  // 작은 파일의 경우 미리보기 생성
+  const createPreview = (file: File): Promise<string | null> => {
+    return new Promise((resolve) => {
+      // 10MB 이상 파일은 미리보기 생성하지 않음
+      if (file.size > 10 * 1024 * 1024) {
+        resolve(null);
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          resolve(e.target?.result as string);
+        };
+        img.onerror = () => {
+          resolve(null);
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => {
+        resolve(null);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleFileSelect = (files: File[]) => {
-    const validFiles = files.filter(file => file.type === 'image/bmp');
+    const validFiles = files.filter(file => 
+      file.type === 'image/bmp' || file.name.toLowerCase().endsWith('.bmp')
+    );
     
     if (validFiles.length !== files.length) {
       alert('BMP 파일만 업로드 가능합니다.');
@@ -29,28 +94,39 @@ export default function ImageCompressorPage() {
 
     if (validFiles.length === 0) return;
 
-    const filePromises = validFiles.map((file) => {
-      return new Promise<FileInfo>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const img = new Image();
-          img.onload = () => {
-            resolve({
-              name: file.name,
-              size: file.size,
-              format: 'BMP',
-              dimensions: { width: img.width, height: img.height },
-              preview: e.target?.result as string,
-            });
-          };
-          img.src = e.target?.result as string;
-        };
-        reader.readAsDataURL(file);
-      });
+    const filePromises = validFiles.map(async (file) => {
+      try {
+        // BMP 헤더에서 크기 정보 추출 (큰 파일도 처리 가능)
+        const dimensions = await readBmpDimensions(file);
+        
+        // 작은 파일만 미리보기 생성
+        const preview = await createPreview(file);
+        
+        return {
+          name: file.name,
+          size: file.size,
+          format: 'BMP',
+          dimensions,
+          preview: preview || '', // 미리보기가 없으면 빈 문자열
+        } as FileInfo;
+      } catch (error) {
+        console.error(`파일 ${file.name} 처리 실패:`, error);
+        // 에러가 발생해도 기본 정보는 반환
+        return {
+          name: file.name,
+          size: file.size,
+          format: 'BMP',
+          dimensions: { width: 0, height: 0 },
+          preview: '',
+        } as FileInfo;
+      }
     });
 
     Promise.all(filePromises).then((fileInfos) => {
       setSelectedFiles((prev) => [...prev, ...fileInfos]);
+    }).catch((error) => {
+      console.error('파일 처리 중 오류:', error);
+      alert('일부 파일 처리에 실패했습니다.');
     });
   };
 

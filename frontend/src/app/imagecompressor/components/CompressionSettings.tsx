@@ -8,6 +8,7 @@ import CommonDropdown from '@/components/ui/CommonDropdown';
 import Button from '@/components/ui/CommonButton';
 import { getCompressionTypes, getCompressionTypeVersions } from '@/service/imageCompressor';
 import { CompressionTypeItem, CompressionTypeVersionItem, FileInfo } from '@/types/imageCompressor';
+import { useImageUploadStore } from '@/store/imageUploadStore';
 
 interface CompressionSettingsProps {
   selectedFiles: FileInfo[];
@@ -21,6 +22,14 @@ interface CompressionSettingsProps {
   onAlgorithmChange: (value: string) => void;
   onVersionChange: (value: string) => void;
   onAddToQueue: () => void;
+}
+
+// File 객체를 저장하기 위한 확장 타입
+interface FileWithUpload extends FileInfo {
+  file?: File; // 원본 File 객체
+  uploadStatus?: 'pending' | 'uploading' | 'completed' | 'error';
+  uploadProgress?: number;
+  uploadError?: string;
 }
 
 export default function CompressionSettings({
@@ -44,24 +53,116 @@ export default function CompressionSettings({
   const [versionOptions, setVersionOptions] = useState<{ value: string; label: string }[]>([]);
   const [loadingVersions, setLoadingVersions] = useState(false);
   const [activeTab, setActiveTab] = useState<'list' | 'images'>('list');
-
-  const handleFileDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    const files = Array.from(e.dataTransfer.files);
-    if (files.length > 0) {
-      onFileSelect(files);
-    }
-  };
+  const [filesWithUpload, setFilesWithUpload] = useState<FileWithUpload[]>([]);
+  const fileMapRef = useRef<Map<string, File>>(new Map()); // File 객체 저장용
+  
+  const {
+    uploadingFiles,
+    initBatchUpload,
+    getBatchPresignedUrls,
+    uploadFileParts,
+    completeBatchUpload,
+    addUploadingFile,
+    updateUploadingFile,
+  } = useImageUploadStore();
 
   const handleFileDragOver = (e: React.DragEvent) => {
     e.preventDefault();
   };
 
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      onFileSelect(Array.from(files));
+      const fileArray = Array.from(files);
+      
+      // File 객체 저장
+      fileArray.forEach(file => {
+        fileMapRef.current.set(file.name, file);
+      });
+      
+      onFileSelect(fileArray);
+      
+      // 파일 업로드 시작 (비동기로 실행, 블로킹하지 않음)
+      handleUploadFiles(fileArray).catch(error => {
+        console.error('파일 업로드 중 오류:', error);
+      });
     }
+  };
+
+  const handleFileDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      // File 객체 저장
+      files.forEach(file => {
+        fileMapRef.current.set(file.name, file);
+      });
+      
+      onFileSelect(files);
+      
+      // 파일 업로드 시작 (비동기로 실행, 블로킹하지 않음)
+      handleUploadFiles(files).catch(error => {
+        console.error('파일 업로드 중 오류:', error);
+      });
+    }
+  };
+
+  // 파일 업로드 처리 함수 (각 파일을 병렬로 처리)
+  const handleUploadFiles = async (files: File[]) => {
+    const validFiles = files.filter(file => file.type === 'image/bmp' || file.name.endsWith('.bmp'));
+    
+    if (validFiles.length === 0) return;
+
+    // 각 파일에 대해 업로드 프로세스를 병렬로 시작
+    const uploadPromises = validFiles.map(async (file) => {
+      try {
+        // 1. 파일을 store에 추가
+        addUploadingFile(file.name, file.size);
+        
+        // 2. 배치 업로드 초기화
+        const uploadItems = await initBatchUpload([file.name]);
+        if (!uploadItems) {
+          throw new Error('업로드 초기화 실패');
+        }
+
+        // 3. Presigned URL 발급
+        const fileSizes = new Map([[file.name, file.size]]);
+        const presignedItems = await getBatchPresignedUrls(uploadItems, fileSizes);
+        if (!presignedItems) {
+          throw new Error('Presigned URL 발급 실패');
+        }
+
+        // 4. 파일 파트 병렬 업로드
+        const uploadSuccess = await uploadFileParts(file, file.name, 10, 3);
+        if (!uploadSuccess) {
+          throw new Error('파일 업로드 실패');
+        }
+
+        // 5. 업로드 완료
+        const uploadItem = uploadItems[0];
+        const succeededIds = await completeBatchUpload([{
+          objectName: uploadItem.objectName,
+          uploadId: uploadItem.uploadId,
+          fileName: file.name,
+        }]);
+
+        if (!succeededIds || !succeededIds.includes(uploadItem.uploadId)) {
+          throw new Error('업로드 완료 처리 실패');
+        }
+
+        console.log(`${file.name} 업로드 완료`);
+      } catch (error) {
+        console.error(`${file.name} 업로드 실패:`, error);
+        updateUploadingFile(file.name, {
+          status: 'error',
+          error: error instanceof Error ? error.message : '업로드 실패',
+        });
+        throw error; // 에러를 다시 throw하여 Promise.allSettled에서 처리 가능하도록
+      }
+    });
+
+    // 모든 업로드를 병렬로 실행 (실패해도 다른 파일 업로드는 계속 진행)
+    await Promise.allSettled(uploadPromises);
   };
 
   const formatFileSize = (bytes: number) => {
@@ -138,6 +239,21 @@ export default function CompressionSettings({
     fetchAlgorithms();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [processingMethod]); // processingMethod 변경 시에만 실행
+
+  // selectedFiles와 uploadingFiles를 동기화하여 업로드 상태 표시
+  useEffect(() => {
+    setFilesWithUpload(
+      selectedFiles.map((fileInfo) => {
+        const uploadingFile = uploadingFiles.find((uf) => uf.fileName === fileInfo.name);
+        return {
+          ...fileInfo,
+          uploadStatus: uploadingFile?.status || 'pending',
+          uploadProgress: uploadingFile?.progress || 0,
+          uploadError: uploadingFile?.error,
+        };
+      })
+    );
+  }, [selectedFiles, uploadingFiles]);
 
   // 알고리즘 변경 시 버전 목록 조회
   useEffect(() => {
@@ -248,125 +364,218 @@ export default function CompressionSettings({
                           <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">크기</th>
                           <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">용량</th>
                           <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">포맷</th>
+                          <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">업로드 상태</th>
                           <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">작업</th>
                         </tr>
                       </thead>
                     }
                     body={
                       <tbody>
-                        {selectedFiles.map((file, index) => (
-                          <tr
-                            key={index}
-                            draggable={selectedFiles.length > 1}
-                            onDragStart={() => handleDragStart(index)}
-                            onDragOver={(e) => handleDragOver(e, index)}
-                            onDragLeave={handleDragLeave}
-                            onDrop={(e) => handleDrop(e, index)}
-                            onDragEnd={handleDragEnd}
-                            className={`border-b border-gray-100 text-sm text-gray-900 hover:bg-gray-50 ${
-                              selectedFiles.length > 1 ? 'cursor-move' : ''
-                            } ${
-                              draggedIndex === index ? 'opacity-50' : ''
-                            } ${
-                              dragOverIndex === index ? 'bg-blue-50 border-blue-300' : ''
-                            }`}
-                          >
-                            <td className="py-3 px-3">
-                              {selectedFiles.length > 1 && (
-                                <svg
-                                  className="w-4 h-4 text-gray-400"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  viewBox="0 0 24 24"
+                        {filesWithUpload.map((file, index) => {
+                          const getStatusColor = () => {
+                            switch (file.uploadStatus) {
+                              case 'completed':
+                                return 'text-green-600';
+                              case 'uploading':
+                                return 'text-blue-600';
+                              case 'error':
+                                return 'text-red-600';
+                              default:
+                                return 'text-gray-500';
+                            }
+                          };
+
+                          const getStatusText = () => {
+                            switch (file.uploadStatus) {
+                              case 'completed':
+                                return '완료';
+                              case 'uploading':
+                                return `업로드 중 (${file.uploadProgress}%)`;
+                              case 'error':
+                                return `실패: ${file.uploadError || '알 수 없는 오류'}`;
+                              default:
+                                return '대기 중';
+                            }
+                          };
+
+                          return (
+                            <tr
+                              key={index}
+                              draggable={selectedFiles.length > 1}
+                              onDragStart={() => handleDragStart(index)}
+                              onDragOver={(e) => handleDragOver(e, index)}
+                              onDragLeave={handleDragLeave}
+                              onDrop={(e) => handleDrop(e, index)}
+                              onDragEnd={handleDragEnd}
+                              className={`border-b border-gray-100 text-sm text-gray-900 hover:bg-gray-50 ${
+                                selectedFiles.length > 1 ? 'cursor-move' : ''
+                              } ${
+                                draggedIndex === index ? 'opacity-50' : ''
+                              } ${
+                                dragOverIndex === index ? 'bg-blue-50 border-blue-300' : ''
+                              }`}
+                            >
+                              <td className="py-3 px-3">
+                                {selectedFiles.length > 1 && (
+                                  <svg
+                                    className="w-4 h-4 text-gray-400"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth="2"
+                                      d="M4 8h16M4 16h16"
+                                    />
+                                  </svg>
+                                )}
+                              </td>
+                              <td className="py-3 px-3">{file.name}</td>
+                              <td className="py-3 px-3">
+                                {file.dimensions.width.toLocaleString()} ×{' '}
+                                {file.dimensions.height.toLocaleString()}
+                              </td>
+                              <td className="py-3 px-3">{formatFileSize(file.size)}</td>
+                              <td className="py-3 px-3">{file.format}</td>
+                              <td className="py-3 px-3">
+                                <div className="space-y-1">
+                                  <div className={`text-xs font-medium ${getStatusColor()}`}>
+                                    {getStatusText()}
+                                  </div>
+                                  {file.uploadStatus === 'uploading' && (
+                                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                                      <div
+                                        className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+                                        style={{ width: `${file.uploadProgress}%` }}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="py-3 px-3 ">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    // File 객체도 제거
+                                    fileMapRef.current.delete(file.name);
+                                    onFileRemove(index);
+                                  }}
+                                  className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-xs"
                                 >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth="2"
-                                    d="M4 8h16M4 16h16"
-                                  />
-                                </svg>
-                              )}
-                            </td>
-                            <td className="py-3 px-3">{file.name}</td>
-                            <td className="py-3 px-3">
-                              {file.dimensions.width.toLocaleString()} ×{' '}
-                              {file.dimensions.height.toLocaleString()}
-                            </td>
-                            <td className="py-3 px-3">{formatFileSize(file.size)}</td>
-                            <td className="py-3 px-3">{file.format}</td>
-                            <td className="py-3 px-3 ">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onFileRemove(index);
-                                }}
-                                className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-xs"
-                              >
-                                제거
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                                  제거
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     }
                   />
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {selectedFiles.map((file, index) => (
-                      <div
-                        key={index}
-                        className="relative border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
-                      >
-                        {/* 이미지 미리보기 */}
-                        <div className="aspect-3/2 bg-gray-100 flex items-center justify-center">
-                          {file.preview ? (
-                            <img
-                              src={file.preview}
-                              alt={file.name}
-                              className="w-full h-full"
-                            />
-                          ) : (
-                            <svg
-                              className="w-16 h-16 text-gray-400"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth="1.5"
-                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                              />
-                            </svg>
-                          )}
-                        </div>
-                        {/* 파일 정보 */}
-                        <div className="p-3 bg-white">
-                          <p className="text-sm font-medium text-gray-900 truncate mb-1" title={file.name}>
-                            {file.name}
-                          </p>
-                          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600">
-                            <span>
-                              크기: {file.dimensions.width.toLocaleString()} × {file.dimensions.height.toLocaleString()}
-                            </span>
-                            <span>용량: {formatFileSize(file.size)}</span>
-                            <span>포맷:{file.format}</span>
-                          </div>
-                        </div>
-                        {/* 제거 버튼 */}
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onFileRemove(index);
-                          }}
-                          className="absolute top-2 right-2 px-2 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-xs shadow-md"
+                    {filesWithUpload.map((file, index) => {
+                      const getStatusBadge = () => {
+                        switch (file.uploadStatus) {
+                          case 'completed':
+                            return (
+                              <span className="absolute top-2 left-2 px-2 py-1 bg-green-500 text-white text-xs rounded-md shadow-md">
+                                완료
+                              </span>
+                            );
+                          case 'uploading':
+                            return (
+                              <span className="absolute top-2 left-2 px-2 py-1 bg-blue-500 text-white text-xs rounded-md shadow-md">
+                                업로드 중 {file.uploadProgress}%
+                              </span>
+                            );
+                          case 'error':
+                            return (
+                              <span className="absolute top-2 left-2 px-2 py-1 bg-red-500 text-white text-xs rounded-md shadow-md">
+                                실패
+                              </span>
+                            );
+                          default:
+                            return (
+                              <span className="absolute top-2 left-2 px-2 py-1 bg-gray-500 text-white text-xs rounded-md shadow-md">
+                                대기 중
+                              </span>
+                            );
+                        }
+                      };
+
+                      return (
+                        <div
+                          key={index}
+                          className="relative border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
                         >
-                          제거
-                        </button>
-                      </div>
-                    ))}
+                          {/* 이미지 미리보기 */}
+                          <div className="aspect-3/2 bg-gray-100 flex items-center justify-center relative">
+                            {file.preview ? (
+                              <img
+                                src={file.preview}
+                                alt={file.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <svg
+                                className="w-16 h-16 text-gray-400"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="1.5"
+                                  d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                />
+                              </svg>
+                            )}
+                            {getStatusBadge()}
+                            {file.uploadStatus === 'uploading' && (
+                              <div className="absolute bottom-0 left-0 right-0 bg-gray-200 h-1">
+                                <div
+                                  className="bg-blue-600 h-1 transition-all duration-300"
+                                  style={{ width: `${file.uploadProgress}%` }}
+                                />
+                              </div>
+                            )}
+                          </div>
+                          {/* 파일 정보 */}
+                          <div className="p-3 bg-white">
+                            <p className="text-sm font-medium text-gray-900 truncate mb-1" title={file.name}>
+                              {file.name}
+                            </p>
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600">
+                              <span>
+                                크기: {file.dimensions.width.toLocaleString()} × {file.dimensions.height.toLocaleString()}
+                              </span>
+                              <span>용량: {formatFileSize(file.size)}</span>
+                              <span>포맷:{file.format}</span>
+                            </div>
+                            {file.uploadError && (
+                              <p className="text-xs text-red-600 mt-1 truncate" title={file.uploadError}>
+                                {file.uploadError}
+                              </p>
+                            )}
+                          </div>
+                          {/* 제거 버튼 */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // File 객체도 제거
+                              fileMapRef.current.delete(file.name);
+                              onFileRemove(index);
+                            }}
+                            className="absolute top-2 right-2 px-2 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-xs shadow-md"
+                          >
+                            제거
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>

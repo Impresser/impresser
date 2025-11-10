@@ -97,6 +97,8 @@ export const useAuthStore = create<AuthStore>((set) => ({
     localStorage.removeItem("userName");
     localStorage.removeItem("userRole");
     localStorage.removeItem("profileUrl");
+    // 사이드바 상태도 초기화
+    localStorage.removeItem("sidebar-storage");
 
     set({
       isLoggedIn: false,
