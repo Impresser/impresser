@@ -14,6 +14,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
 
 @Entity
 @Table(name = "inkjet_printer")
@@ -86,5 +87,9 @@ public class InkjetPrinter extends BaseTimeEntity {
         if (request.printerStatus() != null) {
             this.printerStatus = PrinterStatus.from(request.printerStatus());
         }
+    }
+
+    public void deleteInkjet() {
+        this.deletedAt = LocalDateTime.now();
     }
 }
