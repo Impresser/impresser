@@ -51,7 +51,7 @@ public class FilePresignedServiceImpl implements FilePresignedService {
     private final StringRedisTemplate redisTemplate;
 
     private String buildPublicUrl(String key) {
-        return S3Util.buildUrlFromKey(s3Config.getEndpoint(), key);
+        return S3Util.buildUrlFromKey(key);
     }
 
     @Override
