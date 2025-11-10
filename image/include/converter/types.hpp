@@ -8,7 +8,8 @@ namespace conv {
     enum class Compression {
         None,
         LZW,
-        Deflate
+        Deflate,
+        Packbits
     };
 
     struct TiffOptions {
