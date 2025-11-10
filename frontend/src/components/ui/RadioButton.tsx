@@ -30,7 +30,7 @@ export default function RadioButton({
         checked={checked}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 focus:ring-2"
+        className="w-4 h-4 text-[#0059FF] bg-gray-100 border-gray-300 focus:ring-[#0059FF] focus:ring-2"
       />
       <span className="text-sm font-medium text-gray-700">{label}</span>
     </label>

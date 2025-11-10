@@ -33,6 +33,7 @@ interface TileMapProps {
   focusPaddingTop?: number;
   focusPaddingBottom?: number;
   selectedFacilityId?: string | null;
+  onBackgroundClick?: () => void;
 }
 
 interface FacilityOverlay {
@@ -58,6 +59,7 @@ export default function TileMap({
   focusPaddingTop = 32,
   focusPaddingBottom = 240,
   selectedFacilityId = null,
+  onBackgroundClick,
 }: TileMapProps) {
   const [internalHoveredFacilityId, setInternalHoveredFacilityId] = useState<string | null>(null);
   const [hoveredTile, setHoveredTile] = useState<{ x: number; y: number } | null>(null);
@@ -347,8 +349,12 @@ export default function TileMap({
     let badgeClass = "";
 
     if (status === "active") {
-      text = getProcessLabel(processStatus) || "대기";
-      badgeClass = processStatus === "RUNNING" ? "bg-blue-600" : "bg-gray-600";
+      if (processStatus === "RUNNING") {
+        text = getProcessLabel(processStatus);
+        badgeClass = "bg-blue-600";
+      } else {
+        return null;
+      }
     } else if (status === "inactive") {
       text = getStatusLabel(status);
       badgeClass = "bg-red-500";
@@ -472,7 +478,8 @@ export default function TileMap({
           filter: none;
         }
 
-        .tile-map-facility-overlay-image.tile-map-facility-overlay-image--inactive::after {
+        .tile-map-facility-overlay-image.tile-map-facility-overlay-image--inactive::after,
+        .tile-map-facility-overlay-image.tile-map-facility-overlay-image--maintenance::after {
           background: rgba(0, 0, 0, 0.55);
         }
 
@@ -512,6 +519,10 @@ export default function TileMap({
       <div
         ref={containerRef}
         className={`tile-map-container-wrapper ${isLocationSelectMode ? "is-location-select-mode" : ""}`}
+        onClick={() => {
+          if (isLocationSelectMode) return;
+          onBackgroundClick?.();
+        }}
       >
         {isLocationSelectMode && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-blue-500 text-white px-6 py-3 rounded-lg shadow-lg">
@@ -549,7 +560,11 @@ export default function TileMap({
                 "tile-map-facility-overlay-image",
                 isActiveOverlay ? "tile-map-facility-overlay-image--active" : "",
                 selectedFacilityId === overlay.id ? "tile-map-facility-overlay-image--selected" : "",
-                facilityMeta?.status === "inactive" ? "tile-map-facility-overlay-image--inactive" : "",
+                facilityMeta?.status === "inactive"
+                  ? "tile-map-facility-overlay-image--inactive"
+                  : facilityMeta?.status === "maintenance"
+                    ? "tile-map-facility-overlay-image--maintenance"
+                    : "",
               ]
                 .filter(Boolean)
                 .join(" ");
@@ -560,6 +575,11 @@ export default function TileMap({
                   type="button"
                   className={overlayClasses}
                   style={overlay.style}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (isLocationSelectMode) return;
+                    onFacilityClick?.(overlay.id);
+                  }}
                   onMouseEnter={() => {
                     if (isLocationSelectMode) return;
                     setInternalHoveredFacilityId(overlay.id);
@@ -569,10 +589,6 @@ export default function TileMap({
                     if (isLocationSelectMode) return;
                     setInternalHoveredFacilityId((prev) => (prev === overlay.id ? null : prev));
                     onFacilityHoverChange?.(null);
-                  }}
-                  onClick={() => {
-                    if (isLocationSelectMode) return;
-                    onFacilityClick?.(overlay.id);
                   }}
                   aria-label="facility"
                 >
@@ -624,7 +640,8 @@ export default function TileMap({
                         setHoveredTile({ x, y });
                       }
                     }}
-                    onClick={() => {
+                    onClick={(event) => {
+                      event.stopPropagation();
                       if (isLocationSelectMode && onLocationSelect) {
                         onLocationSelect(x, y);
                       } else if (onTileClick) {

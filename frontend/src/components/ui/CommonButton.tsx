@@ -2,22 +2,17 @@
 
 import React from "react";
 
-interface ButtonProps {
-  children: React.ReactNode;
-  onClick?: () => void;
-  type?: "button" | "submit" | "reset";
-  variant?: "blue" | "gray" | "red" | "outline"; // ✅ 색상 구분용 prop 추가
-  className?: string;
-  disabled?: boolean;
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: "blue" | "gray" | "red" | "outline";
 }
 
 export default function Button({
   children,
-  onClick,
   type = "button",
-  variant = "blue", // ✅ 기본값: 파란색
+  variant = "blue",
   className = "",
   disabled = false,
+  ...rest
 }: ButtonProps) {
   const baseStyle = `
     px-7 py-2
@@ -64,9 +59,9 @@ export default function Button({
   return (
     <button
       type={type}
-      onClick={onClick}
       disabled={disabled}
       className={`${baseStyle} ${colorStyles[variant]} ${className}`}
+      {...rest}
     >
       {children}
     </button>
