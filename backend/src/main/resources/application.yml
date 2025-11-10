@@ -27,6 +27,10 @@ spring:
     port: ${RABBITMQ_PORT}
     username: ${RABBITMQ_USERNAME}
     password: ${RABBITMQ_PASSWORD}
+    compress:
+      exchange: ${COMPRESS_EXCHANGE}
+    print:
+      exchange: ${PRINT_EXCHANGE}
 
   jpa:
     hibernate:

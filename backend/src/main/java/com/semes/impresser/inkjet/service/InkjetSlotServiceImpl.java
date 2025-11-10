@@ -92,6 +92,7 @@ public class InkjetSlotServiceImpl implements InkjetSlotService {
     }
 
     @Override
+    @Transactional
     public void changeToActive(UUID printerUuid) {
 
         InkjetPrinterSlot inkjetPrinterSlot = inkjetSlotRepository.findByPrinterUuid(printerUuid)
