@@ -5,6 +5,7 @@ import Papa from 'papaparse';
 import CommonButton from '@/components/ui/CommonButton';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import CommonInput from '@/components/ui/CommonInput01';
+import CommonModal from '@/components/ui/CommonModal';
 import { usePatternForm } from '@/app/imagegenerator/hooks/usePatternForm';
 
 export default function PatternForm() {
@@ -17,6 +18,16 @@ export default function PatternForm() {
   const [panY, setPanY] = useState(0);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  
+  // 모달 관련 상태
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const modalCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const modalPreviewContainerRef = useRef<HTMLDivElement | null>(null);
+  const [modalZoom, setModalZoom] = useState(1);
+  const [modalPanX, setModalPanX] = useState(0);
+  const [modalPanY, setModalPanY] = useState(0);
+  const [isModalPanning, setIsModalPanning] = useState(false);
+  const [modalPanStart, setModalPanStart] = useState({ x: 0, y: 0 });
 
   // 패턴 미리보기가 실제로 표시되는지 확인
   const hasPatternPreview = React.useMemo(() => {
@@ -153,10 +164,11 @@ export default function PatternForm() {
     };
 
   // 확대/축소 핸들러
-  const handleWheel = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
+  const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom((prev) => Math.max(0.5, Math.min(5, prev * delta)));
+    setZoom((prev) => Math.max(0.5, Math.min(10, prev * delta)));
   }, []);
 
   // 팬(드래그) 핸들러
@@ -185,24 +197,67 @@ export default function PatternForm() {
     setPanY(0);
   }, []);
 
-  // 🔹 미리보기 캔버스 렌더러
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  // 모달 확대/축소 리셋
+  const handleModalResetZoom = useCallback(() => {
+    setModalZoom(1);
+    setModalPanX(0);
+    setModalPanY(0);
+  }, []);
 
-    const parent = canvas.parentElement as HTMLElement | null;
-    const cssWidth = parent ? parent.clientWidth : 300;
-    const cssHeight = parent ? parent.clientHeight : 200;
-    // 레티나 대응
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = Math.max(1, Math.floor(cssWidth * dpr));
-    canvas.height = Math.max(1, Math.floor(cssHeight * dpr));
-    canvas.style.width = '100%';
-    canvas.style.height = '100%';
+  // 모달 열기
+  const handleOpenPreviewModal = useCallback(() => {
+    if (hasPatternPreview) {
+      setIsPreviewModalOpen(true);
+      // 모달 열 때 줌/팬 초기화
+      setModalZoom(1);
+      setModalPanX(0);
+      setModalPanY(0);
+    }
+  }, [hasPatternPreview]);
 
+  // 모달 닫기
+  const handleClosePreviewModal = useCallback(() => {
+    setIsPreviewModalOpen(false);
+  }, []);
+
+  // 모달 확대/축소 핸들러
+  const handleModalWheel = useCallback((e: WheelEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setModalZoom((prev) => Math.max(0.5, Math.min(10, prev * delta)));
+  }, []);
+
+  // 모달 팬(드래그) 핸들러
+  const handleModalMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (e.button === 0) {
+      setIsModalPanning(true);
+      setModalPanStart({ x: e.clientX - modalPanX, y: e.clientY - modalPanY });
+    }
+  }, [modalPanX, modalPanY]);
+
+  const handleModalMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (isModalPanning) {
+      setModalPanX(e.clientX - modalPanStart.x);
+      setModalPanY(e.clientY - modalPanStart.y);
+    }
+  }, [isModalPanning, modalPanStart]);
+
+  const handleModalMouseUp = useCallback(() => {
+    setIsModalPanning(false);
+  }, []);
+
+  // 🔹 패턴 렌더링 함수 (재사용)
+  const renderPattern = useCallback((
+    canvas: HTMLCanvasElement,
+    cssWidth: number,
+    cssHeight: number,
+    currentZoom: number,
+    currentPanX: number,
+    currentPanY: number
+  ) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-    ctx.scale(dpr, dpr);
 
     // 배경 (캔버스 전체)
     const viewH = cssHeight || 200;
@@ -213,9 +268,9 @@ export default function PatternForm() {
     const imgW = Number(form.imageSize.w) || cssWidth;
     const imgH = Number(form.imageSize.h) || cssHeight;
     const baseScale = Math.min(cssWidth / imgW, viewH / imgH);
-    const finalScale = baseScale * zoom;
-    const offsetX = (cssWidth - imgW * finalScale) / 2 + panX;
-    const offsetY = (viewH - imgH * finalScale) / 2 + panY;
+    const finalScale = baseScale * currentZoom;
+    const offsetX = (cssWidth - imgW * finalScale) / 2 + currentPanX;
+    const offsetY = (viewH - imgH * finalScale) / 2 + currentPanY;
 
     // 입력 여부에 따라 미리보기 표시 결정
     const hasAnyInput = (
@@ -386,7 +441,110 @@ export default function PatternForm() {
       rowIndex += 1;
     }
     ctx.restore();
-  }, [form, zoom, panX, panY]);
+  }, [form]);
+
+  // 🔹 미리보기 캔버스 렌더러
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const parent = canvas.parentElement as HTMLElement | null;
+    const cssWidth = parent ? parent.clientWidth : 300;
+    const cssHeight = parent ? parent.clientHeight : 200;
+    // 레티나 대응
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.floor(cssWidth * dpr));
+    canvas.height = Math.max(1, Math.floor(cssHeight * dpr));
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.scale(dpr, dpr);
+
+    renderPattern(canvas, cssWidth, cssHeight, zoom, panX, panY);
+  }, [form, zoom, panX, panY, renderPattern]);
+
+  // 🔹 미리보기 영역 휠 이벤트 처리 (passive: false로 등록)
+  useEffect(() => {
+    const container = previewContainerRef.current;
+    if (!container) return;
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, [handleWheel]);
+
+  // 🔹 모달 캔버스 렌더러
+  useEffect(() => {
+    if (!isPreviewModalOpen) return;
+    
+    // 모달이 열린 후 약간의 지연을 두어 DOM이 완전히 렌더링되도록 함
+    const timer = setTimeout(() => {
+      const canvas = modalCanvasRef.current;
+      if (!canvas) return;
+
+      const parent = canvas.parentElement as HTMLElement | null;
+      const cssWidth = parent ? parent.clientWidth : 800;
+      const cssHeight = parent ? parent.clientHeight : 600;
+      // 레티나 대응
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(cssWidth * dpr));
+      canvas.height = Math.max(1, Math.floor(cssHeight * dpr));
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.scale(dpr, dpr);
+
+      renderPattern(canvas, cssWidth, cssHeight, modalZoom, modalPanX, modalPanY);
+    }, 100);
+
+    // 리사이즈 이벤트 핸들러
+    const handleResize = () => {
+      const canvas = modalCanvasRef.current;
+      if (!canvas) return;
+
+      const parent = canvas.parentElement as HTMLElement | null;
+      const cssWidth = parent ? parent.clientWidth : 800;
+      const cssHeight = parent ? parent.clientHeight : 600;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(1, Math.floor(cssWidth * dpr));
+      canvas.height = Math.max(1, Math.floor(cssHeight * dpr));
+      canvas.style.width = '100%';
+      canvas.style.height = '100%';
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.scale(dpr, dpr);
+
+      renderPattern(canvas, cssWidth, cssHeight, modalZoom, modalPanX, modalPanY);
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [form, modalZoom, modalPanX, modalPanY, isPreviewModalOpen, renderPattern]);
+
+  // 🔹 모달 영역 휠 이벤트 처리 (passive: false로 등록)
+  useEffect(() => {
+    if (!isPreviewModalOpen) return;
+    
+    const container = modalPreviewContainerRef.current;
+    if (!container) return;
+
+    container.addEventListener('wheel', handleModalWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', handleModalWheel);
+    };
+  }, [handleModalWheel, isPreviewModalOpen]);
 
   return (
     <div>
@@ -500,8 +658,22 @@ export default function PatternForm() {
               <div
                 ref={previewContainerRef}
                 className="w-full h-full cursor-grab active:cursor-grabbing"
-                onWheel={handleWheel}
-                onMouseDown={handleMouseDown}
+                onMouseDown={(e) => {
+                  handleMouseDown(e);
+                  // 클릭 시작 위치 저장 (드래그와 구분하기 위해)
+                  const startX = e.clientX;
+                  const startY = e.clientY;
+                  const handleClick = (upEvent: MouseEvent) => {
+                    const deltaX = Math.abs(upEvent.clientX - startX);
+                    const deltaY = Math.abs(upEvent.clientY - startY);
+                    // 5px 이내 이동이면 클릭으로 간주
+                    if (deltaX < 5 && deltaY < 5 && hasPatternPreview) {
+                      handleOpenPreviewModal();
+                    }
+                    document.removeEventListener('mouseup', handleClick);
+                  };
+                  document.addEventListener('mouseup', handleClick);
+                }}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
@@ -513,7 +685,7 @@ export default function PatternForm() {
                 <>
                   <div className="absolute top-2 right-2 flex flex-col gap-2">
                     <button
-                      onClick={() => setZoom((prev) => Math.min(5, prev + 0.1))}
+                      onClick={() => setZoom((prev) => Math.min(10, prev + 0.1))}
                       className="bg-white/90 hover:bg-white text-gray-700 rounded px-2 py-1 text-sm font-semibold shadow cursor-pointer"
                       title="확대"
                     >
@@ -543,6 +715,70 @@ export default function PatternForm() {
             </div>
           </CommonContainerBox>
       </div>
+
+      {/* 패턴 미리보기 모달 */}
+      <CommonModal
+        isOpen={isPreviewModalOpen}
+        onClose={handleClosePreviewModal}
+        className="max-w-[70vw] max-h-[80vh] w-[70vw] h-[80vh] p-6"
+        style={{ maxWidth: '70vw', maxHeight: '90vh', width: '70vw', height: '90vh' }}
+      >
+        <div className="flex flex-col h-full">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-semibold text-gray-800">패턴 미리보기</h3>
+            <button
+              onClick={handleClosePreviewModal}
+              className="text-gray-500 hover:text-gray-700 text-2xl font-bold"
+            >
+              ×
+            </button>
+          </div>
+          <div className="relative flex-1 bg-[#4B4B4B] rounded-lg shadow-inner overflow-hidden" style={{ minHeight: '500px' }}>
+            <div
+              ref={modalPreviewContainerRef}
+              className="w-full h-full cursor-grab active:cursor-grabbing"
+              onMouseDown={handleModalMouseDown}
+              onMouseMove={handleModalMouseMove}
+              onMouseUp={handleModalMouseUp}
+              onMouseLeave={handleModalMouseUp}
+            >
+              <canvas ref={modalCanvasRef} className="w-full h-full" />
+            </div>
+            {/* 확대/축소 컨트롤 */}
+            {hasPatternPreview && (
+              <>
+                <div className="absolute top-2 right-2 flex flex-col gap-2">
+                  <button
+                    onClick={() => setModalZoom((prev) => Math.min(10, prev + 0.1))}
+                    className="bg-white/90 hover:bg-white text-gray-700 rounded px-2 py-1 text-sm font-semibold shadow cursor-pointer"
+                    title="확대"
+                  >
+                    +
+                  </button>
+                  <button
+                    onClick={() => setModalZoom((prev) => Math.max(0.5, prev - 0.1))}
+                    className="bg-white/90 hover:bg-white text-gray-700 rounded px-2 py-1 text-sm font-semibold shadow cursor-pointer"
+                    title="축소"
+                  >
+                    −
+                  </button>
+                  <button
+                    onClick={handleModalResetZoom}
+                    className="bg-white/90 hover:bg-white text-gray-700 rounded px-2 py-1 text-xs font-semibold shadow cursor-pointer"
+                    title="리셋"
+                  >
+                    x
+                  </button>
+                </div>
+                {/* 줌 레벨 표시 */}
+                <div className="absolute bottom-2 left-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                  {Math.round(modalZoom * 100)}%
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </CommonModal>
     </div>
   );
 }

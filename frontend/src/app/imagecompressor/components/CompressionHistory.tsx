@@ -291,7 +291,7 @@ export default function CompressionHistory({
                             </td>
                             <td className="py-3 px-3 text-center">{formatFileSize(item.fileSize)}</td>
                             <td className="py-3 px-3 text-center">
-                              <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
+                              <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] bg-gray-100 text-gray-700 border-gray-200">
                                 {item.status}
                               </span>
                             </td>

@@ -255,10 +255,10 @@ export default function CompressionQueue({
                     <td className="py-3 px-3 text-center">{formatFileSize(item.fileSize)}</td>
                     <td className="py-3 px-3 text-center">
                       <span
-                        className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${
                           item.status === '진행'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-100 text-gray-800'
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : 'bg-gray-100 text-gray-700 border-gray-200'
                         }`}
                       >
                         {item.status}
