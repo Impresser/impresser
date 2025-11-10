@@ -38,7 +38,7 @@ public class InkjetRepositoryCustomImpl implements InkjetRepositoryCustom {
     public Page<AllInkjetResponse> getAllInkjets(String printerName, String printerStatus,
         String processStatus, LocalDate installDate, Pageable pageable) {
         BooleanBuilder builder = new BooleanBuilder();
-
+        builder.and(inkjetPrinter.deletedAt.isNull());
         Optional.ofNullable(printerName)
             .filter(s -> !s.isBlank())
             .ifPresent(name -> builder.and(

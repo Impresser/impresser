@@ -93,9 +93,9 @@ public class InkjetServiceImpl implements InkjetService {
         InkjetPrinter inkjetPrinter = inkjetRepository.findByUuid(inkjetUuid).orElseThrow(
             () -> new BusinessException(ErrorCode.NOT_FOUND));
 
-        slotService.retireSlot(inkjetUuid);
+        inkjetPrinter.deleteInkjet();
 
-        inkjetRepository.delete(inkjetPrinter);
+        slotService.retireSlot(inkjetUuid);
     }
 
     @Override
