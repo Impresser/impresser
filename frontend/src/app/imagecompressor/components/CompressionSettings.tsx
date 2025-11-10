@@ -22,6 +22,9 @@ interface CompressionSettingsProps {
   onAlgorithmChange: (value: string) => void;
   onVersionChange: (value: string) => void;
   onAddToQueue: () => void;
+  hideTitle?: boolean;
+  hideAddButton?: boolean;
+  hideMethodSection?: boolean;
 }
 
 // File 객체를 저장하기 위한 확장 타입
@@ -44,6 +47,9 @@ export default function CompressionSettings({
   onAlgorithmChange,
   onVersionChange,
   onAddToQueue,
+  hideTitle = false,
+  hideAddButton = false,
+  hideMethodSection = false,
 }: CompressionSettingsProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -206,6 +212,7 @@ export default function CompressionSettings({
 
   // 처리방식 변경 시 알고리즘 목록 조회
   useEffect(() => {
+    if (hideMethodSection) return;
     const fetchAlgorithms = async () => {
       if (!processingMethod) return;
       
@@ -238,7 +245,7 @@ export default function CompressionSettings({
 
     fetchAlgorithms();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [processingMethod]); // processingMethod 변경 시에만 실행
+  }, [processingMethod, hideMethodSection]); // processingMethod 변경 시에만 실행
 
   // selectedFiles와 uploadingFiles를 동기화하여 업로드 상태 표시
   useEffect(() => {
@@ -257,6 +264,7 @@ export default function CompressionSettings({
 
   // 알고리즘 변경 시 버전 목록 조회
   useEffect(() => {
+    if (hideMethodSection) return;
     const fetchVersions = async () => {
       if (!algorithm || algorithmOptions.length === 0) {
         setVersionOptions([]);
@@ -298,11 +306,11 @@ export default function CompressionSettings({
 
     fetchVersions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [algorithm, algorithmOptions]); // algorithm 변경 시 실행
+  }, [algorithm, algorithmOptions, hideMethodSection]); // algorithm 변경 시 실행
 
   return (
     <div>
-      <h1 className="text-lg font-bold text-gray-900 mb-4">압축이미지</h1>
+      {!hideTitle && <h1 className="text-lg font-bold text-gray-900 mb-4">압축이미지</h1>}
 
       <CommonContainerBox>
         <div className="space-y-6">
@@ -407,13 +415,14 @@ export default function CompressionSettings({
                               onDragLeave={handleDragLeave}
                               onDrop={(e) => handleDrop(e, index)}
                               onDragEnd={handleDragEnd}
-                              className={`border-b border-gray-100 text-sm text-gray-900 hover:bg-gray-50 ${
+                              className={`text-sm text-gray-900 transition-colors ${
                                 selectedFiles.length > 1 ? 'cursor-move' : ''
-                              } ${
-                                draggedIndex === index ? 'opacity-50' : ''
-                              } ${
-                                dragOverIndex === index ? 'bg-blue-50 border-blue-300' : ''
+                              } ${draggedIndex === index ? 'opacity-50' : ''} ${
+                                dragOverIndex === index ? 'bg-blue-50/80' : 'hover:bg-gray-50'
                               }`}
+                              style={{
+                                borderBottom: '1px solid rgba(226, 232, 240, 0.8)',
+                              }}
                             >
                               <td className="py-3 px-3">
                                 {selectedFiles.length > 1 && (
@@ -508,10 +517,12 @@ export default function CompressionSettings({
                       return (
                         <div
                           key={index}
-                          className="relative border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
+                          className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow hover:shadow-[0_10px_24px_rgba(0,0,0,0.12)]"
+                          style={{
+                            borderColor: 'rgba(226, 232, 240, 0.9)',
+                          }}
                         >
-                          {/* 이미지 미리보기 */}
-                          <div className="aspect-3/2 bg-gray-100 flex items-center justify-center relative">
+                          <div className="relative flex aspect-[3/2] items-center justify-center bg-gray-100">
                             {file.preview ? (
                               <img
                                 src={file.preview}
@@ -543,17 +554,25 @@ export default function CompressionSettings({
                               </div>
                             )}
                           </div>
-                          {/* 파일 정보 */}
-                          <div className="p-3 bg-white">
+                          <div className="space-y-2 p-4">
                             <p className="text-sm font-medium text-gray-900 truncate mb-1" title={file.name}>
                               {file.name}
                             </p>
-                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600">
-                              <span>
-                                크기: {file.dimensions.width.toLocaleString()} × {file.dimensions.height.toLocaleString()}
+                            <div className="grid gap-1 text-xs text-gray-600">
+                              <span className="flex justify-between">
+                                <span className="text-gray-500">크기</span>
+                                <span className="font-medium text-gray-700">
+                                  {file.dimensions.width.toLocaleString()} × {file.dimensions.height.toLocaleString()}
+                                </span>
                               </span>
-                              <span>용량: {formatFileSize(file.size)}</span>
-                              <span>포맷:{file.format}</span>
+                              <span className="flex justify-between">
+                                <span className="text-gray-500">용량</span>
+                                <span className="font-medium text-gray-700">{formatFileSize(file.size)}</span>
+                              </span>
+                              <span className="flex justify-between">
+                                <span className="text-gray-500">포맷</span>
+                                <span className="font-medium text-gray-700">{file.format}</span>
+                              </span>
                             </div>
                             {file.uploadError && (
                               <p className="text-xs text-red-600 mt-1 truncate" title={file.uploadError}>
@@ -561,7 +580,6 @@ export default function CompressionSettings({
                               </p>
                             )}
                           </div>
-                          {/* 제거 버튼 */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -569,7 +587,7 @@ export default function CompressionSettings({
                               fileMapRef.current.delete(file.name);
                               onFileRemove(index);
                             }}
-                            className="absolute top-2 right-2 px-2 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-xs shadow-md"
+                            className="absolute top-3 right-3 rounded-full bg-red-500 px-3 py-1 text-xs font-medium text-white shadow-sm transition-colors hover:bg-red-600"
                           >
                             제거
                           </button>
@@ -615,7 +633,7 @@ export default function CompressionSettings({
             )}
           </div>
 
-          {/* 압축방법 영역 */}
+          {!hideMethodSection && (
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-3">압축방법</h3>
 
@@ -668,17 +686,19 @@ export default function CompressionSettings({
               </div>
             </div>
           </div>
+          )}
 
-          {/* 압축 버튼 */}
+          {!hideAddButton && (
           <div className="flex justify-end">
             <Button 
               onClick={onAddToQueue} 
-              variant={selectedFiles.length > 0 ? "blue" : "gray"}
+                variant={selectedFiles.length > 0 ? 'blue' : 'gray'}
               disabled={selectedFiles.length === 0}
             >
               대기열 추가
             </Button>
           </div>
+          )}
         </div>
       </CommonContainerBox>
     </div>

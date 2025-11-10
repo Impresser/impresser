@@ -321,33 +321,21 @@ export default function TileMap({
   const renderLeftBadge = (status?: FacilityStatus) => {
     if (!status) return null;
 
-    let bgClass = "";
-    let icon: React.ReactNode = null;
+    let dotClass = "";
 
     if (status === "active") {
-      bgClass = "bg-emerald-500";
-      icon = (
-        <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 text-white" aria-hidden="true">
-          <path d="M3.5 8.5l3 3L12.5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      );
+      dotClass = "bg-emerald-500";
     } else if (status === "maintenance") {
-      bgClass = "bg-amber-500";
-      icon = (
-        <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 text-white" aria-hidden="true">
-          <path
-            d="M12.2 5.8l-2.2-.9-.9-2.2a.5.5 0 0 0-.82-.15L6.2 4.53a2.5 2.5 0 1 0 1.27 1.27l2.01-2.09.56 1.4a.5.5 0 0 0 .28.28l1.4.56-2.09 2.01a2.5 2.5 0 1 0 1.27 1.27l2.09-2.01a.5.5 0 0 0-.15-.82Z"
-            fill="currentColor"
-          />
-        </svg>
-      );
+      dotClass = "bg-amber-500";
     } else if (status === "inactive") {
-      return null;
+      dotClass = "bg-red-500";
     }
 
+    if (!dotClass) return null;
+
     return (
-      <span className={`pointer-events-none absolute left-1 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full ${bgClass}`}>
-        {icon}
+      <span className="pointer-events-none absolute left-2 top-2 z-10 inline-flex h-2.5 w-2.5 items-center justify-center">
+        <span className={`block h-full w-full rounded-full ${dotClass}`} />
       </span>
     );
   };
@@ -402,7 +390,7 @@ export default function TileMap({
 
         .tile-map-tile {
           position: relative;
-          border: 0.5px solid rgba(0, 0, 0, 0.3);
+          border: 0.5px solid rgb(189, 189, 189);
           cursor: pointer;
           background: rgba(0, 89, 255, 0.5);
           transition: background 0.15s ease-in, box-shadow 0.15s ease-in, transform 0.15s ease-in;
@@ -480,13 +468,17 @@ export default function TileMap({
           z-index: 5;
         }
 
+        .tile-map-facility-overlay-image.tile-map-facility-overlay-image--inactive {
+          filter: none;
+        }
+
         .tile-map-facility-overlay-image.tile-map-facility-overlay-image--inactive::after {
-          background: rgba(0, 0, 0, 0.45);
+          background: rgba(0, 0, 0, 0.55);
         }
 
         .tile-map-facility-overlay-image.tile-map-facility-overlay-image--selected {
           transform: scale(1.1);
-          box-shadow: 0 18px 36px rgba(0, 89, 255, 0.35), 0 0 30px rgba(0, 89, 255, 0.4);
+          box-shadow: 0 18px 36px rgba(0, 0, 0, 0.45), 0 0 30px rgba(0, 0, 0, 0.55);
           z-index: 6;
         }
 

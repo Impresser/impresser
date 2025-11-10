@@ -5,8 +5,6 @@ import Sidebar from '@/components/layout/sidebar';
 import Navbar from '@/components/layout/navbar';
 import FacilityList from './components/FacilityList';
 import FacilityDetailPanel from './components/FacilityDetailPanel';
-import FacilityQueueSection from './components/FacilityQueueSection';
-import FacilityHistorySection from './components/FacilityHistorySection';
 import FacilityAddModal from './components/FacilityAddModal';
 import AuthGuard from '@/components/auth/AuthGuard';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
@@ -143,6 +141,11 @@ export default function SimulationPage() {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [queueModalFacility, setQueueModalFacility] = useState<Facility | null>(null);
   const [queuedUploadsByFacility, setQueuedUploadsByFacility] = useState<Record<string, QueueItem[]>>({});
+  const [queueModalSettings, setQueueModalSettings] = useState<{
+    processingMethod: 'cpu' | 'gpu';
+    algorithm: string;
+    version: string;
+  } | null>(null);
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -167,8 +170,15 @@ export default function SimulationPage() {
   const mapData: TileType[][] = Array.from({ length: 15 }, () =>
     Array.from({ length: 25 }, () => 'g' as TileType)
   );
-  const facilityPanelRef = useRef<HTMLDivElement | null>(null);
-  const [facilityPanelHeight, setFacilityPanelHeight] = useState(240);
+
+  type SlotSettings = { processingMethod: 'cpu' | 'gpu'; algorithm: string; version: string };
+  const DEFAULT_SLOT_SETTINGS: SlotSettings = useMemo(
+    () => ({ processingMethod: 'cpu', algorithm: '', version: '' }),
+    []
+  );
+  const [performanceSlotSettings, setPerformanceSlotSettings] = useState<SlotSettings[]>(
+    () => performanceComparisonSlots.map(() => ({ ...DEFAULT_SLOT_SETTINGS }))
+  );
 
   const closeFacilityAddModal = useCallback((options?: { preserveSelection?: boolean }) => {
     setIsAddModalOpen(false);
@@ -248,7 +258,12 @@ export default function SimulationPage() {
       next[index] = null;
       return next;
     });
-  }, []);
+    setPerformanceSlotSettings((prev) => {
+      const next = [...prev];
+      next[index] = { ...DEFAULT_SLOT_SETTINGS };
+      return next;
+    });
+  }, [DEFAULT_SLOT_SETTINGS]);
 
   const handlePerformanceSlotDrop = useCallback((index: number, facility: Facility) => {
     if (facility.status === 'inactive') {
@@ -263,23 +278,24 @@ export default function SimulationPage() {
       next[index] = facility;
       return next;
     });
+    setPerformanceSlotSettings((prev) => {
+      const next = [...prev];
+      next[index] = { ...DEFAULT_SLOT_SETTINGS };
+      return next;
+    });
     setDraggingFacility(null);
     setDragOverPerformanceSlot(null);
-  }, []);
+  }, [DEFAULT_SLOT_SETTINGS]);
 
-  const handleOpenQueueModal = useCallback((facility: Facility) => {
+  const handleOpenQueueModal = useCallback((facility: Facility, settings: { processingMethod: 'cpu' | 'gpu'; algorithm: string; version: string }) => {
     setQueueModalFacility(facility);
+    setQueueModalSettings({ ...settings });
   }, []);
 
   const handleCloseQueueModal = useCallback(() => {
-    setQueuedUploadsByFacility((prev) => {
-      if (!queueModalFacility) return prev;
-      const next = { ...prev };
-      delete next[queueModalFacility.id];
-      return next;
-    });
     setQueueModalFacility(null);
-  }, [queueModalFacility]);
+    setQueueModalSettings(null);
+  }, []);
 
   const handleQueueUpload = useCallback(
     (
@@ -320,51 +336,39 @@ export default function SimulationPage() {
     []
   );
 
-  const queueModalData = useMemo(() => {
-    if (!queueModalFacility) {
-      return {
-        queueItems: [] as QueueItem[],
-        processingItems: [] as QueueItem[],
-        overallProgress: 0,
-      };
-    }
+  const performanceQueueData = useMemo(
+    () =>
+      performanceComparisonSlots.map((facility) => {
+        if (!facility) {
+          return { queueItems: [] as QueueItem[], processingItems: [] as QueueItem[], overallProgress: 0 };
+        }
 
-    const baseQueueItems = getQueueItems(queueModalFacility.id);
-    const uploadedItems = queuedUploadsByFacility[queueModalFacility.id] ?? [];
-    const queueItems = [...uploadedItems, ...baseQueueItems];
-    const processingItems = queueItems.filter((item) => item.status === '진행');
-    const overallProgress = processingItems.length
-      ? Math.round(processingItems.reduce((sum, item) => sum + item.progress, 0) / processingItems.length)
-      : 0;
+        const baseQueueItems = getQueueItems(facility.id);
+        const uploadedItems = queuedUploadsByFacility[facility.id] ?? [];
+        const queueItems = [...uploadedItems, ...baseQueueItems];
+        const processingItems = queueItems.filter((item) => item.status === '진행');
+        const overallProgress = processingItems.length
+          ? Math.round(processingItems.reduce((sum, item) => sum + item.progress, 0) / processingItems.length)
+          : 0;
 
-    return { queueItems, processingItems, overallProgress };
-  }, [queueModalFacility, queuedUploadsByFacility]);
+        return { queueItems, processingItems, overallProgress };
+      }),
+    [performanceComparisonSlots, queuedUploadsByFacility]
+  );
 
   useEffect(() => {
-    if (!selectedFacility) {
-      setFacilityPanelHeight(0);
-      return;
-    }
-
-    const element = facilityPanelRef.current;
-    if (!element) {
-      setFacilityPanelHeight(0);
-      return;
-    }
-
-    const updateHeight = () => {
-      setFacilityPanelHeight(element.getBoundingClientRect().height);
-    };
-
-    updateHeight();
-
-    const resizeObserver = new ResizeObserver(updateHeight);
-    resizeObserver.observe(element);
-
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [selectedFacility]);
+    setPerformanceSlotSettings((prev) => {
+      const length = performanceComparisonSlots.length;
+      const next = Array.from({ length }, (_, index) => {
+        const existing = prev[index];
+        if (!performanceComparisonSlots[index]) {
+          return { ...DEFAULT_SLOT_SETTINGS };
+        }
+        return existing ? existing : { ...DEFAULT_SLOT_SETTINGS };
+      });
+      return next;
+    });
+  }, [performanceComparisonSlots, DEFAULT_SLOT_SETTINGS]);
 
   useEffect(() => {
     if (!selectedFacility) {
@@ -783,12 +787,17 @@ export default function SimulationPage() {
         {/* Content */}
         <main className="flex-1 px-6 py-6 overflow-y-auto">
           <div className="w-full max-w-7xl mx-auto">
-            {/* 전체 설비 타이틀 및 통계 */}
+            {/* 성능 시뮬레이터 타이틀 및 통계 */}
             <div className="flex items-center justify-between mb-4 gap-6">
               <h1 className="text-lg font-bold text-gray-900 whitespace-nowrap">
-                전체 설비
+                성능 시뮬레이터
               </h1>
-              <div className="flex items-center gap-6 flex-wrap justify-end">
+              <div className="flex items-center gap-4">
+                {error && (
+                  <div className="text-sm text-red-600">
+                    {error}
+                  </div>
+                )}
                 {isAdmin && (
                   <CommonButton
                     variant="blue"
@@ -797,11 +806,6 @@ export default function SimulationPage() {
                   >
                     {isLocationSelectMode ? '취소하기' : '설비 등록'}
                   </CommonButton>
-                )}
-                {error && (
-                  <div className="text-sm text-red-600">
-                    {error}
-                  </div>
                 )}
               </div>
             </div>
@@ -847,46 +851,9 @@ export default function SimulationPage() {
                         ? { x: selectedFacility.canvasX, y: selectedFacility.canvasY }
                         : null
                     }
-                    focusPaddingBottom={facilityPanelHeight + 48}
+                    focusPaddingBottom={120}
                     focusPaddingTop={48}
                   />
-                  {selectedFacility && !locationSelectionTarget && (
-                    <div
-                      className="absolute inset-x-0 bottom-0 z-30"
-                      onClick={() => {
-                        setSelectedFacility(null);
-                        setDetailError(null);
-                      }}
-                    >
-                      <div
-                        ref={facilityPanelRef}
-                        className="pointer-events-auto w-full"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <FacilityDetailPanel
-                          facility={selectedFacility}
-                          onClose={() => {
-                            setSelectedFacility(null);
-                            setDetailError(null);
-                    }}
-                          onDelete={async (facilityId: string) => {
-                            await fetchFacilities();
-                            await fetchFacilityStats();
-                          }}
-                          isLoading={isLoadingDetail}
-                          error={detailError}
-                          isAdmin={isAdmin}
-                          className="mt-0 rounded-t-none"
-                          showTaskSections={showTaskSections}
-                          onToggleTaskSections={() => setShowTaskSections((prev) => !prev)}
-                          onOpenEditModal={handleOpenEditModal}
-                          onAddToPerformanceComparison={handleAddFacilityToPerformanceFromDetail}
-                          onDragStartPerformance={handleDragStartPerformance}
-                          onDragEndPerformance={handleDragEndPerformance}
-                  />
-                </div>
-              </div>
-                  )}
                 </CommonContainerBox>
 
                 <div className="w-80 mb-6">
@@ -906,40 +873,38 @@ export default function SimulationPage() {
                   </div>
                 </div>
               </div>
-              {selectedFacility && showTaskSections && (
-                <CommonContainerBox className="mt-4 mb-10">
-                  <div className="mb-6 flex items-center justify-between">
-                    <h2 className="text-xl font-semibold text-gray-900">{selectedFacility.name}</h2>
-                    <button
-                      type="button"
-                      aria-label="작업 조회 닫기"
-                      className="rounded-full p-2 text-gray-400 transition-colors hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
-                      onClick={() => setShowTaskSections(false)}
-                    >
-                      <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                  <div className="space-y-6">
-                    <FacilityQueueSection
-                      queueItems={queueItems}
-                      processingItems={processingItems}
-                      overallProgress={overallProgress}
-                      isLoading={false}
-                      withContainer={false}
-                    />
-                    <FacilityHistorySection
-                      historyItems={historyItems}
-                      isLoadingHistory={isLoadingHistory}
-                      historyError={historyError}
-                      onDownload={(item) => {
-                        console.log('다운로드:', item.fileName);
-                      }}
-                      withContainer={false}
-                    />
-                  </div>
-                </CommonContainerBox>
+              {selectedFacility && !locationSelectionTarget && (
+                <div className="mt-1">
+                  <FacilityDetailPanel
+                    facility={selectedFacility}
+                    onClose={() => {
+                      setSelectedFacility(null);
+                      setDetailError(null);
+                    }}
+                    onDelete={async (facilityId: string) => {
+                      await fetchFacilities();
+                      await fetchFacilityStats();
+                    }}
+                    isLoading={isLoadingDetail}
+                    error={detailError}
+                    isAdmin={isAdmin}
+                    showTaskSections={showTaskSections}
+                    onToggleTaskSections={() => setShowTaskSections((prev) => !prev)}
+                    onOpenEditModal={handleOpenEditModal}
+                    onAddToPerformanceComparison={handleAddFacilityToPerformanceFromDetail}
+                    onDragStartPerformance={handleDragStartPerformance}
+                    onDragEndPerformance={handleDragEndPerformance}
+                    queueItems={queueItems}
+                    processingItems={processingItems}
+                    overallProgress={overallProgress}
+                    historyItems={historyItems}
+                    isLoadingHistory={isLoadingHistory}
+                    historyError={historyError}
+                    onHistoryDownload={(item) => {
+                      console.log('다운로드:', item.fileName);
+                    }}
+                  />
+                </div>
               )}
               </>
             )}
@@ -954,6 +919,15 @@ export default function SimulationPage() {
                 onDragOverSlot={(index) => setDragOverPerformanceSlot(index)}
                 onRun={(currentSlots) => {
                   console.log('성능 시뮬레이터 실행', currentSlots);
+                }}
+                queueData={performanceQueueData}
+                settings={performanceSlotSettings}
+                onSettingsChange={(index, update) => {
+                  setPerformanceSlotSettings((prev) => {
+                    const next = [...prev];
+                    next[index] = { ...next[index], ...update };
+                    return next;
+                  });
                 }}
                 onAddTask={handleOpenQueueModal}
               />
@@ -989,13 +963,11 @@ export default function SimulationPage() {
       />
       <FacilityQueueModal
         facility={queueModalFacility}
-        queueItems={queueModalData.queueItems}
-        processingItems={queueModalData.processingItems}
-        overallProgress={queueModalData.overallProgress}
         isOpen={Boolean(queueModalFacility)}
         onClose={handleCloseQueueModal}
         topOffset={navbarHeight}
         onUpload={handleQueueUpload}
+        settings={queueModalSettings}
       />
 
     </div>
