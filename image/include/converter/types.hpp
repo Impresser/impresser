@@ -9,7 +9,7 @@ namespace conv {
         None,
         LZW,
         Deflate,
-        Packbits
+        PackBits
     };
 
     struct TiffOptions {
