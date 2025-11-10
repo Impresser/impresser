@@ -65,10 +65,18 @@ public class S3Config {
     public String getBucket() {
         return bucket;
     }
-    public String getEndpoint() {return  endpoint;}
+
+    public String getEndpoint() {
+        return endpoint;
+    }
 
     @PostConstruct
     void initS3UtilDefaultBucket() {
         S3Util.setDefaultBucket(bucket);
+    }
+
+    @PostConstruct
+    void initS3UtilDefaultEndpoint() {
+        S3Util.setDefaultEndpoint(endpoint);
     }
 }

@@ -57,7 +57,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
 
                 Authentication authentication =
-                    new UsernamePasswordAuthenticationToken(userUuid, null, authorities);
+                    new UsernamePasswordAuthenticationToken(userUuid, accessToken, authorities);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (JwtException | IllegalArgumentException e) {
                 setErrorResponse(response, ErrorCode.INVALID_ACCESS_TOKEN);

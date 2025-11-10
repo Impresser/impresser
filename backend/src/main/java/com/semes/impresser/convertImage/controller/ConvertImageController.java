@@ -2,18 +2,24 @@ package com.semes.impresser.convertImage.controller;
 
 import com.semes.impresser.common.response.BaseResponse;
 import com.semes.impresser.common.response.PageResponse;
+import com.semes.impresser.convertImage.dto.request.CompleteConvertRequest;
+import com.semes.impresser.convertImage.dto.request.CreateConvertRequest;
 import com.semes.impresser.convertImage.dto.response.CompressionTypeResponse;
 import com.semes.impresser.convertImage.dto.response.CompressionTypeVersionResponse;
 import com.semes.impresser.convertImage.dto.response.ConvertHistoryDetailResponse;
 import com.semes.impresser.convertImage.dto.response.ConvertHistoryItemResponse;
+import com.semes.impresser.convertImage.dto.response.CreateConvertResponse;
 import com.semes.impresser.convertImage.service.ConvertImageService;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -66,5 +72,25 @@ public class ConvertImageController {
             convertImageService.getCompletedHistoryDetail(convertHistoryUuid);
 
         return BaseResponse.onSuccess(convertHistoryDetailResponse);
+    }
+
+    @PostMapping
+    @Operation(summary = "압축 변환 요청")
+    public BaseResponse<CreateConvertResponse> createConvert(
+        @RequestBody @Valid CreateConvertRequest creatConvertRequest
+    ) {
+        CreateConvertResponse createConvertResponse = convertImageService.createConvert(
+            creatConvertRequest);
+
+        return BaseResponse.onSuccess(createConvertResponse);
+    }
+
+    @PostMapping("/{convertUuid}/complete")
+    @Operation(summary = "압축 변환 완료 콜백")
+    public void completeConvert(
+        @PathVariable UUID convertUuid,
+        @RequestBody CompleteConvertRequest completeConvertRequest
+    ) {
+        convertImageService.completeConvert(convertUuid, completeConvertRequest);
     }
 }

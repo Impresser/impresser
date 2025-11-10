@@ -1,5 +1,8 @@
 package com.semes.impresser.convertImage.dto.response;
 
+import com.semes.impresser.common.util.S3Util;
+import com.semes.impresser.convertImage.entity.ConvertHistory;
+import java.time.Duration;
 import java.util.UUID;
 import lombok.Builder;
 
@@ -38,5 +41,23 @@ public record ConvertHistoryItemResponse(
             .elapsedTime(src.elapsedTime())
             .tiffUrl(tiffUrl)
             .build();
+    }
+
+    public static ConvertHistoryItemResponse fromEntity(ConvertHistory convertHistory) {
+        return new ConvertHistoryItemResponse(
+            convertHistory.getUuid(),
+            S3Util.extractOriginalFileName(convertHistory.getTiffKey()),
+            convertHistory.getCompressionType().getProcessingUnit(),
+            convertHistory.getCompressionType().getCompressionType(),
+            convertHistory.getCompressionType().getVersion(),
+            convertHistory.getBmpVolume(),
+            convertHistory.getTiffVolume(),
+            convertHistory.getCompressionRatio(),
+            convertHistory.getUser().getUserName(),
+            convertHistory.getCompletedAt().toString(),
+            Duration.between(convertHistory.getRequestedAt(), convertHistory.getCompletedAt())
+                .getSeconds(),
+            S3Util.buildUrlFromKey(convertHistory.getTiffKey())
+        );
     }
 }
