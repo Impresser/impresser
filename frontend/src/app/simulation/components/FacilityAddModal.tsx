@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from "react";
 import CommonModal from '@/components/ui/CommonModal';
 import CommonButton from '@/components/ui/CommonButton';
 import { createInkjetPrinter } from '@/service/inkjet';
 
-interface AddFacilityModalProps {
+interface FacilityAddModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (facilityData: {
@@ -21,11 +21,19 @@ interface AddFacilityModalProps {
   }) => void;
   sidebarWidth?: number;
   navbarHeight?: number;
-  selectedPosition?: { x: number; y: number } | null;
-  onSelectPosition?: () => void;
+  initialCanvasPosition?: { x: number; y: number } | null;
+  onRequestLocationChange?: () => void;
 }
 
-export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth = 192, navbarHeight = 64, selectedPosition, onSelectPosition }: AddFacilityModalProps) {
+export default function FacilityAddModal({
+  isOpen,
+  onClose,
+  onAdd,
+  sidebarWidth = 192,
+  navbarHeight = 64,
+  initialCanvasPosition = null,
+  onRequestLocationChange,
+}: FacilityAddModalProps) {
   const [printerName, setPrinterName] = useState('');
   const [modelName, setModelName] = useState('');
   const [installDate, setInstallDate] = useState('');
@@ -33,7 +41,21 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
   const [gpu, setGpu] = useState('');
   const [ram, setRam] = useState('');
   const [vram, setVram] = useState('');
+  const [canvasX, setCanvasX] = useState<string>('');
+  const [canvasY, setCanvasY] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (initialCanvasPosition) {
+      setCanvasX(String(initialCanvasPosition.x));
+      setCanvasY(String(initialCanvasPosition.y));
+    } else {
+      setCanvasX('');
+      setCanvasY('');
+    }
+  }, [initialCanvasPosition, isOpen]);
 
   const handleSubmit = async () => {
     if (!printerName || !modelName || !installDate || !cpu || !gpu || !ram || !vram) {
@@ -41,15 +63,22 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
       return;
     }
 
-    if (!selectedPosition) {
-      alert('설비 위치를 선택해주세요.');
+    if (canvasX.trim() === '' || canvasY.trim() === '') {
+      alert('설비 위치 좌표를 입력해주세요.');
+      return;
+    }
+
+    const parsedX = Number(canvasX);
+    const parsedY = Number(canvasY);
+
+    if (!Number.isFinite(parsedX) || !Number.isFinite(parsedY)) {
+      alert('설비 위치는 숫자로 입력해주세요.');
       return;
     }
 
     try {
       setIsSubmitting(true);
 
-      // API 호출
       const response = await createInkjetPrinter({
         modelName,
         printerName,
@@ -58,14 +87,13 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
         gpu,
         ram,
         vram,
-        printerStatus: 'OPERATIONAL', // 기본값: 정상
-        processStatus: 'WAITING', // 기본값: 대기
-        canvasX: selectedPosition.x,
-        canvasY: selectedPosition.y,
+        printerStatus: 'OPERATIONAL',
+        processStatus: 'WAITING',
+        canvasX: parsedX,
+        canvasY: parsedY,
       });
 
       if (response.isSuccess) {
-        // 성공 시 부모 컴포넌트에 알림
         onAdd({
           printerName,
           modelName,
@@ -74,11 +102,10 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
           gpu,
           ram,
           vram,
-          canvasX: selectedPosition.x,
-          canvasY: selectedPosition.y,
+          canvasX: parsedX,
+          canvasY: parsedY,
         });
 
-        // 폼 초기화
         setPrinterName('');
         setModelName('');
         setInstallDate('');
@@ -86,6 +113,8 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
         setGpu('');
         setRam('');
         setVram('');
+        setCanvasX('');
+        setCanvasY('');
         onClose();
       } else {
         alert(response.message || '설비 추가에 실패했습니다.');
@@ -99,7 +128,6 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
   };
 
   const handleClose = () => {
-    // 폼 초기화
     setPrinterName('');
     setModelName('');
     setInstallDate('');
@@ -107,23 +135,27 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
     setGpu('');
     setRam('');
     setVram('');
+    setCanvasX('');
+    setCanvasY('');
     onClose();
   };
 
+  const handleLocationChangeRequest = () => {
+    onRequestLocationChange?.();
+  };
+
   return (
-    <CommonModal 
-      isOpen={isOpen} 
-      onClose={handleClose} 
-      className="w-full max-w-2xl" 
-      leftOffset={sidebarWidth}
+    <CommonModal
+      isOpen={isOpen}
+      onClose={handleClose}
+      className="w-full max-w-2xl"
+      leftOffset={0}
       topOffset={navbarHeight}
-      hideBackdrop={true}
     >
       <div className="w-full">
         <h2 className="text-2xl font-bold text-gray-900 mb-6">설비 추가</h2>
 
         <div className="space-y-6">
-          {/* 기본 정보 */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -151,7 +183,6 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
             </div>
           </div>
 
-          {/* 사양 정보 */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -203,7 +234,6 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
             </div>
           </div>
 
-          {/* 설치일 및 설비 위치 */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -218,36 +248,33 @@ export default function AddFacilityModal({ isOpen, onClose, onAdd, sidebarWidth 
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                설비 위치 <span className="text-red-500">*</span>
+                설비 위치 (X, Y) <span className="text-red-500">*</span>
               </label>
               <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={selectedPosition ? `X: ${selectedPosition.x}, Y: ${selectedPosition.y}` : ''}
-                  readOnly
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
-                  placeholder="위치를 선택하세요"
-                />
-                <CommonButton
-                  variant="blue"
-                  onClick={() => {
-                    if (onSelectPosition) {
-                      onSelectPosition();
-                    }
-                  }}
-                  className="px-4 py-2 text-sm"
-                >
-                  선택
+                <div className="flex items-center gap-2 flex-1">
+                  <input
+                    type="text"
+                    value={canvasX}
+                    onChange={(e) => setCanvasX(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="X 좌표"
+                  />
+                  <input
+                    type="text"
+                    value={canvasY}
+                    onChange={(e) => setCanvasY(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Y 좌표"
+                  />
+                </div>
+                <CommonButton variant="gray" type="button" onClick={handleLocationChangeRequest}>
+                  변경
                 </CommonButton>
               </div>
             </div>
           </div>
-          <p className="text-xs text-gray-500">
-            선택 버튼을 클릭하여 맵에서 위치를 선택하세요
-          </p>
         </div>
 
-        {/* 버튼 */}
         <div className="flex justify-end gap-3 mt-6">
           <CommonButton variant="gray" onClick={handleClose} disabled={isSubmitting}>
             취소

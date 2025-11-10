@@ -33,7 +33,7 @@ export default function CommonModal({ children, isOpen, onClose, className = '',
       onClick={onClose}
     >
       <div
-        className="
+        className={`
           relative
           bg-white
           backdrop-blur-xl
@@ -42,13 +42,13 @@ export default function CommonModal({ children, isOpen, onClose, className = '',
           p-8
           min-w-[500px]
           transition-all duration-300
-          max-h-[80vh] overflow-auto
+          max-h-[90vh] overflow-visible
           ${className}
           before:absolute before:inset-0
           before:rounded-xl
           before:bg-linear-to-br before:from-transparent before:to-white/40
           before:pointer-events-none
-        "
+        `}
         style={style}
         onClick={(e) => e.stopPropagation()}
       >

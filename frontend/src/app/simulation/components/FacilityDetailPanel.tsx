@@ -1,11 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import type { Facility } from './FacilityStatistics';
-import CommonTable, { QueueItem, HistoryItem } from '@/components/ui/CommonTable';
-import CommonContainerBox from '@/components/ui/CommonContainerBox';
-import CommonButton from '@/components/ui/CommonButton';
-import { deleteInkjetPrinter, getInkjetJobs, type InkjetJob } from '@/service/inkjet';
+import React, { useState } from 'react';
+import type { Facility } from '../types';
+import { deleteInkjetPrinter } from '@/service/inkjet';
+import FacilityInfoSection from './FacilityInfoSection';
 
 interface FacilityDetailPanelProps {
   facility: Facility | null;
@@ -14,21 +12,32 @@ interface FacilityDetailPanelProps {
   isLoading?: boolean;
   error?: string | null;
   isAdmin?: boolean;
+  className?: string;
+  showTaskSections: boolean;
+  onToggleTaskSections: () => void;
+  onOpenEditModal?: (facility: Facility) => void;
+  onAddToPerformanceComparison?: (facility: Facility) => void;
+  onDragStartPerformance?: (facility: Facility) => void;
+  onDragEndPerformance?: () => void;
 }
 
-export default function FacilityDetailPanel({ 
-  facility, 
-  onClose, 
+export default function FacilityDetailPanel({
+  facility,
+  onClose,
   onDelete,
-  isLoading = false, 
+  isLoading = false,
   error = null,
-  isAdmin = false 
+  isAdmin = false,
+  className = '',
+  showTaskSections,
+  onToggleTaskSections,
+  onOpenEditModal,
+  onAddToPerformanceComparison,
+  onDragStartPerformance,
+  onDragEndPerformance,
 }: FacilityDetailPanelProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  const [historyError, setHistoryError] = useState<string | null>(null);
 
   if (!facility) return null;
 
@@ -54,160 +63,12 @@ export default function FacilityDetailPanel({
     }
   };
 
-  // 설비별 대기열 및 작업내역 데이터 - 실제로는 API에서 가져와야 함
-  // 임시로 설비 ID별로 다른 데이터 제공
-  const getQueueItems = (facilityId: string): QueueItem[] => {
-    // 각 설비별로 다른 대기열 데이터
-    const queueData: Record<string, QueueItem[]> = {
-      '1': [
-        {
-          id: '1-1',
-          fileName: 'image001.bmp',
-          processingMethod: 'CPU',
-          algorithm: 'LZW (Lempel-Ziv-Welch)',
-          version: '1.0',
-          fileSize: 1048576,
-          status: '진행',
-          assignedUser: '홍길동',
-          startTime: new Date(Date.now() - 120000), // 2분 전
-          elapsedTime: 120,
-          estimatedTime: 300,
-          progress: 40,
-        },
-        {
-          id: '1-2',
-          fileName: 'image002.bmp',
-          processingMethod: 'GPU',
-          algorithm: 'Huffman Coding',
-          version: '2.0',
-          fileSize: 2097152,
-          status: '대기',
-          assignedUser: '홍길동',
-          startTime: null,
-          elapsedTime: 0,
-          estimatedTime: 0,
-          progress: 0,
-        },
-      ],
-      '2': [
-        {
-          id: '2-1',
-          fileName: 'image005.bmp',
-          processingMethod: 'GPU',
-          algorithm: 'Arithmetic Coding',
-          version: '3.0',
-          fileSize: 3145728,
-          status: '대기',
-          assignedUser: '홍길동',
-          startTime: null,
-          elapsedTime: 0,
-          estimatedTime: 0,
-          progress: 0,
-        },
-      ],
-      '5': [
-        {
-          id: '5-1',
-          fileName: 'image006.bmp',
-          processingMethod: 'GPU',
-          algorithm: 'LZW (Lempel-Ziv-Welch)',
-          version: '2.0',
-          fileSize: 5242880,
-          status: '진행',
-          assignedUser: '홍길동',
-          startTime: new Date(Date.now() - 60000), // 1분 전
-          elapsedTime: 60,
-          estimatedTime: 600,
-          progress: 10,
-        },
-        {
-          id: '5-2',
-          fileName: 'image007.bmp',
-          processingMethod: 'GPU',
-          algorithm: 'RLE (Run-Length Encoding)',
-          version: '1.0',
-          fileSize: 2097152,
-          status: '진행',
-          assignedUser: '홍길동',
-          startTime: new Date(Date.now() - 180000), // 3분 전
-          elapsedTime: 180,
-          estimatedTime: 240,
-          progress: 75,
-        },
-      ],
-    };
-    return queueData[facilityId] || [];
-  };
-
-  // API 응답을 HistoryItem 타입으로 변환
-  const mapJobToHistoryItem = (job: InkjetJob): HistoryItem => {
-    // tiffImageUrl에서 파일명 추출 (예: "s3://demo/20251107_01.bmp" -> "20251107_01.bmp")
-    const fileName = job.tiffImageUrl.split('/').pop() || job.tiffImageUrl;
-    
-    // duration 계산 (completedAt - requestedAt, 초 단위)
-    const requestedTime = new Date(job.requestedAt).getTime();
-    const completedTime = new Date(job.completedAt).getTime();
-    const duration = Math.floor((completedTime - requestedTime) / 1000); // 초 단위
-
-    return {
-      id: job.jobUuid,
-      fileName,
-      processingMethod: '-', // API에 없음
-      algorithm: '-', // API에 없음
-      version: '-', // API에 없음
-      fileSize: 0, // API에 없음
-      status: '완료',
-      assignedUser: '-', // API에 없음
-      completedTime: new Date(job.completedAt),
-      duration,
-    };
-  };
-
-  // 설비가 변경되거나 로딩이 완료되면 작업 내역 조회
-  useEffect(() => {
-    if (!facility || isLoading) return;
-
-    const fetchHistory = async () => {
-      try {
-        setIsLoadingHistory(true);
-        setHistoryError(null);
-
-        const response = await getInkjetJobs(facility.id, {
-          page: 0,
-          size: 100, // 모든 작업 내역을 가져오기 위해 큰 값 설정
-        });
-
-        if (response.isSuccess && response.result) {
-          const mappedHistory = response.result.content.content.map(mapJobToHistoryItem);
-          setHistoryItems(mappedHistory);
-        } else {
-          setHistoryError(response.message || '작업 내역 조회에 실패했습니다.');
-        }
-      } catch (err) {
-        console.error('작업 내역 조회 실패:', err);
-        setHistoryError(err instanceof Error ? err.message : '작업 내역 조회 중 오류가 발생했습니다.');
-      } finally {
-        setIsLoadingHistory(false);
-      }
-    };
-
-    fetchHistory();
-  }, [facility?.id, isLoading]);
-
-  const queueItems = getQueueItems(facility.id);
-
-  // 전체 진행률 계산 (진행 중인 항목들만)
-  const processingItems = queueItems.filter(item => item.status === '진행');
-  const overallProgress = processingItems.length > 0
-    ? Math.round(processingItems.reduce((sum, item) => sum + item.progress, 0) / processingItems.length)
-    : 0;
-
   const getStatusColor = (status: Facility['status']) => {
     switch (status) {
       case 'active':
         return 'bg-green-100 text-green-800';
       case 'inactive':
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-red-100 text-red-800';
       case 'maintenance':
         return 'bg-yellow-100 text-yellow-800';
       default:
@@ -222,7 +83,7 @@ export default function FacilityDetailPanel({
       case 'inactive':
         return '고장';
       case 'maintenance':
-        return '점검중';
+        return '점검';
       default:
         return '알 수 없음';
     }
@@ -244,7 +105,7 @@ export default function FacilityDetailPanel({
       case 'WAITING':
         return '대기';
       case 'RUNNING':
-        return '진행 중';
+        return '진행';
       default:
         return '알 수 없음';
     }
@@ -259,177 +120,35 @@ export default function FacilityDetailPanel({
     return `${year}-${month}-${day}`;
   };
 
+  const statusBadgeClass = getStatusColor(facility.status);
+  const statusLabel = getStatusText(facility.status);
+  const processBadgeClass = getProcessingStatusColor(facility.processStatus);
+  const processLabel = getProcessingStatusText(facility.processStatus);
+  const formattedInstallDate = formatDate(facility.installDate);
+
   return (
-    <div className="mt-6 space-y-6">
-      <CommonContainerBox>
-        {/* 헤더 */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">설비 상세 정보</h2>
-          <div className="flex items-center gap-2">
-            {isAdmin && (
-              <CommonButton
-                onClick={handleDelete}
-                disabled={isDeleting}
-                variant="red"
-                className="px-3 py-1.5 text-sm"
-              >
-                {isDeleting ? '삭제 중...' : '삭제'}
-              </CommonButton>
-            )}
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
-
-        {/* 로딩 상태 */}
-        {isLoading && (
-          <div className="flex justify-center items-center py-8">
-            <div className="text-gray-500">설비 상세 정보를 불러오는 중...</div>
-          </div>
-        )}
-
-        {/* 에러 상태 */}
-        {error && !isLoading && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <p className="text-red-800 text-sm">{error}</p>
-          </div>
-        )}
-
-        {/* 삭제 에러 상태 */}
-        {deleteError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <p className="text-red-800 text-sm">{deleteError}</p>
-          </div>
-        )}
-
-        {/* 설비 정보 */}
-        {!isLoading && (
-          <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
-          <div>
-            <label className="text-sm font-medium text-gray-500 mb-1 block">설비명</label>
-            <p className="text-sm text-gray-900">{facility.name}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-500 mb-1 block">모델명</label>
-            <p className="text-sm text-gray-900">{facility.modelName || '-'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-500 mb-1 block">설비상태</label>
-            <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getStatusColor(facility.status)}`}>
-              {getStatusText(facility.status)}
-            </span>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-500 mb-1 block">진행상태</label>
-            <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getProcessingStatusColor(facility.processStatus)}`}>
-              {getProcessingStatusText(facility.processStatus)}
-            </span>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-500 mb-1 block">CPU</label>
-            <p className="text-sm text-gray-900">{facility.cpu || '-'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-500 mb-1 block">GPU</label>
-            <p className="text-sm text-gray-900">{facility.gpu || '-'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-500 mb-1 block">RAM</label>
-            <p className="text-sm text-gray-900">{facility.ram || '-'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-500 mb-1 block">VRAM</label>
-            <p className="text-sm text-gray-900">{facility.vram || '-'}</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-500 mb-1 block">설치일</label>
-            <p className="text-sm text-gray-900">{formatDate(facility.installDate)}</p>
-          </div>
-        </div>
-          </>
-        )}
-      </CommonContainerBox>
-
-      {/* 대기열 섹션 */}
-      {!isLoading && (
-        <CommonContainerBox>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">현재 작업 중인 대기열</h3>
-        
-        {/* 전체 진행률 */}
-        {processingItems.length > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-gray-700">전체 진행률</label>
-              <span className="text-sm font-semibold text-gray-900">{overallProgress}%</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-4">
-              <div
-                className="bg-blue-600 h-4 rounded-full transition-all duration-300"
-                style={{ width: `${overallProgress}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* 대기열 테이블 */}
-        <CommonTable
-          data={queueItems}
-          emptyMessage="현재 작업 중인 대기열이 없습니다."
-          mode="queue"
-        />
-      </CommonContainerBox>
-      )}
-
-      {/* 작업내역 섹션 */}
-      {!isLoading && (
-        <CommonContainerBox>
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">작업내역</h3>
-        
-        {/* 로딩 상태 */}
-        {isLoadingHistory && (
-          <div className="flex justify-center items-center py-8">
-            <div className="text-gray-500">작업 내역을 불러오는 중...</div>
-          </div>
-        )}
-
-        {/* 에러 상태 */}
-        {historyError && !isLoadingHistory && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-            <p className="text-red-800 text-sm">{historyError}</p>
-          </div>
-        )}
-
-        {/* 작업 내역 테이블 */}
-        {!isLoadingHistory && (
-          <CommonTable
-            data={historyItems}
-            emptyMessage="작업 내역이 없습니다."
-            mode="history"
-            onDownload={(item) => {
-              console.log('다운로드:', item.fileName);
-              // 여기에 실제 다운로드 로직 구현
-            }}
-          />
-        )}
-      </CommonContainerBox>
-      )}
+    <div className={`mt-6 space-y-6 ${className}`}>
+      <FacilityInfoSection
+        facility={facility}
+        isAdmin={isAdmin}
+        isLoading={isLoading}
+        error={error}
+        deleteError={deleteError}
+        statusBadgeClass={statusBadgeClass}
+        statusLabel={statusLabel}
+        processBadgeClass={processBadgeClass}
+        processLabel={processLabel}
+        formattedInstallDate={formattedInstallDate}
+        isDeleting={isDeleting}
+        onClose={onClose}
+        onDelete={handleDelete}
+        onOpenEditModal={() => onOpenEditModal?.(facility)}
+        onAddToPerformanceComparison={() => onAddToPerformanceComparison?.(facility)}
+        onDragStartPerformance={() => onDragStartPerformance?.(facility)}
+        onDragEndPerformance={() => onDragEndPerformance?.()}
+        onToggleTaskSections={onToggleTaskSections}
+        isTaskSectionVisible={showTaskSections}
+      />
     </div>
   );
 }
