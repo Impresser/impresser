@@ -37,8 +37,8 @@ export function convertFormToApiRequest(form: PatternFormState): CreateBmpPatter
     blueSizeY: getNum(form.channels.B.size.y),
     blueGapX: getNum(form.channels.B.spacing.x),
     blueGapY: getNum(form.channels.B.spacing.y),
-    rgGap: getNum(form.gapRG.w),
-    gbGap: getNum(form.gapGB.w),
+    rgGap: getNum(form.gapRG.x),
+    gbGap: getNum(form.gapGB.x),
   };
 }
 
