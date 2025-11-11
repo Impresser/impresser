@@ -11,6 +11,7 @@ import com.semes.impresser.convertImage.entity.QConvertHistory;
 import com.semes.impresser.dashboard.dto.response.ConvertAvgSpeedListResponse;
 import com.semes.impresser.dashboard.dto.response.ConvertHistoryListResponse;
 import com.semes.impresser.user.entity.QUser;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -111,8 +112,8 @@ public class ConvertHistoryRepositoryCustomImpl implements ConvertHistoryReposit
     public Page<ConvertHistoryItemResponse> getCompletedHistories(Pageable pageable) {
         NumberExpression<Long> secsExpr = Expressions.numberTemplate(
             Long.class,
-            "COALESCE({0}, timestampdiff(SECOND, {1}, {2}))",
-            hist.compressionTime, hist.requestedAt, hist.completedAt
+            "COALESCE(timestampdiff(SECOND, {0}, {1}), 0)",
+            hist.requestedAt, hist.completedAt
         );
 
         List<ConvertHistoryItemResponse> content = queryFactory
@@ -155,11 +156,13 @@ public class ConvertHistoryRepositoryCustomImpl implements ConvertHistoryReposit
     public Optional<ConvertHistoryDetailResponse> getCompletedHistoryDetail(
         UUID convertHistoryUuid) {
         NumberExpression<Long> elapsedSecExpr = Expressions.numberTemplate(
-            Long.class, "timestampdiff(SECOND, {0}, {1})", hist.requestedAt, hist.completedAt
+            Long.class,
+            "COALESCE(timestampdiff(SECOND, {0}, {1}), 0)",
+            hist.requestedAt, hist.completedAt
         );
 
-        NumberExpression<Long> compressionSecExpr = Expressions.numberTemplate(
-            Long.class, "COALESCE({0}, {1})", hist.compressionTime, elapsedSecExpr
+        NumberExpression<BigDecimal> compressionSecExpr = Expressions.numberTemplate(
+            BigDecimal.class, "COALESCE({0}, 0)", hist.compressionTime
         );
 
         var requestedIsoExpr = Expressions.stringTemplate(

@@ -12,7 +12,7 @@ public record ConvertHistoryDetailResponse(
     Long elapsedTime,
     String sourceExtension,
     String compressedExtension,
-    Long compressionTime
+    BigDecimal compressionTime
 ) {
 
 }
