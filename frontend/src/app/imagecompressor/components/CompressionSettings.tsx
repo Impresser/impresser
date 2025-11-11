@@ -35,6 +35,19 @@ interface FileWithUpload extends FileInfo {
   uploadError?: string;
 }
 
+// File 객체를 저장하기 위한 확장 타입
+interface FileWithUpload extends FileInfo {
+  file?: File; // 원본 File 객체
+  uploadStatus?: 'pending' | 'uploading' | 'completed' | 'error';
+  uploadProgress?: number;
+  uploadError?: string;
+  estimatedTimeRemaining?: number; // 예상 남은 시간 (초)
+  partProgress?: Record<number, number>; // 각 파트별 진행률
+  uploadSpeed?: number; // 업로드 속도 (bytes/sec)
+  partCount?: number; // 파트 개수
+  startTime?: number; // 업로드 시작 시간 (timestamp)
+}
+
 export default function CompressionSettings({
   selectedFiles,
   processingMethod,
@@ -61,6 +74,8 @@ export default function CompressionSettings({
   const [activeTab, setActiveTab] = useState<'list' | 'images'>('list');
   const [filesWithUpload, setFilesWithUpload] = useState<FileWithUpload[]>([]);
   const fileMapRef = useRef<Map<string, File>>(new Map()); // File 객체 저장용
+  const [expandedPartProgress, setExpandedPartProgress] = useState<Set<string>>(new Set()); // 파트 진행률 펼치기 상태
+  const [, setTick] = useState(0); // 진행 시간 업데이트를 위한 tick
   
   const {
     uploadingFiles,
@@ -262,6 +277,60 @@ export default function CompressionSettings({
     );
   }, [selectedFiles, uploadingFiles]);
 
+  // selectedFiles와 uploadingFiles를 동기화하여 업로드 상태 표시
+  useEffect(() => {
+    setFilesWithUpload(
+      selectedFiles.map((fileInfo) => {
+        const uploadingFile = uploadingFiles.find((uf) => uf.fileName === fileInfo.name);
+        return {
+          ...fileInfo,
+          uploadStatus: uploadingFile?.status || 'pending',
+          uploadProgress: uploadingFile?.progress || 0,
+          uploadError: uploadingFile?.error,
+          estimatedTimeRemaining: uploadingFile?.estimatedTimeRemaining,
+          partProgress: uploadingFile?.partProgress,
+          uploadSpeed: uploadingFile?.uploadSpeed,
+          partCount: uploadingFile?.partCount,
+          startTime: uploadingFile?.startTime,
+        };
+      })
+    );
+  }, [selectedFiles, uploadingFiles]);
+
+  // 진행 시간 실시간 업데이트를 위한 타이머
+  useEffect(() => {
+    const hasUploadingFiles = filesWithUpload.some(f => f.uploadStatus === 'uploading' && f.startTime);
+    if (!hasUploadingFiles) return;
+
+    const interval = setInterval(() => {
+      setTick(prev => prev + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [filesWithUpload]);
+
+  // 백그라운드 업로드 지원: 페이지가 백그라운드로 이동해도 업로드 계속 진행
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      // 탭이 백그라운드로 이동하거나 다시 활성화될 때
+      // XMLHttpRequest는 백그라운드에서도 계속 작동하므로 특별한 처리는 필요 없음
+      // 다만 사용자에게 알림을 표시할 수 있음
+      if (document.hidden) {
+        // 백그라운드로 이동 - 업로드는 계속 진행됨
+        console.log('페이지가 백그라운드로 이동했습니다. 업로드는 계속 진행됩니다.');
+      } else {
+        // 다시 활성화 - 업로드 상태 확인
+        console.log('페이지가 다시 활성화되었습니다.');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
   // 알고리즘 변경 시 버전 목록 조회
   useEffect(() => {
     if (hideMethodSection) return;
@@ -393,12 +462,37 @@ export default function CompressionSettings({
                             }
                           };
 
+                          const formatTime = (seconds: number): string => {
+                            if (seconds < 60) return `${seconds}초`;
+                            const mins = Math.floor(seconds / 60);
+                            const secs = seconds % 60;
+                            return secs > 0 ? `${mins}분 ${secs}초` : `${mins}분`;
+                          };
+
+                          const formatSpeed = (bytesPerSec: number): string => {
+                            if (bytesPerSec < 1024) return `${bytesPerSec.toFixed(0)} B/s`;
+                            if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+                            return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`;
+                          };
+
+                          const getElapsedTime = (): number => {
+                            if (!file.startTime) return 0;
+                            return Math.floor((Date.now() - file.startTime) / 1000);
+                          };
+
                           const getStatusText = () => {
                             switch (file.uploadStatus) {
                               case 'completed':
                                 return '완료';
                               case 'uploading':
-                                return `업로드 중 (${file.uploadProgress}%)`;
+                                const progressText = `업로드 중 (${file.uploadProgress}%)`;
+                                const timeText = file.estimatedTimeRemaining !== undefined && file.estimatedTimeRemaining > 0
+                                  ? ` • 약 ${formatTime(file.estimatedTimeRemaining)} 남음`
+                                  : '';
+                                const speedText = file.uploadSpeed !== undefined && file.uploadSpeed > 0
+                                  ? ` • ${formatSpeed(file.uploadSpeed)}`
+                                  : '';
+                                return progressText + timeText + speedText;
                               case 'error':
                                 return `실패: ${file.uploadError || '알 수 없는 오류'}`;
                               default:
@@ -415,14 +509,13 @@ export default function CompressionSettings({
                               onDragLeave={handleDragLeave}
                               onDrop={(e) => handleDrop(e, index)}
                               onDragEnd={handleDragEnd}
-                              className={`text-sm text-gray-900 transition-colors ${
+                              className={`border-b border-gray-100 text-sm text-gray-900 hover:bg-gray-50 ${
                                 selectedFiles.length > 1 ? 'cursor-move' : ''
-                              } ${draggedIndex === index ? 'opacity-50' : ''} ${
-                                dragOverIndex === index ? 'bg-blue-50/80' : 'hover:bg-gray-50'
+                              } ${
+                                draggedIndex === index ? 'opacity-50' : ''
+                              } ${
+                                dragOverIndex === index ? 'bg-blue-50 border-blue-300' : ''
                               }`}
-                              style={{
-                                borderBottom: '1px solid rgba(226, 232, 240, 0.8)',
-                              }}
                             >
                               <td className="py-3 px-3">
                                 {selectedFiles.length > 1 && (
@@ -449,16 +542,141 @@ export default function CompressionSettings({
                               <td className="py-3 px-3">{formatFileSize(file.size)}</td>
                               <td className="py-3 px-3">{file.format}</td>
                               <td className="py-3 px-3">
-                                <div className="space-y-1">
-                                  <div className={`text-xs font-medium ${getStatusColor()}`}>
-                                    {getStatusText()}
-                                  </div>
+                                <div className="space-y-2">
+                                  {file.uploadStatus === 'uploading' ? (
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className={`text-xs font-medium ${getStatusColor()} flex-1`}>
+                                        {getStatusText()}
+                                      </div>
+                                      {file.startTime && (
+                                        <div className="text-xs text-gray-500">
+                                          경과: {formatTime(getElapsedTime())}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <div className={`text-xs font-medium ${getStatusColor()}`}>
+                                      {getStatusText()}
+                                    </div>
+                                  )}
                                   {file.uploadStatus === 'uploading' && (
-                                    <div className="w-full bg-gray-200 rounded-full h-1.5">
-                                      <div
-                                        className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
-                                        style={{ width: `${file.uploadProgress}%` }}
-                                      />
+                                    <div className="space-y-1.5">
+                                      {/* 전체 진행률 바 */}
+                                      <div className="w-full bg-gray-200 rounded-full h-2">
+                                        <div
+                                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                          style={{ width: `${file.uploadProgress || 0}%` }}
+                                        />
+                                      </div>
+                                      {/* 파트별 업로드 상태 */}
+                                      {file.partProgress && file.partCount && file.partCount > 0 && (
+                                        <div className="space-y-1.5">
+                                          {(() => {
+                                            const isExpanded = expandedPartProgress.has(file.name);
+                                            
+                                            // 완료된 파트 수 계산 (100% 완료된 파트)
+                                            const completedParts = Object.values(file.partProgress).filter(prog => prog === 100).length;
+                                            
+                                            // 진행 중인 파트 수 계산 (0 < progress < 100)
+                                            const inProgressParts = Object.values(file.partProgress).filter(prog => prog > 0 && prog < 100).length;
+                                            
+                                            // 완료된 파트 번호 찾기
+                                            const completedPartNumbers = Object.entries(file.partProgress)
+                                              .filter(([_, prog]) => prog === 100)
+                                              .map(([partNum]) => parseInt(partNum))
+                                              .sort((a, b) => a - b);
+                                            
+                                            // 진행 중인 파트 번호 찾기
+                                            const inProgressPartNumbers = Object.entries(file.partProgress)
+                                              .filter(([_, prog]) => prog > 0 && prog < 100)
+                                              .map(([partNum]) => parseInt(partNum))
+                                              .sort((a, b) => a - b);
+                                            
+                                            return (
+                                              <>
+                                                {/* 기본 표시: 완료된 파트 수 */}
+                                                <div className="flex items-center justify-between text-[11px] text-gray-600">
+                                                  <span>
+                                                    완료: {completedParts}/{file.partCount}개
+                                                    {inProgressParts > 0 && ` • 진행 중: ${inProgressParts}개`}
+                                                  </span>
+                                                  <button
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      setExpandedPartProgress((prev) => {
+                                                        const newSet = new Set(prev);
+                                                        if (isExpanded) {
+                                                          newSet.delete(file.name);
+                                                        } else {
+                                                          newSet.add(file.name);
+                                                        }
+                                                        return newSet;
+                                                      });
+                                                    }}
+                                                    className="text-[10px] text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-0.5"
+                                                  >
+                                                    {isExpanded ? (
+                                                      <>
+                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                                        </svg>
+                                                        접기
+                                                      </>
+                                                    ) : (
+                                                      <>
+                                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                        </svg>
+                                                        상세보기
+                                                      </>
+                                                    )}
+                                                  </button>
+                                                </div>
+                                                
+                                                {/* 펼쳤을 때: 각 파트별 상세 진행률 */}
+                                                {isExpanded && (
+                                                  <div className="pt-1 border-t border-gray-200">
+                                                    <div className="space-y-1.5">
+                                                      {/* 진행 중인 파트 */}
+                                                      {inProgressPartNumbers.length > 0 && (
+                                                        <div>
+                                                          <div className="text-[10px] text-gray-500 mb-1">진행 중인 파트:</div>
+                                                          <div className="space-y-1">
+                                                            {inProgressPartNumbers.map((partNum) => {
+                                                              const partProg = file.partProgress?.[partNum] || 0;
+                                                              return (
+                                                                <div key={partNum} className="flex items-center gap-2">
+                                                                  <span className="text-[10px] text-gray-600 w-8">#{partNum}</span>
+                                                                  <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                                                                    <div
+                                                                      className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                                                                      style={{ width: `${partProg}%` }}
+                                                                    />
+                                                                  </div>
+                                                                  <span className="text-[10px] text-gray-500 w-8">{partProg}%</span>
+                                                                </div>
+                                                              );
+                                                            })}
+                                                          </div>
+                                                        </div>
+                                                      )}
+                                                      
+                                                      {/* 대기 중인 파트 */}
+                                                      {completedParts + inProgressParts < file.partCount && (
+                                                        <div>
+                                                          <div className="text-[10px] text-gray-500 mb-1">
+                                                            대기 중: {file.partCount - completedParts - inProgressParts}개
+                                                          </div>
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              </>
+                                            );
+                                          })()}
+                                        </div>
+                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -494,9 +712,18 @@ export default function CompressionSettings({
                               </span>
                             );
                           case 'uploading':
+                            const formatTime = (seconds: number): string => {
+                              if (seconds < 60) return `${seconds}초`;
+                              const mins = Math.floor(seconds / 60);
+                              const secs = seconds % 60;
+                              return secs > 0 ? `${mins}분 ${secs}초` : `${mins}분`;
+                            };
+                            const timeText = file.estimatedTimeRemaining !== undefined && file.estimatedTimeRemaining > 0
+                              ? ` • ${formatTime(file.estimatedTimeRemaining)}`
+                              : '';
                             return (
                               <span className="absolute top-2 left-2 px-2 py-1 bg-blue-500 text-white text-xs rounded-md shadow-md">
-                                업로드 중 {file.uploadProgress}%
+                                업로드 중 {file.uploadProgress}%{timeText}
                               </span>
                             );
                           case 'error':
@@ -517,12 +744,10 @@ export default function CompressionSettings({
                       return (
                         <div
                           key={index}
-                          className="relative overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow hover:shadow-[0_10px_24px_rgba(0,0,0,0.12)]"
-                          style={{
-                            borderColor: 'rgba(226, 232, 240, 0.9)',
-                          }}
+                          className="relative border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow"
                         >
-                          <div className="relative flex aspect-[3/2] items-center justify-center bg-gray-100">
+                          {/* 이미지 미리보기 */}
+                          <div className="aspect-3/2 bg-gray-100 flex items-center justify-center relative">
                             {file.preview ? (
                               <img
                                 src={file.preview}
@@ -554,25 +779,17 @@ export default function CompressionSettings({
                               </div>
                             )}
                           </div>
-                          <div className="space-y-2 p-4">
+                          {/* 파일 정보 */}
+                          <div className="p-3 bg-white">
                             <p className="text-sm font-medium text-gray-900 truncate mb-1" title={file.name}>
                               {file.name}
                             </p>
-                            <div className="grid gap-1 text-xs text-gray-600">
-                              <span className="flex justify-between">
-                                <span className="text-gray-500">크기</span>
-                                <span className="font-medium text-gray-700">
-                                  {file.dimensions.width.toLocaleString()} × {file.dimensions.height.toLocaleString()}
-                                </span>
+                            <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600">
+                              <span>
+                                크기: {file.dimensions.width.toLocaleString()} × {file.dimensions.height.toLocaleString()}
                               </span>
-                              <span className="flex justify-between">
-                                <span className="text-gray-500">용량</span>
-                                <span className="font-medium text-gray-700">{formatFileSize(file.size)}</span>
-                              </span>
-                              <span className="flex justify-between">
-                                <span className="text-gray-500">포맷</span>
-                                <span className="font-medium text-gray-700">{file.format}</span>
-                              </span>
+                              <span>용량: {formatFileSize(file.size)}</span>
+                              <span>포맷:{file.format}</span>
                             </div>
                             {file.uploadError && (
                               <p className="text-xs text-red-600 mt-1 truncate" title={file.uploadError}>
@@ -580,6 +797,7 @@ export default function CompressionSettings({
                               </p>
                             )}
                           </div>
+                          {/* 제거 버튼 */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -587,7 +805,7 @@ export default function CompressionSettings({
                               fileMapRef.current.delete(file.name);
                               onFileRemove(index);
                             }}
-                            className="absolute top-3 right-3 rounded-full bg-red-500 px-3 py-1 text-xs font-medium text-white shadow-sm transition-colors hover:bg-red-600"
+                            className="absolute top-2 right-2 px-2 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-xs shadow-md"
                           >
                             제거
                           </button>

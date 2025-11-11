@@ -106,12 +106,22 @@ const formatDateTime = (date: Date | string | null | undefined): string => {
 };
 
 // 숫자 포맷팅 컴포넌트
-function PrettyNumber({ value, unit }: { value: number; unit: string }) {
+function PrettyNumber({ value, unit }: { value: number | null | undefined; unit: string }) {
+  if (value === null || value === undefined || isNaN(value)) {
+    return <span>-{unit}</span>;
+  }
   return <span>{value.toLocaleString(undefined, { maximumFractionDigits: 1 })}{unit}</span>;
 }
 
 // 원형 게이지 컴포넌트
-function RadialGauge({ percent, size = 120, color = "#5A73FF" }: { percent: number; size?: number; color?: string }) {
+function RadialGauge({ percent, size = 120, color = "#5A73FF" }: { percent: number | null | undefined; size?: number; color?: string }) {
+  if (percent === null || percent === undefined || isNaN(percent)) {
+    return (
+      <div style={{ position: "relative", width: size, height: size, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <span style={{ color: "#9CA3AF" }}>-</span>
+      </div>
+    );
+  }
   const clamped = Math.max(0, Math.min(100, percent));
   const inner = Math.max(10, Math.floor(size / 2) - 28);
   const outer = Math.max(inner + 10, Math.floor(size / 2) - 10);
