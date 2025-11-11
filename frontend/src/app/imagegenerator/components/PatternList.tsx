@@ -357,55 +357,55 @@ export default function PatternTable() {
                                             <tr className="border-b border-gray-100">
                                               <td className="py-2 px-0 font-semibold text-gray-700"></td>
                                               <td className="py-2 px-3 text-center text-gray-700">
-                                                W: {detailData.bmpWidth} × H: {detailData.bmpHeight}
+                                                W {detailData.bmpWidth} × H {detailData.bmpHeight}
                                               </td>
                                               <td className="py-2 px-3 text-center text-gray-600">
-                                                W: {detailData.rgGap}
+                                                W {detailData.rgGap}
                                               </td>
                                               <td className="py-2 px-3 text-center text-gray-600">
-                                                W: {detailData.gbGap}
+                                                W {detailData.gbGap}
                                               </td>
                                             </tr>
                                             <tr className="border-b border-gray-200">
-                                              <th className="text-left py-2 px-0 font-semibold text-gray-700">채널</th>
+                                              <th className="text-center py-2 px-0 font-semibold text-gray-700">채널</th>
                                               <th className="text-center py-2 px-0 font-semibold text-gray-700">크기</th>
                                               <th className="text-center py-2 px-0 font-semibold text-gray-700">개수</th>
                                               <th className="text-center py-2 px-0 font-semibold text-gray-700">간격</th>
                                             </tr>
                                             <tr className="border-b border-gray-100">
-                                              <td className="py-2 px-0 font-semibold text-gray-700">R</td>
+                                              <td className="py-2 px-0 text-center font-semibold text-gray-700">R</td>
                                               <td className="py-2 px-0 text-center text-gray-600">
-                                                X: {detailData.redSizeX} × Y: {detailData.redSizeY}
+                                                X {detailData.redSizeX} × Y {detailData.redSizeY}
                                               </td>
                                               <td className="py-2 px-0 text-center text-gray-600">
-                                                X: {detailData.redCountX} × Y: {detailData.redCountY}
+                                                X {detailData.redCountX} × Y {detailData.redCountY}
                                               </td>
                                               <td className="py-2 px-0 text-center text-gray-600">
-                                                X: {detailData.redGapX} × Y: {detailData.redGapY}
-                                              </td>
-                                            </tr>
-                                            <tr className="border-b border-gray-100">
-                                              <td className="py-2 px-0 font-semibold text-gray-700">G</td>
-                                              <td className="py-2 px-0 text-center text-gray-600">
-                                                X: {detailData.greenSizeX} × Y: {detailData.greenSizeY}
-                                              </td>
-                                              <td className="py-2 px-0 text-center text-gray-600">
-                                                X: {detailData.greenCountX} × Y: {detailData.greenCountY}
-                                              </td>
-                                              <td className="py-2 px-0 text-center text-gray-600">
-                                                X: {detailData.greenGapX} × Y: {detailData.greenGapY}
+                                                X {detailData.redGapX} × Y {detailData.redGapY}
                                               </td>
                                             </tr>
                                             <tr className="border-b border-gray-100">
-                                              <td className="py-2 px-0 font-semibold text-gray-700">B</td>
+                                              <td className="py-2 px-0 text-center font-semibold text-gray-700">G</td>
                                               <td className="py-2 px-0 text-center text-gray-600">
-                                                X: {detailData.blueSizeX} × Y: {detailData.blueSizeY}
+                                                X {detailData.greenSizeX} × Y {detailData.greenSizeY}
                                               </td>
                                               <td className="py-2 px-0 text-center text-gray-600">
-                                                X: {detailData.blueCountX} × Y: {detailData.blueCountY}
+                                                X {detailData.greenCountX} × Y {detailData.greenCountY}
                                               </td>
                                               <td className="py-2 px-0 text-center text-gray-600">
-                                                X: {detailData.blueGapX} × Y: {detailData.blueGapY}
+                                                X {detailData.greenGapX} × Y {detailData.greenGapY}
+                                              </td>
+                                            </tr>
+                                            <tr className="border-b border-gray-100">
+                                              <td className="py-2 px-0 text-center font-semibold text-gray-700">B</td>
+                                              <td className="py-2 px-0 text-center text-gray-600">
+                                                X {detailData.blueSizeX} × Y {detailData.blueSizeY}
+                                              </td>
+                                              <td className="py-2 px-0 text-center text-gray-600">
+                                                X {detailData.blueCountX} × Y {detailData.blueCountY}
+                                              </td>
+                                              <td className="py-2 px-0 text-center text-gray-600">
+                                                X {detailData.blueGapX} × Y {detailData.blueGapY}
                                               </td>
                                             </tr>
                                           </tbody>

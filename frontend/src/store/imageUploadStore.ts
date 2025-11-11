@@ -24,6 +24,11 @@ export interface UploadingFile {
   presignedUrls?: string[]; // Presigned URL 배열
   uploadedParts?: UploadedPart[]; // 업로드된 파트 정보 (partNumber, eTag)
   error?: string;
+  // 업로드 진행 상태 추가
+  estimatedTimeRemaining?: number; // 예상 남은 시간 (초)
+  partProgress?: Record<number, number>; // 각 파트별 진행률 (partNumber -> progress 0-100) - 직렬화 가능한 형태
+  uploadSpeed?: number; // 업로드 속도 (bytes/sec)
+  startTime?: number; // 업로드 시작 시간 (timestamp)
 }
 
 type ImageUploadStore = {
@@ -178,12 +183,33 @@ export const useImageUploadStore = create<ImageUploadStore>((set, get) => ({
         ),
       }));
 
+      // 업로드 시작 시간 기록
+      const uploadStartTime = Date.now();
+      set((state) => ({
+        uploadingFiles: state.uploadingFiles.map((f) =>
+          f.fileName === fileName
+            ? { ...f, status: "uploading" as const, startTime: uploadStartTime }
+            : f
+        ),
+      }));
+
       const result = await uploadPartsInBatch({
         file,
         presignedUrls: presignedUrlsWithPartNumber,
-        onProgress: (progress) => {
-          // 진행률 업데이트
-          get().updateUploadingFile(fileName, { progress });
+        onProgress: (info) => {
+          // Map을 객체로 변환하여 저장
+          const partProgressObj: Record<number, number> = {};
+          info.partProgress.forEach((value, key) => {
+            partProgressObj[key] = value;
+          });
+          
+          // 진행률 정보 업데이트
+          get().updateUploadingFile(fileName, {
+            progress: info.progress,
+            estimatedTimeRemaining: info.estimatedTimeRemaining,
+            partProgress: partProgressObj,
+            uploadSpeed: info.uploadSpeed,
+          });
         },
         batchSize,
         maxRetries,
