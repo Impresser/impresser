@@ -9,11 +9,7 @@ import type { QueueItem } from '@/components/ui/CommonTable';
 
 interface PerformanceSimulatorContainerProps {
   slots: (Facility | null)[];
-  draggingFacility: Facility | null;
-  dragOverIndex: number | null;
   onRemove: (index: number) => void;
-  onDrop: (index: number, facility: Facility) => void;
-  onDragOverSlot: (index: number | null) => void;
   onRun?: (slots: (Facility | null)[]) => void;
   queueData: {
     queueItems: QueueItem[];
@@ -45,11 +41,7 @@ interface PerformanceSimulatorContainerProps {
 
 export default function PerformanceSimulatorContainer({
   slots,
-  draggingFacility,
-  dragOverIndex,
   onRemove,
-  onDrop,
-  onDragOverSlot,
   onRun,
   queueData,
   settings,
@@ -105,11 +97,7 @@ export default function PerformanceSimulatorContainer({
                 key={index}
                 facility={slotFacility}
                 slotIndex={index}
-                isDragOver={dragOverIndex === index}
                 onRemove={() => onRemove(index)}
-                onDrop={(facility) => onDrop(index, facility)}
-                draggingFacility={draggingFacility}
-                onDragOverChange={(isOver) => onDragOverSlot(isOver ? index : null)}
                 onAddTask={onAddTask}
                 queueItems={queueData[index]?.queueItems}
                 processingItems={queueData[index]?.processingItems}

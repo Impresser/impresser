@@ -156,8 +156,6 @@ export default function SimulationPage() {
   const [totalElements, setTotalElements] = useState(0);
   const [hoveredFacilityId, setHoveredFacilityId] = useState<string | null>(null);
   const [performanceComparisonSlots, setPerformanceComparisonSlots] = useState<(Facility | null)[]>([null, null]);
-  const [draggingFacility, setDraggingFacility] = useState<Facility | null>(null);
-  const [dragOverPerformanceSlot, setDragOverPerformanceSlot] = useState<number | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isLoadingProduction, setIsLoadingProduction] = useState(false);
@@ -267,28 +265,6 @@ export default function SimulationPage() {
       next[index] = { ...DEFAULT_SLOT_SETTINGS };
       return next;
     });
-  }, [DEFAULT_SLOT_SETTINGS]);
-
-  const handlePerformanceSlotDrop = useCallback((index: number, facility: Facility) => {
-    if (facility.status === 'inactive') {
-      return;
-    }
-    setPerformanceComparisonSlots((prev) => {
-      const next = [...prev];
-      const existingIndex = next.findIndex((slot) => slot?.id === facility.id);
-      if (existingIndex !== -1 && existingIndex !== index) {
-        next[existingIndex] = null;
-      }
-      next[index] = facility;
-      return next;
-    });
-    setPerformanceSlotSettings((prev) => {
-      const next = [...prev];
-      next[index] = { ...DEFAULT_SLOT_SETTINGS };
-      return next;
-    });
-    setDraggingFacility(null);
-    setDragOverPerformanceSlot(null);
   }, [DEFAULT_SLOT_SETTINGS]);
 
   const handleOpenQueueModal = useCallback((facility: Facility, settings: { processingMethod: 'cpu' | 'gpu'; algorithm: string; version: string }) => {
@@ -809,15 +785,6 @@ export default function SimulationPage() {
     }));
   }, []);
 
-  const handleDragStartPerformance = useCallback((facility: Facility) => {
-    setDraggingFacility(facility);
-  }, []);
-
-  const handleDragEndPerformance = useCallback(() => {
-    setDraggingFacility(null);
-    setDragOverPerformanceSlot(null);
-  }, []);
-
   const availabilityRate =
     facilityStats.totalOperational > 0
       ? `${((facilityStats.totalRunning / facilityStats.totalOperational) * 100).toFixed(1)}%`
@@ -844,10 +811,10 @@ export default function SimulationPage() {
         {/* Content */}
         <main className="flex-1 px-6 py-6 overflow-y-auto">
           <div className="w-full max-w-7xl mx-auto">
-            {/* 성능 시뮬레이터 타이틀 및 통계 */}
+            {/* 전체 설비 타이틀 및 통계 */}
             <div className="flex items-center justify-between mb-4 gap-6">
               <h1 className="text-lg font-bold text-gray-900 whitespace-nowrap">
-                성능 시뮬레이터
+                전체 설비
               </h1>
               <div className="flex items-center gap-4">
                 {error && (
@@ -949,8 +916,6 @@ export default function SimulationPage() {
                         onToggleTaskSections={() => setShowTaskSections((prev) => !prev)}
                         onOpenEditModal={handleOpenEditModal}
                         onAddToPerformanceComparison={handleAddFacilityToPerformanceFromDetail}
-                        onDragStartPerformance={handleDragStartPerformance}
-                        onDragEndPerformance={handleDragEndPerformance}
                       />
                     </div>
                   )}
@@ -1002,11 +967,7 @@ export default function SimulationPage() {
             <div className="mt-10">
               <PerformanceSimulatorContainer
                 slots={performanceComparisonSlots}
-                draggingFacility={draggingFacility}
-                dragOverIndex={dragOverPerformanceSlot}
                 onRemove={removeFacilityFromPerformanceSlot}
-                onDrop={(index, facility) => handlePerformanceSlotDrop(index, facility)}
-                onDragOverSlot={(index) => setDragOverPerformanceSlot(index)}
                 onRun={(currentSlots) => {
                   console.log('성능 시뮬레이터 실행', currentSlots);
                 }}
