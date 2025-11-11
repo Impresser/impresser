@@ -32,8 +32,8 @@ export default function PatternForm() {
   // 패턴 미리보기가 실제로 표시되는지 확인
   const hasPatternPreview = React.useMemo(() => {
     const hasAnyInput = (
-      form.gapRG.w !== '' || 
-      form.gapGB.w !== '' || 
+      form.gapRG.x !== '' || form.gapRG.y !== '' ||
+      form.gapGB.x !== '' || form.gapGB.y !== '' ||
       form.channels.R.size.x !== '' || form.channels.R.size.y !== '' ||
       form.channels.G.size.x !== '' || form.channels.G.size.y !== '' ||
       form.channels.B.size.x !== '' || form.channels.B.size.y !== '' ||
@@ -113,8 +113,10 @@ export default function PatternForm() {
           const mappings: Array<[string, string]> = [
             ['image_width', 'imageSize.w'],
             ['image_height', 'imageSize.h'],
-            ['rg_gap', 'gapRG.w'],
-            ['gb_gap', 'gapGB.w'],
+            ['rg_gap_x', 'gapRG.x'],
+            ['rg_gap_y', 'gapRG.y'],
+            ['gb_gap_x', 'gapGB.x'],
+            ['gb_gap_y', 'gapGB.y'],
 
             ['r_size_x', 'channels.R.size.x'],
             ['r_size_y', 'channels.R.size.y'],
@@ -274,8 +276,8 @@ export default function PatternForm() {
 
     // 입력 여부에 따라 미리보기 표시 결정
     const hasAnyInput = (
-      form.gapRG.w !== '' ||
-      form.gapGB.w !== '' ||
+      form.gapRG.x !== '' || form.gapRG.y !== '' ||
+      form.gapGB.x !== '' || form.gapGB.y !== '' ||
       form.channels.R.size.x !== '' || form.channels.R.size.y !== '' ||
       form.channels.G.size.x !== '' || form.channels.G.size.y !== '' ||
       form.channels.B.size.x !== '' || form.channels.B.size.y !== '' ||
@@ -310,8 +312,10 @@ export default function PatternForm() {
     const hasG = Number.isFinite(gSizeX) && gSizeX > 0 && Number.isFinite(gSizeY) && gSizeY > 0;
     const hasB = Number.isFinite(bSizeX) && bSizeX > 0 && Number.isFinite(bSizeY) && bSizeY > 0;
 
-    const gapRGw = Number(form.gapRG.w) || 3;
-    const gapGBw = Number(form.gapGB.w) || 3;
+    const gapRGx = Number(form.gapRG.x) || 3;
+    const gapRGy = form.gapRG.y !== '' ? Number(form.gapRG.y) : 0;
+    const gapGBx = Number(form.gapGB.x) || 3;
+    const gapGBy = form.gapGB.y !== '' ? Number(form.gapGB.y) : 0;
 
     const spacingR_X = Number(form.channels.R.spacing.x) || 6;
     const spacingG_X = Number(form.channels.G.spacing.x) || 6;
@@ -327,12 +331,13 @@ export default function PatternForm() {
     );
 
     // 표시할 채널 목록 구성 (입력된 채널만)
-    const countR_X = Number(form.channels.R.count.x) || 1;
-    const countR_Y = Number(form.channels.R.count.y) || 1;
-    const countG_X = Number(form.channels.G.count.x) || 1;
-    const countG_Y = Number(form.channels.G.count.y) || 1;
-    const countB_X = Number(form.channels.B.count.x) || 1;
-    const countB_Y = Number(form.channels.B.count.y) || 1;
+    // 개수는 최소 1 이상이어야 함 (0이거나 입력되지 않으면 1로 처리)
+    const countR_X = Math.max(1, Number(form.channels.R.count.x) || 1);
+    const countR_Y = Math.max(1, Number(form.channels.R.count.y) || 1);
+    const countG_X = Math.max(1, Number(form.channels.G.count.x) || 1);
+    const countG_Y = Math.max(1, Number(form.channels.G.count.y) || 1);
+    const countB_X = Math.max(1, Number(form.channels.B.count.x) || 1);
+    const countB_Y = Math.max(1, Number(form.channels.B.count.y) || 1);
 
     type Present = {
       key: 'R' | 'G' | 'B';
@@ -373,9 +378,9 @@ export default function PatternForm() {
     for (let i = 1; i < present.length; i++) {
       const prev = present[i - 1].key;
       const curr = present[i].key;
-      if (prev === 'R' && curr === 'G') internalGaps += gapRGw;
-      else if (prev === 'G' && curr === 'B') internalGaps += gapGBw;
-      else internalGaps += gapRGw + gapGBw; // R-B 인접 시 두 간격 합산
+      if (prev === 'R' && curr === 'G') internalGaps += gapRGx;
+      else if (prev === 'G' && curr === 'B') internalGaps += gapGBx;
+      else internalGaps += gapRGx + gapGBx; // R-B 인접 시 두 간격 합산
     }
     const widthsSum = chFootprints.reduce((s, fp) => s + fp.effW, 0);
     const lastKey = present[present.length - 1].key;
@@ -393,18 +398,10 @@ export default function PatternForm() {
     ctx.fillStyle = '#111827';
     ctx.fillRect(0, 0, imgW, imgH);
 
-    // 부드러운 모서리 사각형 그리기 헬퍼
-    const roundRect = (x: number, y: number, w: number, h: number, r: number, fill: string) => {
-      const rr = Math.min(r, w / 2, h / 2);
-      ctx.beginPath();
-      ctx.moveTo(x + rr, y);
-      ctx.arcTo(x + w, y, x + w, y + h, rr);
-      ctx.arcTo(x + w, y + h, x, y + h, rr);
-      ctx.arcTo(x, y + h, x, y, rr);
-      ctx.arcTo(x, y, x + w, y, rr);
-      ctx.closePath();
+    // 일반 사각형 그리기 헬퍼
+    const drawRect = (x: number, y: number, w: number, h: number, fill: string) => {
       ctx.fillStyle = fill;
-      ctx.fill();
+      ctx.fillRect(x, y, w, h);
     };
 
     // 패턴 타일링: 화면 밖에서 시작해서 끝까지 채우기
@@ -413,24 +410,32 @@ export default function PatternForm() {
       const rowOffset = (rowIndex % 2) * (cellW / 2);
       for (let x = -cellW - rowOffset; x <= imgW + cellW; x += cellW) {
         let cursorX = x + rowOffset;
+        let cumulativeGapY = 0; // Y 방향 간격 누적
         for (let i = 0; i < present.length; i++) {
           const ch = present[i];
           const fp = chFootprints[i];
-          // 이전 채널과의 간격 적용
+          // 이전 채널과의 X 방향 간격 적용
           if (i > 0) {
             const prev = present[i - 1].key;
-            if (prev === 'R' && ch.key === 'G') cursorX += gapRGw;
-            else if (prev === 'G' && ch.key === 'B') cursorX += gapGBw;
-            else cursorX += gapRGw + gapGBw;
+            if (prev === 'R' && ch.key === 'G') {
+              cursorX += gapRGx;
+              cumulativeGapY += gapRGy; // Y 방향 간격 누적
+            } else if (prev === 'G' && ch.key === 'B') {
+              cursorX += gapGBx;
+              cumulativeGapY += gapGBy; // Y 방향 간격 누적
+            } else {
+              cursorX += gapRGx + gapGBx;
+              cumulativeGapY += gapRGy + gapGBy; // Y 방향 간격 누적
+            }
           }
-          // 수직 중앙 정렬을 위해 오프셋 계산
-          const offsetY = y + (rowH - fp.effH) / 2;
+          // 수직 중앙 정렬을 위해 오프셋 계산 + Y 방향 간격 적용
+          const offsetY = y + (rowH - fp.effH) / 2 + cumulativeGapY;
           // 내부 타일 반복 그리기
           for (let yy = 0; yy < ch.countY; yy++) {
             for (let xx = 0; xx < ch.countX; xx++) {
               const drawX = cursorX + xx * (ch.w + ch.spacingX);
               const drawY = offsetY + yy * (ch.h + ch.spacingY);
-              roundRect(drawX, drawY, ch.w, ch.h, 3, ch.fill);
+              drawRect(drawX, drawY, ch.w, ch.h, ch.fill);
             }
           }
           cursorX += fp.effW;
@@ -603,13 +608,15 @@ export default function PatternForm() {
             </div>
 
             {/* R-G 간격 */}
-            <div className="flex-1 grid grid-cols-1 gap-2">
-              <CommonInput fixedPlaceholder="W" fixedPlaceholderPadding="sm" value={form.gapRG.w} onChange={onNumChange('gapRG.w')} />
+            <div className="flex-1 grid grid-cols-2 gap-2">
+              <CommonInput fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.gapRG.x} onChange={onNumChange('gapRG.x')} />
+              <CommonInput fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.gapRG.y} onChange={onNumChange('gapRG.y')} />
             </div>
 
             {/* G-B 간격 */}
-            <div className="flex-1 grid grid-cols-1 gap-2">
-              <CommonInput fixedPlaceholder="W" fixedPlaceholderPadding="sm" value={form.gapGB.w} onChange={onNumChange('gapGB.w')} />
+            <div className="flex-1 grid grid-cols-2 gap-2">
+              <CommonInput fixedPlaceholder="X" fixedPlaceholderPadding="sm" value={form.gapGB.x} onChange={onNumChange('gapGB.x')} />
+              <CommonInput fixedPlaceholder="Y" fixedPlaceholderPadding="sm" value={form.gapGB.y} onChange={onNumChange('gapGB.y')} />
             </div>
           </div>
 
