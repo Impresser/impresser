@@ -4,7 +4,6 @@ import React from 'react';
 import ContainerBox from '@/components/ui/CommonContainerBox';
 import type { Facility } from '../types';
 import CommonPagination from '@/components/ui/CommonPagination';
-import FacilityStatisticsSummary from './FacilityStatisticsSummary';
 
 interface FacilityListProps {
   facilities: Facility[];
@@ -13,10 +12,6 @@ interface FacilityListProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
-  totalCount: number;
-  totalOperational: number;
-  totalRunning: number;
-  availabilityRate: string;
 }
 
 export default function FacilityList({
@@ -26,10 +21,6 @@ export default function FacilityList({
   currentPage,
   totalPages,
   onPageChange,
-  totalCount,
-  totalOperational,
-  totalRunning,
-  availabilityRate,
 }: FacilityListProps) {
   const getStatusColor = (status: Facility['status']) => {
     switch (status) {
@@ -86,14 +77,6 @@ export default function FacilityList({
           </div>
         ) : (
           <>
-            <div className="p-2">
-              <FacilityStatisticsSummary
-                total={totalCount}
-                operational={totalOperational}
-                running={totalRunning}
-                availabilityRate={availabilityRate}
-              />
-            </div>
             <div className="py-3 space-y-3">
           {facilities.map((facility) => (
             <div

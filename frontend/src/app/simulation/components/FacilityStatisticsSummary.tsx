@@ -27,9 +27,9 @@ export default function FacilityStatisticsSummary({
 
 function Statistic({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-[2px]">
-      <span className="text-xs text-gray-500 leading-tight">{label}</span>
-      <span className="text-sm font-semibold text-gray-900 leading-tight">{value}</span>
+    <div className="flex items-center gap-2">
+      <span className="text-xs text-gray-500">{label}</span>
+      <span className="text-sm font-semibold text-gray-900">{value}</span>
     </div>
   );
 }

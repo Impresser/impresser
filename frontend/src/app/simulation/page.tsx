@@ -20,6 +20,7 @@ import PerformanceSimulatorContainer from './components/PerformanceSimulatorCont
 import FacilityQueueModal from './components/FacilityQueueModal';
 import FacilityComparisonModal from './components/FacilityComparisonModal';
 import FacilityQueueSection from './components/FacilityQueueSection';
+import FacilityStatisticsSummary from './components/FacilityStatisticsSummary';
 import FacilityHistorySection from './components/FacilityHistorySection';
 
 const getQueueItems = (facilityId: string): QueueItem[] => {
@@ -148,7 +149,8 @@ export default function SimulationPage() {
     algorithm: string;
     version: string;
   } | null>(null);
-  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [allFacilities, setAllFacilities] = useState<Facility[]>([]);
+  const [paginatedFacilities, setPaginatedFacilities] = useState<Facility[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -167,7 +169,7 @@ export default function SimulationPage() {
     totalRunning: 0,
   });
   const isLocationSelectMode = locationSelectionTarget !== null;
-  const mapData: TileType[][] = Array.from({ length: 16 }, () =>
+  const mapData: TileType[][] = Array.from({ length: 14 }, () =>
     Array.from({ length: 25 }, () => 'g' as TileType)
   );
 
@@ -192,7 +194,7 @@ export default function SimulationPage() {
 
   const facilityLocations = useMemo(
     () =>
-      facilities
+      allFacilities
         .filter(
           (facility): facility is Facility & { canvasX: number; canvasY: number } =>
             typeof facility.canvasX === 'number' && typeof facility.canvasY === 'number'
@@ -206,7 +208,7 @@ export default function SimulationPage() {
           status: facility.status,
           processStatus: facility.processStatus,
         })),
-    [facilities]
+    [allFacilities]
   );
 
   const queueItems = useMemo(
@@ -560,6 +562,7 @@ export default function SimulationPage() {
       let totalRunning = 0;
       let totalElementsFromApi = 0;
       let hasNext = true;
+      const aggregatedFacilities: Facility[] = [];
 
       while (hasNext) {
         const response = await getInkjetPrinters({
@@ -573,8 +576,11 @@ export default function SimulationPage() {
 
         totalElementsFromApi = pagination?.totalElements ?? totalElementsFromApi;
 
-        content.forEach((item) => {
-          if (item.printerStatus === 'OPERATIONAL') {
+        const mappedFacilities = content.map(mapInkjetToFacility);
+        aggregatedFacilities.push(...mappedFacilities);
+
+        mappedFacilities.forEach((item) => {
+          if (item.status === 'active') {
             totalOperational += 1;
             if (item.processStatus === 'RUNNING') {
               totalRunning += 1;
@@ -593,6 +599,10 @@ export default function SimulationPage() {
         totalOperational,
         totalRunning,
       });
+      setAllFacilities(aggregatedFacilities);
+      setHoveredFacilityId((prev) =>
+        prev && !aggregatedFacilities.some((item) => item.id === prev) ? null : prev
+      );
       setTotalElements(totalElementsFromApi);
     } catch (err) {
       console.error('설비 통계 조회 실패:', err);
@@ -600,6 +610,8 @@ export default function SimulationPage() {
         totalOperational: 0,
         totalRunning: 0,
       });
+      setAllFacilities([]);
+      setHoveredFacilityId(null);
       setTotalElements(0);
     }
   };
@@ -610,7 +622,7 @@ export default function SimulationPage() {
       setError(null);
       const response = await getInkjetPrinters({
         page: pageToLoad,
-        size: 10,
+        size: 7,
       });
 
       if (response.isSuccess && response.result) {
@@ -632,10 +644,7 @@ export default function SimulationPage() {
           if (rankDiff !== 0) return rankDiff;
           return a.name.localeCompare(b.name);
         });
-        setFacilities(mappedFacilities);
-        setHoveredFacilityId((prev) =>
-          prev && !mappedFacilities.some((item) => item.id === prev) ? null : prev
-        );
+        setPaginatedFacilities(mappedFacilities);
         setTotalPages(response.result.pagination?.totalPages ?? 1);
         setPage(response.result.pagination?.page ?? pageToLoad);
       } else {
@@ -811,27 +820,15 @@ export default function SimulationPage() {
         {/* Content */}
         <main className="flex-1 px-6 py-6 overflow-y-auto">
           <div className="w-full max-w-7xl mx-auto">
-            {/* 전체 설비 타이틀 및 통계 */}
             <div className="flex items-center justify-between mb-4 gap-6">
               <h1 className="text-lg font-bold text-gray-900 whitespace-nowrap">
                 전체 설비
               </h1>
-              <div className="flex items-center gap-4">
-                {error && (
-                  <div className="text-sm text-red-600">
-                    {error}
-                  </div>
-                )}
-                {isAdmin && (
-                  <CommonButton
-                    variant="blue"
-                    className="px-4 py-2 text-sm"
-                    onClick={handleAddFacilityButtonClick}
-                  >
-                    {isLocationSelectMode ? '취소하기' : '설비 등록'}
-                  </CommonButton>
-                )}
-              </div>
+              {error && (
+                <div className="text-sm text-red-600">
+                  {error}
+                </div>
+              )}
             </div>
             
             
@@ -849,11 +846,31 @@ export default function SimulationPage() {
               </div>
             )}
             
-            {/* 설비 목록 */}
             {!isLoading && !error && (
-            <>
-            <div className="flex gap-6">
-                <CommonContainerBox className="flex-1 h-[570px] overflow-hidden p-0 relative">
+              <>
+                <div className="flex gap-6">
+                  <CommonContainerBox className="flex-1 h-[570px] overflow-hidden p-0 relative">
+                     <div className="absolute right-4 top-4 z-20 flex justify-end">
+                       <CommonContainerBox className="bg-white/95 shadow !px-4 !py-4">
+                        <FacilityStatisticsSummary
+                          total={totalElements}
+                          operational={facilityStats.totalOperational}
+                          running={facilityStats.totalRunning}
+                          availabilityRate={availabilityRate}
+                        />
+                      </CommonContainerBox>
+                    </div>
+                    {isAdmin && (
+                      <div className="absolute right-4 bottom-4 z-20">
+                        <CommonButton
+                          variant="blue"
+                          className="px-4 py-2 text-sm"
+                          onClick={handleAddFacilityButtonClick}
+                        >
+                          {isLocationSelectMode ? '취소하기' : '설비등록'}
+                        </CommonButton>
+                      </div>
+                    )}
                   <TileMap 
                     mapData={mapData}
                     facilities={facilityLocations}
@@ -864,7 +881,7 @@ export default function SimulationPage() {
                     hoveredFacilityId={hoveredFacilityId}
                     onFacilityHoverChange={setHoveredFacilityId}
                     onFacilityClick={(facilityId) => {
-                      const facility = facilities.find((item) => item.id === facilityId);
+                      const facility = allFacilities.find((item) => item.id === facilityId);
                       if (facility) {
                         handleFacilityClick(facility);
                       }
@@ -922,19 +939,15 @@ export default function SimulationPage() {
                 </CommonContainerBox>
 
                 <div className="w-80 mb-6">
-                <div className="h-[570px]">
+                  <div className="h-[570px]">
                     <FacilityList
-                      facilities={facilities}
+                      facilities={paginatedFacilities}
                       onFacilityClick={handleFacilityClick}
                       onFacilityHover={setHoveredFacilityId}
                       currentPage={page + 1}
                       totalPages={totalPages}
                       onPageChange={handleFacilityPageChange}
-                      totalCount={totalElements}
-                      totalOperational={facilityStats.totalOperational}
-                      totalRunning={facilityStats.totalRunning}
-                      availabilityRate={availabilityRate}
-                  />
+                    />
                   </div>
                 </div>
               </div>
