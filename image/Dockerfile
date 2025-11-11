@@ -7,22 +7,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libtiff-dev \
     zlib1g-dev \
     libnvidia-ml-dev \
-    && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/*
 
 COPY nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb /tmp/
 RUN dpkg -i /tmp/nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb \
-    && cp /var/nvtiff-local-repo-ubuntu2404-0.5.1/nvtiff-local-*-keyring.gpg /usr/share/keyrings/ \
-    && apt-get update \
-    && apt-get install -y nvtiff \
-    && update-alternatives --set libnvtiff.so.0 /usr/lib/x86_64-linux-gnu/libnvtiff/12/libnvtiff.so.0 \
-    && rm -rf /var/lib/apt/lists/* /tmp/*.deb
+ && cp /var/nvtiff-local-repo-ubuntu2404-0.5.1/nvtiff-local-*-keyring.gpg /usr/share/keyrings/ \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends nvtiff \
+ && update-alternatives --set nvtiff /usr/lib/x86_64-linux-gnu/libnvtiff/12/libnvtiff.so.0 \
+ && rm -rf /var/lib/apt/lists/* /tmp/*.deb
 
 WORKDIR /app
 COPY . .
 
 RUN cmake \
       -DNVTIFF_INCLUDE_DIR=/usr/include \
-      -DNVTIFF_LIBRARY=/usr/lib/x86_64-linux-gnu/libnvtiff/12/libnvtiff.so.0 \
+      -DNVTIFF_LIBRARY=/usr/lib/x86_64-linux-gnu/libnvtiff.so.0 \
       -DNVML_LIBRARY=/usr/lib/x86_64-linux-gnu/libnvidia-ml.so \
       . \
  && make -j"$(nproc)"
@@ -36,15 +36,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4 \
     zlib1g \
     ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/*
 
 COPY nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb /tmp/
 RUN dpkg -i /tmp/nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb \
-    && cp /var/nvtiff-local-repo-ubuntu2404-0.5.1/nvtiff-local-*-keyring.gpg /usr/share/keyrings/ \
-    && apt-get update \
-    && apt-get install -y nvtiff \
-    && update-alternatives --set libnvtiff.so.0 /usr/lib/x86_64-linux-gnu/libnvtiff/12/libnvtiff.so.0 \
-    && rm -rf /var/lib/apt/lists/* /tmp/*.deb
+ && cp /var/nvtiff-local-repo-ubuntu2404-0.5.1/nvtiff-local-*-keyring.gpg /usr/share/keyrings/ \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends nvtiff \
+ && update-alternatives --set nvtiff /usr/lib/x86_64-linux-gnu/libnvtiff/12/libnvtiff.so.0 \
+ && rm -rf /var/lib/apt/lists/* /tmp/*.deb
 
 COPY --from=build /app/image /app/image
 
