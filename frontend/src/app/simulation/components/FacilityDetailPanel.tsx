@@ -17,8 +17,6 @@ interface FacilityDetailPanelProps {
   onToggleTaskSections: () => void;
   onOpenEditModal?: (facility: Facility) => void;
   onAddToPerformanceComparison?: (facility: Facility) => void;
-  onDragStartPerformance?: (facility: Facility) => void;
-  onDragEndPerformance?: () => void;
 }
 
 export default function FacilityDetailPanel({
@@ -33,8 +31,6 @@ export default function FacilityDetailPanel({
   onToggleTaskSections,
   onOpenEditModal,
   onAddToPerformanceComparison,
-  onDragStartPerformance,
-  onDragEndPerformance,
 }: FacilityDetailPanelProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -143,8 +139,6 @@ export default function FacilityDetailPanel({
         onDelete={handleDelete}
         onOpenEditModal={() => onOpenEditModal?.(facility)}
         onAddToPerformanceComparison={() => onAddToPerformanceComparison?.(facility)}
-        onDragStartPerformance={() => onDragStartPerformance?.(facility)}
-        onDragEndPerformance={() => onDragEndPerformance?.()}
         onToggleTaskSections={onToggleTaskSections}
         isTaskSectionVisible={showTaskSections}
       />

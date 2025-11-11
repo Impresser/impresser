@@ -68,11 +68,13 @@ export default function FacilityComparisonModal({
     [facility, onConfirm, onUpload]
   );
 
+  const modalWidthClassName = step === 'upload' ? 'w-full max-w-[57.6rem]' : 'w-full max-w-3xl';
+
   return (
     <CommonModal
       isOpen={isOpen && !!facility}
       onClose={onClose}
-      className="w-full max-w-3xl"
+      className={modalWidthClassName}
     >
       {facility && (
         <div className="space-y-6">

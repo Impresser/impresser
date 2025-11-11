@@ -20,8 +20,6 @@ interface FacilityInfoSectionProps {
   onDelete: () => void;
   onOpenEditModal: () => void;
   onAddToPerformanceComparison: () => void;
-  onDragStartPerformance: () => void;
-  onDragEndPerformance: () => void;
   onToggleTaskSections: () => void;
   isTaskSectionVisible: boolean;
 }
@@ -41,8 +39,6 @@ export default function FacilityInfoSection({
   onDelete,
   onOpenEditModal,
   onAddToPerformanceComparison,
-  onDragStartPerformance,
-  onDragEndPerformance,
   onToggleTaskSections,
   isTaskSectionVisible,
 }: FacilityInfoSectionProps) {
@@ -96,20 +92,6 @@ export default function FacilityInfoSection({
                     onClick={() => {
                       if (isPerformanceDisabled) return;
                       onAddToPerformanceComparison();
-                    }}
-                    draggable={!isPerformanceDisabled}
-                    onDragStart={(event) => {
-                      if (isPerformanceDisabled) {
-                        event.preventDefault();
-                        return;
-                      }
-                      event.dataTransfer.effectAllowed = 'copy';
-                      onDragStartPerformance();
-                    }}
-                    onDragEnd={(event) => {
-                      event.preventDefault();
-                      if (isPerformanceDisabled) return;
-                      onDragEndPerformance();
                     }}
                     aria-disabled={isPerformanceDisabled}
                     tabIndex={isPerformanceDisabled ? -1 : 0}

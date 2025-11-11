@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import Image from 'next/image';
 import type { Facility } from '../types';
 import CommonButton from '@/components/ui/CommonButton';
@@ -10,11 +10,7 @@ import type { QueueItem } from '@/components/ui/CommonTable';
 interface PerformanceComparisonCardProps {
   facility: Facility | null;
   slotIndex: number;
-  isDragOver: boolean;
   onRemove: () => void;
-  onDrop: (facility: Facility) => void;
-  draggingFacility: Facility | null;
-  onDragOverChange: (isOver: boolean) => void;
   onAddTask?: (
     facility: Facility,
     settings: {
@@ -36,60 +32,20 @@ interface PerformanceComparisonCardProps {
 export default function PerformanceComparisonCard({
   facility,
   slotIndex,
-  isDragOver,
   onRemove,
-  onDrop,
-  draggingFacility,
-  onDragOverChange,
   onAddTask,
   queueItems,
   processingItems,
   overallProgress,
   settings,
 }: PerformanceComparisonCardProps) {
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (draggingFacility) {
-      onDrop(draggingFacility);
-      onDragOverChange(false);
-    }
-  };
-
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    if (draggingFacility) {
-      event.preventDefault();
-    }
-  };
-
-  const handleDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
-    if (draggingFacility) {
-      event.preventDefault();
-      onDragOverChange(true);
-    }
-  };
-
-  const readyToUpload = useMemo(
-    () => Boolean(facility && settings.algorithm && settings.version),
-    [facility, settings.algorithm, settings.version]
-  );
-
   return (
     <div
       className={`rounded-2xl transition-colors ${
         facility
           ? 'border border-gray-200 bg-white shadow-[0_4px_12px_rgba(0,0,0,0.08)]'
-          : draggingFacility
-            ? 'border-2 border-blue-400 border-dashed bg-blue-50/50'
-            : 'border-2 border-gray-200 border-dashed bg-white/60'
-      } ${isDragOver ? 'border-blue-500 bg-blue-50' : ''}`}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragEnter={handleDragEnter}
-      onDragLeave={(event) => {
-        event.preventDefault();
-        onDragOverChange(false);
-      }}
+          : 'border-2 border-gray-200 border-dashed bg-white/60'
+      }`}
       role="listitem"
       aria-label={facility ? `${facility.name} 성능 비교 슬롯` : `성능 비교 슬롯 ${slotIndex + 1}`}
       tabIndex={0}
@@ -189,8 +145,8 @@ export default function PerformanceComparisonCard({
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
           </div>
-          <p className="font-medium text-gray-600">설비를 드래그하여 비교 슬롯에 추가</p>
-          <p className="text-xs text-gray-400">(클릭으로도 추가 가능)</p>
+          <p className="font-medium text-gray-600">설비를 선택해 비교 슬롯에 추가하세요</p>
+          <p className="text-xs text-gray-400">상세 정보에서 압축하기 버튼을 사용하세요</p>
         </div>
       )}
     </div>

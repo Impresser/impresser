@@ -13,23 +13,34 @@ interface CommonModalProps {
   hideBackdrop?: boolean;
 }
 
-export default function CommonModal({ children, isOpen, onClose, className = '', leftOffset = 0, topOffset = 0, style, hideBackdrop = false }: CommonModalProps) {
+export default function CommonModal({
+  children,
+  isOpen,
+  onClose,
+  className = '',
+  leftOffset = 0,
+  topOffset = 0,
+  style,
+  hideBackdrop = false,
+}: CommonModalProps) {
   if (!isOpen) return null;
+
+  const overlayClassName = `
+    fixed inset-0 z-50 flex justify-center
+    ${topOffset > 0 ? 'items-start' : 'items-center'}
+    ${hideBackdrop ? '' : 'bg-black/50'}
+  `;
+
+  const overlayStyle: React.CSSProperties = {
+    paddingTop: topOffset > 0 ? `${topOffset}px` : undefined,
+    paddingLeft: leftOffset > 0 ? `${leftOffset}px` : undefined,
+    paddingRight: leftOffset > 0 ? `${leftOffset}px` : undefined,
+  };
 
   return (
     <div
-      className={`
-        fixed
-        flex items-center justify-center
-        ${hideBackdrop ? '' : 'bg-black/50'}
-        z-50
-      `}
-      style={{
-        left: leftOffset > 0 ? `${leftOffset}px` : '0',
-        top: topOffset > 0 ? `${topOffset}px` : '0',
-        right: '0',
-        bottom: '0',
-      }}
+      className={overlayClassName}
+      style={overlayStyle}
       onClick={onClose}
     >
       <div
