@@ -73,18 +73,28 @@ export async function batchPresignedUrls(
 }
 
 /**
- * ✅ 2GB 파일을 32조각으로 나누기 위한 청크 크기 계산
+ * 파일 크기에 따른 청크 크기 계산
+ * @param fileSize 파일 크기 (bytes)
+ * @returns 청크 크기 (bytes)
  */
 export function getChunkSize(fileSize: number): number {
-  const partCount = 20; // 고정 32조각
-  return Math.ceil(fileSize / partCount);
+  const MB = 1024 * 1024;
+  const sizeMB = fileSize / MB;
+
+  if (sizeMB < 1024) return 5 * MB; // 1GB 미만
+  if (sizeMB < 1536) return 10 * MB; // 1~1.5GB
+  if (sizeMB < 2048) return 15 * MB; // 1.5~2GB
+  return 20 * MB; // 2GB 이상
 }
 
 /**
- * ✅ 파일 크기에 관계없이 항상 32조각
+ * 파일 크기에 따른 파트 개수 계산
+ * @param fileSize 파일 크기 (bytes)
+ * @returns 파트 개수
  */
 export function getPartCount(fileSize: number): number {
-  return 20;
+  const chunkSize = getChunkSize(fileSize);
+  return Math.ceil(fileSize / chunkSize);
 }
 
 /**
