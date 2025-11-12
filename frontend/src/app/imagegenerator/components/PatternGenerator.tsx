@@ -13,17 +13,18 @@ export default function PatternForm() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewContainerRef = useRef<HTMLDivElement | null>(null);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(50);
   const [panX, setPanX] = useState(0);
   const [panY, setPanY] = useState(0);
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const prevPatternSizeRef = useRef<{ cols: number; rows: number } | null>(null);
   
   // 모달 관련 상태
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const modalCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const modalPreviewContainerRef = useRef<HTMLDivElement | null>(null);
-  const [modalZoom, setModalZoom] = useState(1);
+  const [modalZoom, setModalZoom] = useState(50);
   const [modalPanX, setModalPanX] = useState(0);
   const [modalPanY, setModalPanY] = useState(0);
   const [isModalPanning, setIsModalPanning] = useState(false);
@@ -169,6 +170,13 @@ export default function PatternForm() {
       const raw = e.target.value.trim();
       if (raw === '') {
         setFormField(path, '');
+        // 간격 필드인 경우 모든 채널 비우기
+        if (path.includes('.spacing.')) {
+          const axis = path.includes('.x') ? 'x' : 'y';
+          setFormField(`channels.R.spacing.${axis}`, '');
+          setFormField(`channels.G.spacing.${axis}`, '');
+          setFormField(`channels.B.spacing.${axis}`, '');
+        }
         return;
       }
       // R-G 간격, G-B 간격은 음수 허용
@@ -187,7 +195,16 @@ export default function PatternForm() {
         cleaned = raw.replace(/[^0-9]/g, '');
       }
       const num = Number(cleaned);
-      setFormField(path, Number.isNaN(num) ? '' : num);
+      const value = Number.isNaN(num) ? '' : num;
+      setFormField(path, value);
+      
+      // 간격 필드인 경우 모든 채널에 같은 값 설정
+      if (path.includes('.spacing.')) {
+        const axis = path.includes('.x') ? 'x' : 'y';
+        setFormField(`channels.R.spacing.${axis}`, value);
+        setFormField(`channels.G.spacing.${axis}`, value);
+        setFormField(`channels.B.spacing.${axis}`, value);
+      }
     };
 
   // 확대/축소 핸들러
@@ -195,7 +212,7 @@ export default function PatternForm() {
     e.preventDefault();
     e.stopPropagation();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom((prev) => Math.max(0.5, Math.min(10, prev * delta)));
+    setZoom((prev) => Math.max(0.5, Math.min(10000, prev * delta)));
   }, []);
 
   // 팬(드래그) 핸들러
@@ -219,14 +236,14 @@ export default function PatternForm() {
 
   // 확대/축소 리셋
   const handleResetZoom = useCallback(() => {
-    setZoom(1);
+    setZoom(50);
     setPanX(0);
     setPanY(0);
   }, []);
 
   // 모달 확대/축소 리셋
   const handleModalResetZoom = useCallback(() => {
-    setModalZoom(1);
+    setModalZoom(50);
     setModalPanX(0);
     setModalPanY(0);
   }, []);
@@ -235,8 +252,8 @@ export default function PatternForm() {
   const handleOpenPreviewModal = useCallback(() => {
     if (hasPatternPreview) {
       setIsPreviewModalOpen(true);
-      // 모달 열 때 줌/팬 초기화
-      setModalZoom(1);
+      // 모달 열 때 줌/팬 초기화 (2000% = 20배)
+      setModalZoom(50);
       setModalPanX(0);
       setModalPanY(0);
     }
@@ -252,7 +269,7 @@ export default function PatternForm() {
     e.preventDefault();
     e.stopPropagation();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setModalZoom((prev) => Math.max(0.5, Math.min(10, prev * delta)));
+    setModalZoom((prev) => Math.max(0.5, Math.min(10000, prev * delta)));
   }, []);
 
   // 모달 팬(드래그) 핸들러
@@ -293,8 +310,8 @@ export default function PatternForm() {
 
     // 이미지 크기 적용: 입력 이미지 크기로 좌표계를 설정하고 캔버스에 비율 유지하여 맞춤
     // 이미지 크기가 입력되지 않은 경우, 패턴 크기를 계산해서 사용
-    let imgW = Number(form.imageSize.w);
-    let imgH = Number(form.imageSize.h);
+    let imgW = Number(form.imageSize.w) || 0;
+    let imgH = Number(form.imageSize.h) || 0;
     
     // 이미지 크기가 없으면 패턴 크기 기반으로 계산 (나중에 패턴 크기 계산 후 업데이트)
     const needsPatternSize = !imgW || !imgH;
@@ -357,36 +374,53 @@ export default function PatternForm() {
     const bSizeX = Number(form.channels.B.size.x);
     const bSizeY = Number(form.channels.B.size.y);
 
-    const hasR = Number.isFinite(rSizeX) && rSizeX > 0 && Number.isFinite(rSizeY) && rSizeY > 0;
-    const hasG = Number.isFinite(gSizeX) && gSizeX > 0 && Number.isFinite(gSizeY) && gSizeY > 0;
-    const hasB = Number.isFinite(bSizeX) && bSizeX > 0 && Number.isFinite(bSizeY) && bSizeY > 0;
+    // 크기와 개수가 모두 입력된 채널만 표시
+    const rCountX = Number(form.channels.R.count.x);
+    const rCountY = Number(form.channels.R.count.y);
+    const gCountX = Number(form.channels.G.count.x);
+    const gCountY = Number(form.channels.G.count.y);
+    const bCountX = Number(form.channels.B.count.x);
+    const bCountY = Number(form.channels.B.count.y);
 
-    const gapRGx = Number(form.gapRG.x) || 3;
+    const hasR = Number.isFinite(rSizeX) && rSizeX > 0 && 
+                 Number.isFinite(rSizeY) && rSizeY > 0 &&
+                 Number.isFinite(rCountX) && rCountX > 0 &&
+                 Number.isFinite(rCountY) && rCountY > 0;
+    const hasG = Number.isFinite(gSizeX) && gSizeX > 0 && 
+                 Number.isFinite(gSizeY) && gSizeY > 0 &&
+                 Number.isFinite(gCountX) && gCountX > 0 &&
+                 Number.isFinite(gCountY) && gCountY > 0;
+    const hasB = Number.isFinite(bSizeX) && bSizeX > 0 && 
+                 Number.isFinite(bSizeY) && bSizeY > 0 &&
+                 Number.isFinite(bCountX) && bCountX > 0 &&
+                 Number.isFinite(bCountY) && bCountY > 0;
+
+    const gapRGx = form.gapRG.x !== '' ? Number(form.gapRG.x) : 0;
     const gapRGy = form.gapRG.y !== '' ? Number(form.gapRG.y) : 0;
-    const gapGBx = Number(form.gapGB.x) || 3;
+    const gapGBx = form.gapGB.x !== '' ? Number(form.gapGB.x) : 0;
     const gapGBy = form.gapGB.y !== '' ? Number(form.gapGB.y) : 0;
 
-    const spacingR_X = Number(form.channels.R.spacing.x) || 6;
-    const spacingG_X = Number(form.channels.G.spacing.x) || 6;
-    const spacingB_X = Number(form.channels.B.spacing.x) || 6;
-    const spacingR_Y = Number(form.channels.R.spacing.y) || 6;
-    const spacingG_Y = Number(form.channels.G.spacing.y) || 6;
-    const spacingB_Y = Number(form.channels.B.spacing.y) || 6;
+    const spacingR_X = form.channels.R.spacing.x !== '' ? Number(form.channels.R.spacing.x) : 0;
+    const spacingG_X = form.channels.G.spacing.x !== '' ? Number(form.channels.G.spacing.x) : 0;
+    const spacingB_X = form.channels.B.spacing.x !== '' ? Number(form.channels.B.spacing.x) : 0;
+    const spacingR_Y = form.channels.R.spacing.y !== '' ? Number(form.channels.R.spacing.y) : 0;
+    const spacingG_Y = form.channels.G.spacing.y !== '' ? Number(form.channels.G.spacing.y) : 0;
+    const spacingB_Y = form.channels.B.spacing.y !== '' ? Number(form.channels.B.spacing.y) : 0;
 
     const rowGapY = Math.max(
-      Number(form.channels.R.spacing.y) || 6,
-      Number(form.channels.G.spacing.y) || 6,
-      Number(form.channels.B.spacing.y) || 6,
+      form.channels.R.spacing.y !== '' ? Number(form.channels.R.spacing.y) : 0,
+      form.channels.G.spacing.y !== '' ? Number(form.channels.G.spacing.y) : 0,
+      form.channels.B.spacing.y !== '' ? Number(form.channels.B.spacing.y) : 0,
     );
 
     // 표시할 채널 목록 구성 (입력된 채널만)
-    // 개수는 최소 1 이상이어야 함 (0이거나 입력되지 않으면 1로 처리)
-    const countR_X = Math.max(1, Number(form.channels.R.count.x) || 1);
-    const countR_Y = Math.max(1, Number(form.channels.R.count.y) || 1);
-    const countG_X = Math.max(1, Number(form.channels.G.count.x) || 1);
-    const countG_Y = Math.max(1, Number(form.channels.G.count.y) || 1);
-    const countB_X = Math.max(1, Number(form.channels.B.count.x) || 1);
-    const countB_Y = Math.max(1, Number(form.channels.B.count.y) || 1);
+    // 개수는 위에서 이미 선언됨
+    const countR_X = rCountX;
+    const countR_Y = rCountY;
+    const countG_X = gCountX;
+    const countG_Y = gCountY;
+    const countB_X = bCountX;
+    const countB_Y = bCountY;
 
     type Present = {
       key: 'R' | 'G' | 'B';
@@ -452,18 +486,20 @@ export default function PatternForm() {
     const gridWidth = gridCols * cellInnerWidth + Math.max(0, gridCols - 1) * interCellGapX;
     const gridHeight = gridRows * cellInnerHeight + Math.max(0, gridRows - 1) * interCellGapY;
     
-    // 이미지 크기가 없으면 패턴 크기 + 여백을 사용
+    // 이미지 크기가 없으면 패턴 크기를 사용
     if (needsPatternSize) {
-      const padding = 40; // 여백
-      imgW = gridWidth + padding * 2;
-      imgH = gridHeight + padding * 2;
+      imgW = gridWidth || cssWidth;
+      imgH = gridHeight || cssHeight;
     }
     
     const gridStartX = (imgW - gridWidth) / 2;
     const gridStartY = (imgH - gridHeight) / 2;
 
     // 스케일 계산 (이미지 크기 업데이트 후)
-    const baseScale = Math.min(cssWidth / imgW, viewH / imgH);
+    // 이미지 크기가 유효하지 않으면 기본 스케일 사용
+    const baseScale = (imgW > 0 && imgH > 0) 
+      ? Math.min(cssWidth / imgW, viewH / imgH)
+      : 1;
     const finalScale = baseScale * currentZoom;
     const offsetX = (cssWidth - imgW * finalScale) / 2 + currentPanX;
     const offsetY = (viewH - imgH * finalScale) / 2 + currentPanY;
@@ -529,6 +565,235 @@ export default function PatternForm() {
     }
     ctx.restore();
   }, [form]);
+
+  // 🔹 이미지 크기 자동 계산
+  useEffect(() => {
+    const rSizeX = Number(form.channels.R.size.x);
+    const rSizeY = Number(form.channels.R.size.y);
+    const gSizeX = Number(form.channels.G.size.x);
+    const gSizeY = Number(form.channels.G.size.y);
+    const bSizeX = Number(form.channels.B.size.x);
+    const bSizeY = Number(form.channels.B.size.y);
+
+    const rCountX = Number(form.channels.R.count.x);
+    const rCountY = Number(form.channels.R.count.y);
+    const gCountX = Number(form.channels.G.count.x);
+    const gCountY = Number(form.channels.G.count.y);
+    const bCountX = Number(form.channels.B.count.x);
+    const bCountY = Number(form.channels.B.count.y);
+
+    // 크기와 개수가 모두 입력된 채널만 포함
+    const hasR = Number.isFinite(rSizeX) && rSizeX > 0 && 
+                 Number.isFinite(rSizeY) && rSizeY > 0 &&
+                 Number.isFinite(rCountX) && rCountX > 0 &&
+                 Number.isFinite(rCountY) && rCountY > 0;
+    const hasG = Number.isFinite(gSizeX) && gSizeX > 0 && 
+                 Number.isFinite(gSizeY) && gSizeY > 0 &&
+                 Number.isFinite(gCountX) && gCountX > 0 &&
+                 Number.isFinite(gCountY) && gCountY > 0;
+    const hasB = Number.isFinite(bSizeX) && bSizeX > 0 && 
+                 Number.isFinite(bSizeY) && bSizeY > 0 &&
+                 Number.isFinite(bCountX) && bCountX > 0 &&
+                 Number.isFinite(bCountY) && bCountY > 0;
+
+    if (!hasR && !hasG && !hasB) return;
+
+    const gapRGx = form.gapRG.x !== '' ? Number(form.gapRG.x) : 0;
+    const gapRGy = form.gapRG.y !== '' ? Number(form.gapRG.y) : 0;
+    const gapGBx = form.gapGB.x !== '' ? Number(form.gapGB.x) : 0;
+    const gapGBy = form.gapGB.y !== '' ? Number(form.gapGB.y) : 0;
+
+    const spacingR_X = form.channels.R.spacing.x !== '' ? Number(form.channels.R.spacing.x) : 0;
+    const spacingG_X = form.channels.G.spacing.x !== '' ? Number(form.channels.G.spacing.x) : 0;
+    const spacingB_X = form.channels.B.spacing.x !== '' ? Number(form.channels.B.spacing.x) : 0;
+    const spacingR_Y = form.channels.R.spacing.y !== '' ? Number(form.channels.R.spacing.y) : 0;
+    const spacingG_Y = form.channels.G.spacing.y !== '' ? Number(form.channels.G.spacing.y) : 0;
+    const spacingB_Y = form.channels.B.spacing.y !== '' ? Number(form.channels.B.spacing.y) : 0;
+
+    const countR_X = rCountX;
+    const countR_Y = rCountY;
+    const countG_X = gCountX;
+    const countG_Y = gCountY;
+    const countB_X = bCountX;
+    const countB_Y = bCountY;
+
+    // 셀 내부 가로 폭 계산
+    let cellInnerWidth = 0;
+    if (hasR) cellInnerWidth += rSizeX;
+    if (hasR && hasG) cellInnerWidth += gapRGx;
+    if (hasG) cellInnerWidth += gSizeX;
+    if (hasR && !hasG && hasB) cellInnerWidth += (gapRGx + gapGBx);
+    if (hasG && hasB) cellInnerWidth += gapGBx;
+    if (hasB) cellInnerWidth += bSizeX;
+
+    // 셀 내부 세로 높이 계산
+    const rTop = 0;
+    const gTop = gapRGy;
+    const bTop = gapRGy + gapGBy;
+    const cellInnerHeight = Math.max(
+      hasR ? rTop + rSizeY : 0,
+      hasG ? gTop + gSizeY : 0,
+      hasB ? bTop + bSizeY : 0
+    );
+
+    const interCellGapX = Math.max(
+      hasR ? spacingR_X : 0,
+      hasG ? spacingG_X : 0,
+      hasB ? spacingB_X : 0
+    );
+    const interCellGapY = Math.max(
+      hasR ? spacingR_Y : 0,
+      hasG ? spacingG_Y : 0,
+      hasB ? spacingB_Y : 0
+    );
+
+    const gridCols = Math.max(
+      hasR ? countR_X : 0,
+      hasG ? countG_X : 0,
+      hasB ? countB_X : 0
+    );
+    const gridRows = Math.max(
+      hasR ? countR_Y : 0,
+      hasG ? countG_Y : 0,
+      hasB ? countB_Y : 0
+    );
+
+    const gridWidth = gridCols * cellInnerWidth + Math.max(0, gridCols - 1) * interCellGapX;
+    const gridHeight = gridRows * cellInnerHeight + Math.max(0, gridRows - 1) * interCellGapY;
+
+    // 패턴 크기만 계산 (padding 제외)
+    const calculatedW = gridWidth;
+    const calculatedH = gridHeight;
+
+    // 현재 값과 계산된 값을 숫자로 비교
+    const currentW = Number(form.imageSize.w) || 0;
+    const currentH = Number(form.imageSize.h) || 0;
+
+    // 값이 실제로 다를 때만 업데이트
+    if (Math.abs(currentW - calculatedW) > 0.1) {
+      setFormField('imageSize.w', calculatedW);
+    }
+    if (Math.abs(currentH - calculatedH) > 0.1) {
+      setFormField('imageSize.h', calculatedH);
+    }
+  }, [
+    form.channels.R.size.x,
+    form.channels.R.size.y,
+    form.channels.R.count.x,
+    form.channels.R.count.y,
+    form.channels.R.spacing.x,
+    form.channels.R.spacing.y,
+    form.channels.G.size.x,
+    form.channels.G.size.y,
+    form.channels.G.count.x,
+    form.channels.G.count.y,
+    form.channels.G.spacing.x,
+    form.channels.G.spacing.y,
+    form.channels.B.size.x,
+    form.channels.B.size.y,
+    form.channels.B.count.x,
+    form.channels.B.count.y,
+    form.channels.B.spacing.x,
+    form.channels.B.spacing.y,
+    form.gapRG.x,
+    form.gapRG.y,
+    form.gapGB.x,
+    form.gapGB.y,
+    setFormField
+  ]);
+
+  // 🔹 패턴 크기에 따른 초기 줌 자동 조정
+  useEffect(() => {
+    const rSizeX = Number(form.channels.R.size.x);
+    const rSizeY = Number(form.channels.R.size.y);
+    const gSizeX = Number(form.channels.G.size.x);
+    const gSizeY = Number(form.channels.G.size.y);
+    const bSizeX = Number(form.channels.B.size.x);
+    const bSizeY = Number(form.channels.B.size.y);
+
+    const rCountX = Number(form.channels.R.count.x);
+    const rCountY = Number(form.channels.R.count.y);
+    const gCountX = Number(form.channels.G.count.x);
+    const gCountY = Number(form.channels.G.count.y);
+    const bCountX = Number(form.channels.B.count.x);
+    const bCountY = Number(form.channels.B.count.y);
+
+    const hasR = Number.isFinite(rSizeX) && rSizeX > 0 && 
+                 Number.isFinite(rSizeY) && rSizeY > 0 &&
+                 Number.isFinite(rCountX) && rCountX > 0 &&
+                 Number.isFinite(rCountY) && rCountY > 0;
+    const hasG = Number.isFinite(gSizeX) && gSizeX > 0 && 
+                 Number.isFinite(gSizeY) && gSizeY > 0 &&
+                 Number.isFinite(gCountX) && gCountX > 0 &&
+                 Number.isFinite(gCountY) && gCountY > 0;
+    const hasB = Number.isFinite(bSizeX) && bSizeX > 0 && 
+                 Number.isFinite(bSizeY) && bSizeY > 0 &&
+                 Number.isFinite(bCountX) && bCountX > 0 &&
+                 Number.isFinite(bCountY) && bCountY > 0;
+
+    if (!hasR && !hasG && !hasB) return;
+
+    const gridCols = Math.max(
+      hasR ? rCountX : 0,
+      hasG ? gCountX : 0,
+      hasB ? bCountX : 0
+    );
+    const gridRows = Math.max(
+      hasR ? rCountY : 0,
+      hasG ? gCountY : 0,
+      hasB ? bCountY : 0
+    );
+
+    // 패턴 크기가 변경되었는지 확인
+    const prevSize = prevPatternSizeRef.current;
+    const sizeChanged = !prevSize || prevSize.cols !== gridCols || prevSize.rows !== gridRows;
+    
+    if (sizeChanged) {
+      prevPatternSizeRef.current = { cols: gridCols, rows: gridRows };
+      
+      // 패턴 개수에 따른 줌 레벨 계산 (최대값 기준)
+      const maxPatternSize = Math.max(gridCols, gridRows);
+      let targetZoom: number;
+      
+      if (maxPatternSize <= 10) {
+        // 10x10 이하: 100%
+        targetZoom = 0.8;
+      } else if (maxPatternSize <= 50) {
+        // 50x50 이하: 600%
+        targetZoom = 6;
+      } else if (maxPatternSize <= 100) {
+        // 100x100 이하: 1000%
+        targetZoom = 10;
+      } else if (maxPatternSize <= 200) {
+        // 200x200 이하: 2000%
+        targetZoom = 20;
+      } else if (maxPatternSize <= 300) {
+        // 300x300 이하: 3000%
+        targetZoom = 30;
+      } else {
+        // 400x400 이상: 5000%
+        targetZoom = 50;
+      }
+      
+      setZoom(targetZoom);
+      setPanX(0);
+      setPanY(0);
+    }
+  }, [
+    form.channels.R.size.x,
+    form.channels.R.size.y,
+    form.channels.R.count.x,
+    form.channels.R.count.y,
+    form.channels.G.size.x,
+    form.channels.G.size.y,
+    form.channels.G.count.x,
+    form.channels.G.count.y,
+    form.channels.B.size.x,
+    form.channels.B.size.y,
+    form.channels.B.count.x,
+    form.channels.B.count.y
+    // zoom은 의존성에서 제외하여 무한 루프 방지
+  ]);
 
   // 🔹 미리보기 캔버스 렌더러
   useEffect(() => {
@@ -675,7 +940,7 @@ export default function PatternForm() {
           {/* 헤더 라벨 (데스크톱 전용) */}
           <div className="hidden md:flex gap-11 text-sm font-semibold text-gray-700 mb-2">
             <div className="w-8"></div>
-            <div className="flex-1">이미지 크기</div>
+            <div className="flex-1">이미지 크기 <span className="text-xs font-normal text-gray-500">(* 자동 계산)</span></div>
             <div className="flex-1">R-G 간격</div>
             <div className="flex-1">G-B 간격</div>
           </div>
@@ -685,8 +950,8 @@ export default function PatternForm() {
 
             {/* 크기 */}
             <div className="flex-1 grid grid-cols-2 gap-2">
-              <CommonInput fixedPlaceholder="W" fixedPlaceholderPadding="sm" value={form.imageSize.w} onChange={onNumChange('imageSize.w')} />
-              <CommonInput fixedPlaceholder="H" fixedPlaceholderPadding="sm" value={form.imageSize.h} onChange={onNumChange('imageSize.h')} />
+              <CommonInput fixedPlaceholder="W" fixedPlaceholderPadding="sm" value={form.imageSize.w} onChange={onNumChange('imageSize.w')} disabled />
+              <CommonInput fixedPlaceholder="H" fixedPlaceholderPadding="sm" value={form.imageSize.h} onChange={onNumChange('imageSize.h')} disabled />
             </div>
 
             {/* R-G 간격 */}
@@ -774,7 +1039,7 @@ export default function PatternForm() {
                 <>
                   <div className="absolute top-2 right-2 flex flex-col gap-2">
                     <button
-                      onClick={() => setZoom((prev) => Math.min(10, prev + 0.1))}
+                      onClick={() => setZoom((prev) => Math.min(10000, prev + 0.1))}
                       className="bg-white/90 hover:bg-white text-gray-700 rounded px-2 py-1 text-sm font-semibold shadow cursor-pointer"
                       title="확대"
                     >
@@ -809,11 +1074,11 @@ export default function PatternForm() {
       <CommonModal
         isOpen={isPreviewModalOpen}
         onClose={handleClosePreviewModal}
-        className="max-w-[65vw] max-h-[65vh] w-[65vw] h-[65vh] px-6 py-3"
-        style={{ maxWidth: '65vw', maxHeight: '85vh', width: '65vw', height: '85vh' }}
+        className="max-w-[65vw] w-[65vw] px-0 py-0"
+        style={{ maxWidth: '65vw', width: '65vw' }}
       >
         <div className="flex flex-col h-full">
-          <div className="flex justify-between items-center mb-2">
+          <div className="flex justify-between items-center mb-1 py-2">
             <h3 className="text-xl font-semibold text-gray-800">패턴 미리보기</h3>
             <button
               onClick={handleClosePreviewModal}
@@ -822,7 +1087,7 @@ export default function PatternForm() {
               ×
             </button>
           </div>
-          <div className="relative flex-1 flex items-center bg-[#4B4B4B] rounded-lg shadow-inner overflow-hidden" style={{ minHeight: '500px' }}>
+          <div className="relative flex-1 flex items-center bg-[#4B4B4B] rounded-lg shadow-inner overflow-hidden">
             <div
               ref={modalPreviewContainerRef}
               className="w-full h-full cursor-grab active:cursor-grabbing"
@@ -838,7 +1103,7 @@ export default function PatternForm() {
               <>
                 <div className="absolute top-2 right-2 flex flex-col gap-2">
                   <button
-                    onClick={() => setModalZoom((prev) => Math.min(10, prev + 0.1))}
+                    onClick={() => setModalZoom((prev) => Math.min(10000, prev + 0.1))}
                     className="bg-white/90 hover:bg-white text-gray-700 rounded px-2 py-1 text-sm font-semibold shadow cursor-pointer"
                     title="확대"
                   >
