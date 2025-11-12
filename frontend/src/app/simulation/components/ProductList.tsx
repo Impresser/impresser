@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import ProductCard, { ProductInfo } from './ProductCard';
 import ProductQuantityModal from './ProductQuantityModal';
-import { products } from '../data/ProductionProducts';
+import { products } from '../data/productionProducts';
 
 interface ProductListProps {
   className?: string;

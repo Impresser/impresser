@@ -14,7 +14,7 @@ interface SelectedGoalListProps {
   goals: SelectedGoal[];
   onRemove?: (productId: string) => void;
   onEdit?: (product: ProductInfo) => void;
-  onConfirm?: () => void;
+  onConfirm?: (goals: SelectedGoal[]) => void;
   className?: string;
   emptyMessage?: string;
 }
@@ -92,7 +92,7 @@ export default function SelectedGoalList({
           <CommonButton
             variant="blue"
             className="px-4 py-2 text-sm"
-            onClick={onConfirm}
+            onClick={() => onConfirm?.(goals)}
             disabled={!goals.length}
           >
             확인
