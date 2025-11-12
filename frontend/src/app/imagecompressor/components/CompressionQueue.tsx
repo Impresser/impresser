@@ -297,8 +297,8 @@ export default function CompressionQueue({
             </tbody>
           }
         />
-
-        {/* 압축 버튼 (우측 정렬) */}
+      </CommonContainerBox>
+      {/* 압축 버튼 (우측 정렬) */}
         {queue.length > 0 && (
           <div className="flex justify-end mt-4">
             <Button 
@@ -310,7 +310,6 @@ export default function CompressionQueue({
             </Button>
           </div>
         )}
-      </CommonContainerBox>
     </div>
   );
 }
