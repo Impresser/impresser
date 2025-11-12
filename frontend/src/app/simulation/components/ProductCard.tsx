@@ -13,13 +13,31 @@ export interface ProductInfo {
   areaMm2: string;
 }
 
-interface ProductionProductCardProps {
+interface ProductCardProps {
   product: ProductInfo;
+  onSelect?: (product: ProductInfo) => void;
 }
 
-export default function ProductionProductCard({ product }: ProductionProductCardProps) {
+export default function ProductCard({ product, onSelect }: ProductCardProps) {
+  const handleSelect = () => {
+    onSelect?.(product);
+  };
+
+  const handleKeyDown: React.KeyboardEventHandler<HTMLDivElement> = (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleSelect();
+    }
+  };
+
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-transform duration-200 hover:scale-105">
+    <div
+      role={onSelect ? 'button' : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      onClick={handleSelect}
+      onKeyDown={handleKeyDown}
+      className={`flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-transform duration-200 hover:scale-105 ${onSelect ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400' : ''}`}
+    >
       <div className="aspect-video overflow-hidden rounded-lg bg-gray-100 flex items-center justify-center">
         <img
           src={product.imageUrl}
@@ -36,11 +54,11 @@ export default function ProductionProductCard({ product }: ProductionProductCard
           <dd className="font-medium text-gray-900">{product.modelName}</dd>
         </div>
         <div className="flex items-center justify-between">
-          <dt className="text-gray-500">대각선 (cm)</dt>
+          <dt className="text-gray-500">대각선(cm)</dt>
           <dd className="font-medium text-gray-900">{product.diagonalCm}</dd>
         </div>
         <div className="flex items-center justify-between">
-          <dt className="text-gray-500">대각선 (inch)</dt>
+          <dt className="text-gray-500">대각선(inch)</dt>
           <dd className="font-medium text-gray-900">{product.diagonalInch}</dd>
         </div>
         <div className="flex items-center justify-between">
@@ -55,7 +73,7 @@ export default function ProductionProductCard({ product }: ProductionProductCard
           <dt className="text-gray-500">세로(mm)</dt>
           <dd className="font-medium text-gray-900">{product.heightMm}</dd>
         </div>
-        <div className="flex items-center justify-between">
+        <div className="col-span-2 flex items-center justify-between">
           <dt className="text-gray-500">면적(mm²)</dt>
           <dd className="font-medium text-gray-900">{product.areaMm2}</dd>
         </div>
