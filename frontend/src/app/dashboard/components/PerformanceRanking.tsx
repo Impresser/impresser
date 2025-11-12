@@ -531,10 +531,10 @@ export default function EquipmentUsage() {
               </table>
 
               {/* 상세 카드 */}
-              <div className="flex gap-6 mt-4 items-center">
+              <div className="flex gap-15 mt-4 items-center">
                 {/* 좌: 간단 KPI */}
                 <div className="flex-1">
-                  <div className="flex items-center justify-center gap-4">
+                  <div className="flex items-center justify-end gap-4">
                     <div className="font-semibold">압축 성능</div>
                     {/* 평균 GPU 이용률: Recharts 원형 게이지 */}
                     <div className="w-[140px] flex flex-col items-center">
@@ -545,10 +545,10 @@ export default function EquipmentUsage() {
                       <div className="grid grid-cols-[160px_1fr] gap-y-2 gap-x-3">
                         <div className="text-gray-500">평균속도</div>
                         <div><PrettyNumber value={historyDetailData.avgSpeed} unit="MB/s" /></div>
-                        <div className="text-gray-500">최고속도</div>
-                        <div><PrettyNumber value={historyDetailData.maxSpeed} unit="MB/s" /></div>
-                        <div className="text-gray-500">최저속도</div>
-                        <div><PrettyNumber value={historyDetailData.minSpeed} unit="MB/s" /></div>
+                        <div className="text-gray-500">원본확장자</div>
+                        <div>{historyDetailData.sourceExtension}</div>
+                        <div className="text-gray-500">압축확장자</div>
+                        <div>{historyDetailData.compressedExtension}</div>
                       </div>
                     </div>
                   </div>
@@ -561,10 +561,6 @@ export default function EquipmentUsage() {
                     <div>{new Date(historyDetailData.requestAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</div>
                     <div className="text-gray-500">완료일시</div>
                     <div>{new Date(historyDetailData.completedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</div>
-                    <div className="text-gray-500">원본확장자</div>
-                    <div>{historyDetailData.sourceExtension}</div>
-                    <div className="text-gray-500">압축확장자</div>
-                    <div>{historyDetailData.compressedExtension}</div>
                   </div>
                 </div>
               </div>
