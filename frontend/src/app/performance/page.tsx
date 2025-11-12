@@ -749,7 +749,7 @@ export default function SimulationPage() {
           <div className="w-full max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-4 gap-6">
               <h1 className="text-lg font-bold text-gray-900 whitespace-nowrap">
-                전체 설비
+                설비 선택
               </h1>
               {error && (
                 <div className="text-sm text-red-600">
