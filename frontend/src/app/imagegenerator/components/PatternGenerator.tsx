@@ -31,29 +31,39 @@ export default function PatternForm() {
 
   // 패턴 미리보기가 실제로 표시되는지 확인
   const hasPatternPreview = React.useMemo(() => {
-    const hasAnyInput = (
-      form.gapRG.x !== '' || form.gapRG.y !== '' ||
-      form.gapGB.x !== '' || form.gapGB.y !== '' ||
-      form.channels.R.size.x !== '' || form.channels.R.size.y !== '' ||
-      form.channels.G.size.x !== '' || form.channels.G.size.y !== '' ||
-      form.channels.B.size.x !== '' || form.channels.B.size.y !== '' ||
-      form.channels.R.spacing.x !== '' || form.channels.R.spacing.y !== '' ||
-      form.channels.G.spacing.x !== '' || form.channels.G.spacing.y !== '' ||
-      form.channels.B.spacing.x !== '' || form.channels.B.spacing.y !== ''
-    );
-
-    if (!hasAnyInput) return false;
-
+    // 각 채널별로 크기(X,Y)와 개수(count X,Y)가 모두 유효해야 미리보기 활성화
     const rSizeX = Number(form.channels.R.size.x);
     const rSizeY = Number(form.channels.R.size.y);
+    const rCountX = Number(form.channels.R.count.x);
+    const rCountY = Number(form.channels.R.count.y);
+
     const gSizeX = Number(form.channels.G.size.x);
     const gSizeY = Number(form.channels.G.size.y);
+    const gCountX = Number(form.channels.G.count.x);
+    const gCountY = Number(form.channels.G.count.y);
+
     const bSizeX = Number(form.channels.B.size.x);
     const bSizeY = Number(form.channels.B.size.y);
+    const bCountX = Number(form.channels.B.count.x);
+    const bCountY = Number(form.channels.B.count.y);
 
-    const hasR = Number.isFinite(rSizeX) && rSizeX > 0 && Number.isFinite(rSizeY) && rSizeY > 0;
-    const hasG = Number.isFinite(gSizeX) && gSizeX > 0 && Number.isFinite(gSizeY) && gSizeY > 0;
-    const hasB = Number.isFinite(bSizeX) && bSizeX > 0 && Number.isFinite(bSizeY) && bSizeY > 0;
+    const hasR =
+      Number.isFinite(rSizeX) && rSizeX > 0 &&
+      Number.isFinite(rSizeY) && rSizeY > 0 &&
+      Number.isFinite(rCountX) && rCountX > 0 &&
+      Number.isFinite(rCountY) && rCountY > 0;
+
+    const hasG =
+      Number.isFinite(gSizeX) && gSizeX > 0 &&
+      Number.isFinite(gSizeY) && gSizeY > 0 &&
+      Number.isFinite(gCountX) && gCountX > 0 &&
+      Number.isFinite(gCountY) && gCountY > 0;
+
+    const hasB =
+      Number.isFinite(bSizeX) && bSizeX > 0 &&
+      Number.isFinite(bSizeY) && bSizeY > 0 &&
+      Number.isFinite(bCountX) && bCountX > 0 &&
+      Number.isFinite(bCountY) && bCountY > 0;
 
     return hasR || hasG || hasB;
   }, [form]);
@@ -161,7 +171,22 @@ export default function PatternForm() {
         setFormField(path, '');
         return;
       }
-      const num = Number(raw.replace(/[^0-9]/g, ''));
+      // R-G 간격, G-B 간격은 음수 허용
+      const isGapField = path.startsWith('gapRG.') || path.startsWith('gapGB.');
+      let cleaned: string;
+      if (isGapField) {
+        // 음수 허용: 숫자와 음수 기호만 허용
+        cleaned = raw.replace(/[^0-9-]/g, '');
+        // 음수 기호는 맨 앞에만 하나만 허용
+        if (cleaned.startsWith('-')) {
+          cleaned = '-' + cleaned.slice(1).replace(/-/g, '');
+        } else {
+          cleaned = cleaned.replace(/-/g, '');
+        }
+      } else {
+        cleaned = raw.replace(/[^0-9]/g, '');
+      }
+      const num = Number(cleaned);
       setFormField(path, Number.isNaN(num) ? '' : num);
     };
 
@@ -267,31 +292,55 @@ export default function PatternForm() {
     ctx.fillRect(0, 0, cssWidth, viewH);
 
     // 이미지 크기 적용: 입력 이미지 크기로 좌표계를 설정하고 캔버스에 비율 유지하여 맞춤
-    const imgW = Number(form.imageSize.w) || cssWidth;
-    const imgH = Number(form.imageSize.h) || cssHeight;
-    const baseScale = Math.min(cssWidth / imgW, viewH / imgH);
-    const finalScale = baseScale * currentZoom;
-    const offsetX = (cssWidth - imgW * finalScale) / 2 + currentPanX;
-    const offsetY = (viewH - imgH * finalScale) / 2 + currentPanY;
+    // 이미지 크기가 입력되지 않은 경우, 패턴 크기를 계산해서 사용
+    let imgW = Number(form.imageSize.w);
+    let imgH = Number(form.imageSize.h);
+    
+    // 이미지 크기가 없으면 패턴 크기 기반으로 계산 (나중에 패턴 크기 계산 후 업데이트)
+    const needsPatternSize = !imgW || !imgH;
 
-    // 입력 여부에 따라 미리보기 표시 결정
-    const hasAnyInput = (
-      form.gapRG.x !== '' || form.gapRG.y !== '' ||
-      form.gapGB.x !== '' || form.gapGB.y !== '' ||
-      form.channels.R.size.x !== '' || form.channels.R.size.y !== '' ||
-      form.channels.G.size.x !== '' || form.channels.G.size.y !== '' ||
-      form.channels.B.size.x !== '' || form.channels.B.size.y !== '' ||
-      form.channels.R.spacing.x !== '' || form.channels.R.spacing.y !== '' ||
-      form.channels.G.spacing.x !== '' || form.channels.G.spacing.y !== '' ||
-      form.channels.B.spacing.x !== '' || form.channels.B.spacing.y !== ''
-    );
+    // 입력 여부에 따라 미리보기 표시 결정: 채널별 크기와 개수가 있어야 함
+    const hasChannelWithSizeAndCount = ((): boolean => {
+      const rSizeX = Number(form.channels.R.size.x);
+      const rSizeY = Number(form.channels.R.size.y);
+      const rCountX = Number(form.channels.R.count.x);
+      const rCountY = Number(form.channels.R.count.y);
+      const gSizeX = Number(form.channels.G.size.x);
+      const gSizeY = Number(form.channels.G.size.y);
+      const gCountX = Number(form.channels.G.count.x);
+      const gCountY = Number(form.channels.G.count.y);
+      const bSizeX = Number(form.channels.B.size.x);
+      const bSizeY = Number(form.channels.B.size.y);
+      const bCountX = Number(form.channels.B.count.x);
+      const bCountY = Number(form.channels.B.count.y);
+      const hasR =
+        Number.isFinite(rSizeX) && rSizeX > 0 &&
+        Number.isFinite(rSizeY) && rSizeY > 0 &&
+        Number.isFinite(rCountX) && rCountX > 0 &&
+        Number.isFinite(rCountY) && rCountY > 0;
+      const hasG =
+        Number.isFinite(gSizeX) && gSizeX > 0 &&
+        Number.isFinite(gSizeY) && gSizeY > 0 &&
+        Number.isFinite(gCountX) && gCountX > 0 &&
+        Number.isFinite(gCountY) && gCountY > 0;
+      const hasB =
+        Number.isFinite(bSizeX) && bSizeX > 0 &&
+        Number.isFinite(bSizeY) && bSizeY > 0 &&
+        Number.isFinite(bCountX) && bCountX > 0 &&
+        Number.isFinite(bCountY) && bCountY > 0;
+      return hasR || hasG || hasB;
+    })();
 
-    if (!hasAnyInput) {
+    if (!hasChannelWithSizeAndCount) {
       ctx.fillStyle = '#9ca3af';
-      ctx.font = '14px sans-serif';
+      ctx.font = '13px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('값을 입력하면 미리보기가 표시됩니다', cssWidth / 2, viewH / 2);
+      const message1 = '채널 크기(X,Y)와 개수(가로/세로)를 입력하면';
+      const message2 = '미리보기가 표시됩니다';
+      const lineHeight = 18;
+      ctx.fillText(message1, cssWidth / 2, viewH / 2 - lineHeight / 2);
+      ctx.fillText(message2, cssWidth / 2, viewH / 2 + lineHeight / 2);
       return;
     }
 
@@ -363,29 +412,61 @@ export default function PatternForm() {
       return;
     }
 
-    // 각 채널의 유효(풋프린트) 폭/높이 계산
-    const chFootprints = present.map((ch) => {
-      const effW = ch.w * ch.countX + ch.spacingX * (ch.countX - 1);
-      const effH = ch.h * ch.countY + ch.spacingY * (ch.countY - 1);
-      return { key: ch.key, effW, effH };
-    });
+    // 격자 기반 렌더링을 위해 "셀" 개념을 사용
+    // 한 셀 내부에는 R → G → B 순서로 배치되며, RG/GB 간격을 사용
+    // 셀 폭/높이는 배치될 수 있는 채널들의 최대 조합으로 계산
+    const anyR = hasR;
+    const anyG = hasG;
+    const anyB = hasB;
 
-    // 행 높이: 표시 채널들의 최대 유효 높이
-    const rowH = chFootprints.reduce((m, fp) => Math.max(m, fp.effH), 0);
+    // 내부 배치 기준으로 셀 내부 가로 폭 산정
+    let cellInnerWidth = 0;
+    if (anyR) cellInnerWidth += rSizeX;
+    if (anyR && anyG) cellInnerWidth += gapRGx;
+    if (anyG) cellInnerWidth += gSizeX;
+    // R 바로 다음이 B인 경우(G 미존재) RG와 GB를 합산하여 사용
+    if (anyR && !anyG && anyB) cellInnerWidth += (gapRGx + gapGBx);
+    if (anyG && anyB) cellInnerWidth += gapGBx;
+    if (anyB) cellInnerWidth += bSizeX;
 
-    // 한 셀의 폭 계산: 채널 유효 폭 + 채널 간 간격 + 그룹 간 간격(spacing)
-    let internalGaps = 0;
-    for (let i = 1; i < present.length; i++) {
-      const prev = present[i - 1].key;
-      const curr = present[i].key;
-      if (prev === 'R' && curr === 'G') internalGaps += gapRGx;
-      else if (prev === 'G' && curr === 'B') internalGaps += gapGBx;
-      else internalGaps += gapRGx + gapGBx; // R-B 인접 시 두 간격 합산
+    // 셀 내부 세로 배치: R 위, G는 RG Y만큼 아래, B는 RG Y + GB Y만큼 아래
+    const rTop = 0;
+    const gTop = gapRGy;           // R이 없어도 슬롯 고정 규칙에 따라 이동량 유지
+    const bTop = gapRGy + gapGBy;  // G가 없어도 슬롯 고정 규칙에 따라 이동량 유지
+    // 셀 내부 세로 높이는 오프셋을 포함한 최대 하단값으로 계산
+    const cellInnerHeight = Math.max(
+      anyR ? rTop + rSizeY : 0,
+      anyG ? gTop + gSizeY : 0,
+      anyB ? bTop + bSizeY : 0
+    );
+
+    // 셀 간 간격(그룹 간 간격)은 채널별 spacing의 최댓값 사용
+    const interCellGapX = Math.max(spacingR_X, spacingG_X, spacingB_X);
+    const interCellGapY = Math.max(spacingR_Y, spacingG_Y, spacingB_Y);
+
+    // 격자 크기: 채널별 개수의 최댓값
+    const gridCols = Math.max(countR_X, countG_X, countB_X);
+    const gridRows = Math.max(countR_Y, countG_Y, countB_Y);
+
+    // 격자 전체 크기와 시작 위치(중앙 정렬)
+    const gridWidth = gridCols * cellInnerWidth + Math.max(0, gridCols - 1) * interCellGapX;
+    const gridHeight = gridRows * cellInnerHeight + Math.max(0, gridRows - 1) * interCellGapY;
+    
+    // 이미지 크기가 없으면 패턴 크기 + 여백을 사용
+    if (needsPatternSize) {
+      const padding = 40; // 여백
+      imgW = gridWidth + padding * 2;
+      imgH = gridHeight + padding * 2;
     }
-    const widthsSum = chFootprints.reduce((s, fp) => s + fp.effW, 0);
-    const lastKey = present[present.length - 1].key;
-    const groupGapX = lastKey === 'R' ? spacingR_X : lastKey === 'G' ? spacingG_X : spacingB_X;
-    const cellW = widthsSum + internalGaps + groupGapX;
+    
+    const gridStartX = (imgW - gridWidth) / 2;
+    const gridStartY = (imgH - gridHeight) / 2;
+
+    // 스케일 계산 (이미지 크기 업데이트 후)
+    const baseScale = Math.min(cssWidth / imgW, viewH / imgH);
+    const finalScale = baseScale * currentZoom;
+    const offsetX = (cssWidth - imgW * finalScale) / 2 + currentPanX;
+    const offsetY = (viewH - imgH * finalScale) / 2 + currentPanY;
 
     // 이미지 영역에 클립 후, 이미지 좌표계로 변환
     ctx.save();
@@ -404,46 +485,47 @@ export default function PatternForm() {
       ctx.fillRect(x, y, w, h);
     };
 
-    // 패턴 타일링: 화면 밖에서 시작해서 끝까지 채우기
-    let rowIndex = 0;
-    for (let y = -rowH; y <= imgH + rowH; y += rowH + rowGapY) {
-      const rowOffset = (rowIndex % 2) * (cellW / 2);
-      for (let x = -cellW - rowOffset; x <= imgW + cellW; x += cellW) {
-        let cursorX = x + rowOffset;
-        let cumulativeGapY = 0; // Y 방향 간격 누적
-        for (let i = 0; i < present.length; i++) {
-          const ch = present[i];
-          const fp = chFootprints[i];
-          // 이전 채널과의 X 방향 간격 적용
-          if (i > 0) {
-            const prev = present[i - 1].key;
-            if (prev === 'R' && ch.key === 'G') {
-              cursorX += gapRGx;
-              cumulativeGapY += gapRGy; // Y 방향 간격 누적
-            } else if (prev === 'G' && ch.key === 'B') {
-              cursorX += gapGBx;
-              cumulativeGapY += gapGBy; // Y 방향 간격 누적
-            } else {
-              cursorX += gapRGx + gapGBx;
-              cumulativeGapY += gapRGy + gapGBy; // Y 방향 간격 누적
-            }
+    // 격자 순회: 각 셀에 존재하는 채널만 R→G→B 순서로 배치하여 그리기
+    for (let row = 0; row < gridRows; row++) {
+      for (let col = 0; col < gridCols; col++) {
+        const cellX = gridStartX + col * (cellInnerWidth + interCellGapX);
+        const cellY = gridStartY + row * (cellInnerHeight + interCellGapY);
+
+        let cursorX = cellX;
+        // R/G/B 존재 여부(해당 셀)
+        const drawR = anyR && col < countR_X && row < countR_Y;
+        const drawG = anyG && col < countG_X && row < countG_Y;
+        const drawB = anyB && col < countB_X && row < countB_Y;
+
+        // 항상 R 슬롯 → RG 간격 → G 슬롯 → GB 간격 → B 슬롯 순서로 진행
+        if (anyR) {
+          if (drawR) {
+            const rY = cellY + rTop;
+            drawRect(cursorX, rY, rSizeX, rSizeY, `rgb(${r},0,0)`);
           }
-          // 수직 중앙 정렬을 위해 오프셋 계산 + Y 방향 간격 적용
-          const offsetY = y + (rowH - fp.effH) / 2 + cumulativeGapY;
-          // 내부 타일 반복 그리기
-          for (let yy = 0; yy < ch.countY; yy++) {
-            for (let xx = 0; xx < ch.countX; xx++) {
-              const drawX = cursorX + xx * (ch.w + ch.spacingX);
-              const drawY = offsetY + yy * (ch.h + ch.spacingY);
-              drawRect(drawX, drawY, ch.w, ch.h, ch.fill);
-            }
-          }
-          cursorX += fp.effW;
+          cursorX += rSizeX;
         }
-        // 마지막에는 그룹 간 간격만큼 띄움
-        cursorX += groupGapX;
+        if (anyR && anyG) {
+          cursorX += gapRGx;
+        }
+        if (anyG) {
+          if (drawG) {
+            const gY = cellY + gTop;
+            drawRect(cursorX, gY, gSizeX, gSizeY, `rgb(0,${g},0)`);
+          }
+          cursorX += gSizeX;
+        }
+        if (anyG && anyB) {
+          cursorX += gapGBx;
+        }
+        if (anyB) {
+          if (drawB) {
+            const bY = cellY + bTop;
+            drawRect(cursorX, bY, bSizeX, bSizeY, `rgb(0,0,${b})`);
+          }
+          cursorX += bSizeX;
+        }
       }
-      rowIndex += 1;
     }
     ctx.restore();
   }, [form]);
