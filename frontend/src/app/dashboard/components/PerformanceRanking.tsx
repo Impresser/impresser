@@ -40,6 +40,18 @@ function PrettyNumber({ value, unit }: { value: number | null | undefined; unit:
   return <span>{value.toLocaleString(undefined, { maximumFractionDigits: 1 })}{unit}</span>;
 }
 
+const formatTime = (seconds: number): string => {
+  if (!seconds && seconds !== 0) return '-';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
+};
+
 function RadialGauge({ percent, size = 120, color = "#5A73FF" }: { percent: number; size?: number; color?: string }) {
   const clamped = Math.max(0, Math.min(100, percent));
   const inner = Math.max(10, Math.floor(size / 2) - 28);
@@ -558,6 +570,10 @@ export default function EquipmentUsage() {
                       <div>{new Date(historyDetailData.requestAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</div>
                       <div className="text-gray-500">완료일시</div>
                       <div>{new Date(historyDetailData.completedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</div>
+                      <div className="text-gray-500">압축 소요시간 </div>
+                      <div>{formatTime(historyDetailData.compressionTime)}</div>
+                      <div className="text-gray-500">총 소요시간</div>
+                      <div>{formatTime(historyDetailData.elapsedTime)}</div>
                     </div>
                     </div>
                   </div>

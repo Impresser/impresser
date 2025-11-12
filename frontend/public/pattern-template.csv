@@ -2,9 +2,9 @@ image_width,image_height,,rg_gap_x,rg_gap_y,,gb_gap_x,gb_gap_y,,
 -,-,,10,10,,10,-10,,
 ,,,,,,,
 r_size_x,r_size_y,,r_count_x,r_count_y,,r_gap_x,r_gap_y
-50,50,,3,4,,5,6
+50,50,,3,4,,20,8
 g_size_x,g_size_y,,g_count_x,g_count_y,,g_gap_x,g_gap_y
-50,50,,3,4,,5,6
+50,50,,3,4,,20,8
 b_size_x,b_size_y,,b_count_x,b_count_y,,b_gap_x,b_gap_y
-50,50,,3,4,,5,6
+50,50,,3,4,,20,8
 

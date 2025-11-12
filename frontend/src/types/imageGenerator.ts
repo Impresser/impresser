@@ -21,8 +21,10 @@ export interface CreateBmpPatternRequest {
   blueSizeY: number;
   blueGapX: number;
   blueGapY: number;
-  rgGap: number;
-  gbGap: number;
+  rgGapX: number;
+  rgGapY: number;
+  gbGapX: number;
+  gbGapY: number;
 }
 
 // BMP 패턴 생성 API 응답 결과 타입
@@ -85,7 +87,9 @@ export interface BmpDetailResult {
   blueSizeY: number;
   blueGapX: number;
   blueGapY: number;
-  rgGap: number;
-  gbGap: number;
+  rgGapX: number;
+  rgGapY: number;
+  gbGapX: number;
+  gbGapY: number;
 }
 
