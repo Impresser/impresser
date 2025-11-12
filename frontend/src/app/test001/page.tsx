@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import ThreeIsometricMap from "../simulation/components/ThreeIsometricMap";
+import ThreeIsometricMap from "../performance/components/ThreeIsometricMap";
 
 export default function Test001Page() {
   return (

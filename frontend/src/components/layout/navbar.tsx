@@ -126,7 +126,7 @@ export default function Navbar({
   };
 
   return (
-    <div className="bg-white shadow-sm border-b border-gray-200 h-16 flex items-center justify-between px-6">
+    <div className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6">
       {/* 좌측 빈 공간 (사이드바와 균형 맞추기) */}
       <div className="flex-1"></div>
 

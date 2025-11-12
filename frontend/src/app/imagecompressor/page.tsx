@@ -9,9 +9,10 @@ import CompressionSettings from './components/CompressionSettings';
 import { FileInfo } from '@/types/imageCompressor';
 import CompressionQueue from './components/CompressionQueue';
 import CompressionHistory from './components/CompressionHistory';
+import { useAuthStore } from '@/store/authStore';
 
 export default function ImageCompressorPage() {
-  const userName = '홍길동'; // 로그인한 유저명
+  const userName = useAuthStore((state) => state.user?.userName ?? '사용자');
   const [selectedFiles, setSelectedFiles] = useState<FileInfo[]>([]);
   const [processingMethod, setProcessingMethod] = useState('cpu');
   const [algorithm, setAlgorithm] = useState('lzw');
@@ -278,7 +279,7 @@ export default function ImageCompressorPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Navigation Bar */}
-        <Navbar userName="홍길동" />
+        <Navbar />
         
         {/* Content */}
         <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden">
