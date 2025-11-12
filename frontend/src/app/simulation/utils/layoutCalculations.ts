@@ -75,6 +75,13 @@ interface SheetWorkingState extends MotherGlassSheetLayout {
   freeRects: FreeRect[];
 }
 
+type SheetSelection = {
+  motherGlass: MotherGlass;
+  sheet: MotherGlassSheetLayout;
+  usedCounts: Map<string, number>;
+  areaUsedPercent: number;
+};
+
 function createSheet(sheetIndex: number, motherGlass: MotherGlass): SheetWorkingState {
   return {
     sheetIndex,
@@ -235,11 +242,18 @@ function tryPlaceOnSheet(sheet: SheetWorkingState, orientations: OrientationCand
     return null;
   }
 
-  const placementRect = {
-    x: bestRect.x,
-    y: bestRect.y,
-    width: bestOrientation.width,
-    height: bestOrientation.height,
+  if (!bestRect || !bestOrientation) {
+    return null;
+  }
+
+  const resolvedRect = bestRect as FreeRect;
+  const resolvedOrientation = bestOrientation as OrientationCandidate;
+
+  const placementRect: FreeRect = {
+    x: resolvedRect.x,
+    y: resolvedRect.y,
+    width: resolvedOrientation.width,
+    height: resolvedOrientation.height,
   };
 
   const updatedFreeRects = splitFreeRectangles(sheet.freeRects, placementRect);
@@ -247,7 +261,7 @@ function tryPlaceOnSheet(sheet: SheetWorkingState, orientations: OrientationCand
   return {
     placement: {
       ...placementRect,
-      rotated: bestOrientation.rotated,
+      rotated: resolvedOrientation.rotated,
     },
     updatedFreeRects,
   };
@@ -455,14 +469,7 @@ export function computeOptimalMotherGlassPlan(
   let totalAreaUsedMm2 = 0;
 
   while (true) {
-    let bestChoice:
-      | {
-          motherGlass: MotherGlass;
-          sheet: MotherGlassSheetLayout;
-          usedCounts: Map<string, number>;
-          areaUsedPercent: number;
-        }
-      | null = null;
+    let bestChoice: SheetSelection | null = null;
 
     motherGlasses.forEach((motherGlass) => {
       const sheetResult = computeSingleMotherGlassSheet(motherGlass, remaining);
@@ -491,26 +498,28 @@ export function computeOptimalMotherGlassPlan(
       break;
     }
 
-    bestChoice.usedCounts.forEach((count, productId) => {
+    const choice = bestChoice as SheetSelection;
+
+    choice.usedCounts.forEach((count, productId) => {
       const entry = remaining.get(productId);
       if (entry) {
         entry.remaining = Math.max(0, entry.remaining - count);
       }
     });
 
-    const existing = motherGlassSheets.get(bestChoice.motherGlass.id) ?? {
-      motherGlass: bestChoice.motherGlass,
+    const existing = motherGlassSheets.get(choice.motherGlass.id) ?? {
+      motherGlass: choice.motherGlass,
       sheets: [],
     };
     const sheetIndex = existing.sheets.length + 1;
     existing.sheets.push({
       sheetIndex,
-      placements: bestChoice.sheet.placements.map((placement) => ({ ...placement })),
-      areaUsedMm2: bestChoice.sheet.areaUsedMm2,
+      placements: choice.sheet.placements.map((placement) => ({ ...placement })),
+      areaUsedMm2: choice.sheet.areaUsedMm2,
     });
-    motherGlassSheets.set(bestChoice.motherGlass.id, existing);
+    motherGlassSheets.set(choice.motherGlass.id, existing);
 
-    totalAreaUsedMm2 += bestChoice.sheet.areaUsedMm2;
+    totalAreaUsedMm2 += choice.sheet.areaUsedMm2;
   }
 
   const remainingUnplaced = Array.from(remaining.values()).reduce((sum, entry) => sum + entry.remaining, 0);
