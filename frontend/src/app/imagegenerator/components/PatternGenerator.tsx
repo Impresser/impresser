@@ -24,7 +24,7 @@ export default function PatternForm() {
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const modalCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const modalPreviewContainerRef = useRef<HTMLDivElement | null>(null);
-  const [modalZoom, setModalZoom] = useState(50);
+  const [modalZoom, setModalZoom] = useState(0.8);
   const [modalPanX, setModalPanX] = useState(0);
   const [modalPanY, setModalPanY] = useState(0);
   const [isModalPanning, setIsModalPanning] = useState(false);
@@ -243,21 +243,146 @@ export default function PatternForm() {
 
   // 모달 확대/축소 리셋
   const handleModalResetZoom = useCallback(() => {
-    setModalZoom(50);
+    // 패턴 크기에 따른 줌 계산
+    const rCountX = Number(form.channels.R.count.x);
+    const rCountY = Number(form.channels.R.count.y);
+    const gCountX = Number(form.channels.G.count.x);
+    const gCountY = Number(form.channels.G.count.y);
+    const bCountX = Number(form.channels.B.count.x);
+    const bCountY = Number(form.channels.B.count.y);
+
+    const rSizeX = Number(form.channels.R.size.x);
+    const rSizeY = Number(form.channels.R.size.y);
+    const gSizeX = Number(form.channels.G.size.x);
+    const gSizeY = Number(form.channels.G.size.y);
+    const bSizeX = Number(form.channels.B.size.x);
+    const bSizeY = Number(form.channels.B.size.y);
+
+    const hasR = Number.isFinite(rSizeX) && rSizeX > 0 && 
+                 Number.isFinite(rSizeY) && rSizeY > 0 &&
+                 Number.isFinite(rCountX) && rCountX > 0 &&
+                 Number.isFinite(rCountY) && rCountY > 0;
+    const hasG = Number.isFinite(gSizeX) && gSizeX > 0 && 
+                 Number.isFinite(gSizeY) && gSizeY > 0 &&
+                 Number.isFinite(gCountX) && gCountX > 0 &&
+                 Number.isFinite(gCountY) && gCountY > 0;
+    const hasB = Number.isFinite(bSizeX) && bSizeX > 0 && 
+                 Number.isFinite(bSizeY) && bSizeY > 0 &&
+                 Number.isFinite(bCountX) && bCountX > 0 &&
+                 Number.isFinite(bCountY) && bCountY > 0;
+
+    const gridCols = Math.max(
+      hasR ? rCountX : 0,
+      hasG ? gCountX : 0,
+      hasB ? bCountX : 0
+    );
+    const gridRows = Math.max(
+      hasR ? rCountY : 0,
+      hasG ? gCountY : 0,
+      hasB ? bCountY : 0
+    );
+
+    // 패턴 개수에 따른 줌 레벨 계산 (최대값 기준)
+    const maxPatternSize = Math.max(gridCols, gridRows);
+    let targetZoom: number;
+    
+    if (maxPatternSize <= 10) {
+      // 10x10 이하: 80%
+      targetZoom = 0.8;
+    } else if (maxPatternSize <= 50) {
+      // 50x50 이하: 600%
+      targetZoom = 6;
+    } else if (maxPatternSize <= 100) {
+      // 100x100 이하: 1000%
+      targetZoom = 10;
+    } else if (maxPatternSize <= 200) {
+      // 200x200 이하: 2000%
+      targetZoom = 20;
+    } else if (maxPatternSize <= 300) {
+      // 300x300 이하: 3000%
+      targetZoom = 30;
+    } else {
+      // 400x400 이상: 5000%
+      targetZoom = 50;
+    }
+
+    setModalZoom(targetZoom);
     setModalPanX(0);
     setModalPanY(0);
-  }, []);
+  }, [form]);
 
   // 모달 열기
   const handleOpenPreviewModal = useCallback(() => {
     if (hasPatternPreview) {
+      // 패턴 크기에 따른 줌 계산
+      const rCountX = Number(form.channels.R.count.x);
+      const rCountY = Number(form.channels.R.count.y);
+      const gCountX = Number(form.channels.G.count.x);
+      const gCountY = Number(form.channels.G.count.y);
+      const bCountX = Number(form.channels.B.count.x);
+      const bCountY = Number(form.channels.B.count.y);
+
+      const rSizeX = Number(form.channels.R.size.x);
+      const rSizeY = Number(form.channels.R.size.y);
+      const gSizeX = Number(form.channels.G.size.x);
+      const gSizeY = Number(form.channels.G.size.y);
+      const bSizeX = Number(form.channels.B.size.x);
+      const bSizeY = Number(form.channels.B.size.y);
+
+      const hasR = Number.isFinite(rSizeX) && rSizeX > 0 && 
+                   Number.isFinite(rSizeY) && rSizeY > 0 &&
+                   Number.isFinite(rCountX) && rCountX > 0 &&
+                   Number.isFinite(rCountY) && rCountY > 0;
+      const hasG = Number.isFinite(gSizeX) && gSizeX > 0 && 
+                   Number.isFinite(gSizeY) && gSizeY > 0 &&
+                   Number.isFinite(gCountX) && gCountX > 0 &&
+                   Number.isFinite(gCountY) && gCountY > 0;
+      const hasB = Number.isFinite(bSizeX) && bSizeX > 0 && 
+                   Number.isFinite(bSizeY) && bSizeY > 0 &&
+                   Number.isFinite(bCountX) && bCountX > 0 &&
+                   Number.isFinite(bCountY) && bCountY > 0;
+
+      const gridCols = Math.max(
+        hasR ? rCountX : 0,
+        hasG ? gCountX : 0,
+        hasB ? bCountX : 0
+      );
+      const gridRows = Math.max(
+        hasR ? rCountY : 0,
+        hasG ? gCountY : 0,
+        hasB ? bCountY : 0
+      );
+
+      // 패턴 개수에 따른 줌 레벨 계산 (최대값 기준)
+      const maxPatternSize = Math.max(gridCols, gridRows);
+      let targetZoom: number;
+      
+      if (maxPatternSize <= 10) {
+        // 10x10 이하: 80%
+        targetZoom = 0.8;
+      } else if (maxPatternSize <= 50) {
+        // 50x50 이하: 600%
+        targetZoom = 6;
+      } else if (maxPatternSize <= 100) {
+        // 100x100 이하: 1000%
+        targetZoom = 10;
+      } else if (maxPatternSize <= 200) {
+        // 200x200 이하: 2000%
+        targetZoom = 20;
+      } else if (maxPatternSize <= 300) {
+        // 300x300 이하: 3000%
+        targetZoom = 30;
+      } else {
+        // 400x400 이상: 5000%
+        targetZoom = 50;
+      }
+
       setIsPreviewModalOpen(true);
-      // 모달 열 때 줌/팬 초기화 (2000% = 20배)
-      setModalZoom(50);
+      setModalZoom(targetZoom);
       setModalPanX(0);
       setModalPanY(0);
     }
-  }, [hasPatternPreview]);
+  }, [hasPatternPreview, form]);
 
   // 모달 닫기
   const handleClosePreviewModal = useCallback(() => {

@@ -342,8 +342,8 @@ export default function CompressionHistory({
                                       <div className="py-6 text-center text-gray-500 text-sm">불러오는 중…</div>
                                     ) : detail ? (
                                       <>
-                                        {/* 상세 카드 - 5열 구성: [타이틀] [게이지] [속도] [시간] [확장자] */}
-                                        <div className="flex gap-5 mt-4 items-center justify-center">
+                                        {/* 상세 카드 - 5열 구성: [타이틀] [게이지] [속도/확장자] [시간] */}
+                                        <div className="flex gap-7 mt-4 items-center justify-center">
                                           {/* 맨맨 왼쪽: 타이틀 */}
                                           <div className="w-[60px] font-semibold text-gray-900">압축 성능</div>
 
@@ -358,10 +358,10 @@ export default function CompressionHistory({
                                             <div className="grid grid-cols-[120px_1fr] gap-y-2 gap-x-2">
                                               <div className="text-gray-500">평균속도</div>
                                               <div><PrettyNumber value={detail.avgSpeed} unit="MB/s" /></div>
-                                              <div className="text-gray-500">최고속도</div>
-                                              <div><PrettyNumber value={detail.maxSpeed} unit="MB/s" /></div>
-                                              <div className="text-gray-500">최저속도</div>
-                                              <div><PrettyNumber value={detail.minSpeed} unit="MB/s" /></div>
+                                              <div className="text-gray-500">원본확장자</div>
+                                              <div>{detail.sourceExtension}</div>
+                                              <div className="text-gray-500">압축확장자</div>
+                                              <div>{detail.compressedExtension}</div>
                                             </div>
                                           </div>
 
@@ -383,14 +383,6 @@ export default function CompressionHistory({
                                                 ? formatTime(Math.floor(detail.elapsedTime))
                                                 : '-'}
                                             </div>
-                                          </div>
-
-                                          {/* 오른쪽: 확장자 */}
-                                          <div className="w-[140px] grid grid-cols-[120px_1fr] gap-y-2 gap-x-2">
-                                            <div className="text-gray-500">원본확장자</div>
-                                            <div>{detail.sourceExtension}</div>
-                                            <div className="text-gray-500">압축확장자</div>
-                                            <div>{detail.compressedExtension}</div>
                                           </div>
                                         </div>
                                       </>
