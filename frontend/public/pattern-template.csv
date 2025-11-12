@@ -1,5 +1,5 @@
-image_width,image_height,,rg_gap,,gb_gap,,
-1000,1000,,10,,15,,
+image_width,image_height,,rg_gap_x,rg_gap_y,,gb_gap_x,gb_gap_y,,
+-,-,,10,10,,10,-10,,
 ,,,,,,,
 r_size_x,r_size_y,,r_count_x,r_count_y,,r_gap_x,r_gap_y
 50,50,,3,4,,5,6
