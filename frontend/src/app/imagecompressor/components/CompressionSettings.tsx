@@ -905,20 +905,18 @@ export default function CompressionSettings({
             </div>
           </div>
           )}
-
-          {!hideAddButton && (
-          <div className="flex justify-end">
+        </div>
+      </CommonContainerBox>
+      {!hideAddButton && selectedFiles.length > 0 && (
+          <div className="flex justify-end mt-4">
             <Button 
               onClick={onAddToQueue} 
-                variant={selectedFiles.length > 0 ? 'blue' : 'gray'}
-              disabled={selectedFiles.length === 0}
+              variant="blue"
             >
               대기열 추가
             </Button>
           </div>
           )}
-        </div>
-      </CommonContainerBox>
     </div>
   );
 }

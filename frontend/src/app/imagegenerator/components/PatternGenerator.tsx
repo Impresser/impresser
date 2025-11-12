@@ -212,7 +212,7 @@ export default function PatternForm() {
     e.preventDefault();
     e.stopPropagation();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom((prev) => Math.max(0.5, Math.min(10000, prev * delta)));
+    setZoom((prev) => Math.max(0.5, Math.min(100, prev * delta)));
   }, []);
 
   // 팬(드래그) 핸들러
@@ -394,7 +394,7 @@ export default function PatternForm() {
     e.preventDefault();
     e.stopPropagation();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setModalZoom((prev) => Math.max(0.5, Math.min(10000, prev * delta)));
+    setModalZoom((prev) => Math.max(0.5, Math.min(100, prev * delta)));
   }, []);
 
   // 모달 팬(드래그) 핸들러
@@ -1164,7 +1164,7 @@ export default function PatternForm() {
                 <>
                   <div className="absolute top-2 right-2 flex flex-col gap-2">
                     <button
-                      onClick={() => setZoom((prev) => Math.min(10000, prev + 0.1))}
+                      onClick={() => setZoom((prev) => Math.min(100, prev + 0.1))}
                       className="bg-white/90 hover:bg-white text-gray-700 rounded px-2 py-1 text-sm font-semibold shadow cursor-pointer"
                       title="확대"
                     >
@@ -1228,7 +1228,7 @@ export default function PatternForm() {
               <>
                 <div className="absolute top-2 right-2 flex flex-col gap-2">
                   <button
-                    onClick={() => setModalZoom((prev) => Math.min(10000, prev + 0.1))}
+                    onClick={() => setModalZoom((prev) => Math.min(100, prev + 0.1))}
                     className="bg-white/90 hover:bg-white text-gray-700 rounded px-2 py-1 text-sm font-semibold shadow cursor-pointer"
                     title="확대"
                   >
