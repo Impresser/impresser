@@ -809,11 +809,11 @@ export default function PatternForm() {
       <CommonModal
         isOpen={isPreviewModalOpen}
         onClose={handleClosePreviewModal}
-        className="max-w-[70vw] max-h-[80vh] w-[70vw] h-[80vh] p-6"
-        style={{ maxWidth: '70vw', maxHeight: '90vh', width: '70vw', height: '90vh' }}
+        className="max-w-[65vw] max-h-[65vh] w-[65vw] h-[65vh] px-6 py-3"
+        style={{ maxWidth: '65vw', maxHeight: '85vh', width: '65vw', height: '85vh' }}
       >
         <div className="flex flex-col h-full">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex justify-between items-center mb-2">
             <h3 className="text-xl font-semibold text-gray-800">패턴 미리보기</h3>
             <button
               onClick={handleClosePreviewModal}
@@ -822,7 +822,7 @@ export default function PatternForm() {
               ×
             </button>
           </div>
-          <div className="relative flex-1 bg-[#4B4B4B] rounded-lg shadow-inner overflow-hidden" style={{ minHeight: '500px' }}>
+          <div className="relative flex-1 flex items-center bg-[#4B4B4B] rounded-lg shadow-inner overflow-hidden" style={{ minHeight: '500px' }}>
             <div
               ref={modalPreviewContainerRef}
               className="w-full h-full cursor-grab active:cursor-grabbing"
