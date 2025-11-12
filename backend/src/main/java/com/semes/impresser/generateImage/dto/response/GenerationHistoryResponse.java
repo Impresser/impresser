@@ -33,8 +33,10 @@ public record GenerationHistoryResponse(
     int blueSizeY,
     int blueGapX,
     int blueGapY,
-    int rgGap,
-    int gbGap
+    int rgGapX,
+    int rgGapY,
+    int gbGapX,
+    int gbGapY
 ) {
 
     public static GenerationHistoryResponse toDto(
@@ -66,8 +68,10 @@ public record GenerationHistoryResponse(
             .blueSizeY(generationHistory.getBlueSizeY())
             .blueGapX(generationHistory.getBlueGapX())
             .blueGapY(generationHistory.getBlueGapY())
-            .rgGap(generationHistory.getRgGap())
-            .gbGap(generationHistory.getGbGap())
+            .rgGapX(generationHistory.getRgGapX())
+            .rgGapY(generationHistory.getRgGapY())
+            .gbGapX(generationHistory.getGbGapX())
+            .gbGapY(generationHistory.getGbGapY())
             .build();
     }
 }

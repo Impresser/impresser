@@ -1,22 +1,20 @@
 package com.semes.impresser.generateImage.service;
 
-import com.querydsl.core.types.Projections;
-import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.semes.impresser.common.exception.BusinessException;
 import com.semes.impresser.common.exception.ErrorCode;
 import com.semes.impresser.common.response.PageResponse;
 import com.semes.impresser.common.response.PaginationResponse;
+import com.semes.impresser.common.service.SseService;
 import com.semes.impresser.common.util.SecurityUtil;
+import com.semes.impresser.generateImage.dto.request.CompleteBmpGernerationRequest;
 import com.semes.impresser.generateImage.dto.request.CreateBmpImageRequest;
 import com.semes.impresser.generateImage.dto.response.AllGenerationHistoryResponse;
+import com.semes.impresser.generateImage.dto.response.CreateBmpImageAsyncResponse;
 import com.semes.impresser.generateImage.dto.response.CreateBmpImageResponse;
 import com.semes.impresser.generateImage.dto.response.GenerationHistoryResponse;
 import com.semes.impresser.generateImage.entity.GenerationHistory;
 import com.semes.impresser.generateImage.entity.GenerationStatus;
-import com.semes.impresser.generateImage.entity.QGenerationHistory;
 import com.semes.impresser.generateImage.repository.GenerationHistoryRepository;
-import com.semes.impresser.generateImage.repository.GenerationHistoryRepositoryCustom;
-import com.semes.impresser.user.entity.QUser;
 import com.semes.impresser.user.entity.User;
 import com.semes.impresser.user.repository.UserRepository;
 import java.time.LocalDateTime;
@@ -26,10 +24,10 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Repository;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 @Slf4j
@@ -40,6 +38,11 @@ public class GenerationHistoryServiceImpl implements GenerationHistoryService {
     private final UserRepository userRepository;
     private final GenerateImageWorker generateImageWorker;
     private final GenerationHistoryRepository generationHistoryRepository;
+    private final GenerateImageTransactionalService txService;
+    private final SseService sseService;
+
+    public static final String GENERATE_BMP_SUCCESS = "GENERATE_BMP_SUCCESS";
+    public static final String GENERATE_BMP_FAILED  = "GENERATE_BMP_FAILED";
 
     @Override
     public CreateBmpImageResponse createBmpImage(CreateBmpImageRequest createBmpImageRequest) {
@@ -64,7 +67,11 @@ public class GenerationHistoryServiceImpl implements GenerationHistoryService {
         CreateBmpImageResponse createBmpImageResponse = CreateBmpImageResponse.toDto(
             savedGeneratedHistory);
 
-        generateImageWorker.createBmpImageAsync(savedGeneratedHistory.getId(), userUuid);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String accessToken = (String) authentication.getCredentials();
+
+        generateImageWorker.createBmpImageAsync(savedGeneratedHistory.getId(), userUuid, accessToken);
+
         return createBmpImageResponse;
     }
 
@@ -123,4 +130,46 @@ public class GenerationHistoryServiceImpl implements GenerationHistoryService {
 
         return pageResponse;
     }
+
+    @Override
+    public void processGenerationCompletion(UUID generationUuid, CompleteBmpGernerationRequest completeBmpGernerationRequest) {
+        GenerationHistory history = generationHistoryRepository.findByUuid(generationUuid)
+            .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+
+        User user = history.getUser();
+        if (user == null) {
+            log.error("[BMP 콜백] 치명적 오류: historyId={}에 User 정보가 없습니다.", history.getId());
+            return;
+        }
+
+        UUID userUuid = user.getUuid();
+
+        try {
+            if (completeBmpGernerationRequest.isSuccess()) {
+                log.info("[BMP 콜백 성공] C++ 작업 성공. userUuid={}, historyId={}", userUuid, history.getId());
+
+                GenerationHistory completedHistory = txService.markCompleted(history.getId(), history.getBmpKey());
+
+                CreateBmpImageAsyncResponse createBmpImageAsyncResponse = CreateBmpImageAsyncResponse.success(
+                    completedHistory, completedHistory.getBmpKey());
+
+                sseService.sentToClient(userUuid, GENERATE_BMP_SUCCESS, createBmpImageAsyncResponse);
+
+            } else {
+                log.warn("[BMP 콜백 실패] C++ 작업 실패. userUuid={}, historyId={}, error={}",
+                    userUuid, history.getId(), completeBmpGernerationRequest.errorMessage());
+
+                GenerationHistory failedHistory = txService.markFailed(history.getId());
+
+                CreateBmpImageAsyncResponse createBmpImageAsyncResponse = CreateBmpImageAsyncResponse.failure(
+                    failedHistory, completeBmpGernerationRequest.errorMessage());
+
+                sseService.sentToClient(userUuid, GENERATE_BMP_FAILED, createBmpImageAsyncResponse);
+            }
+        } catch (Exception e) {
+            log.error("[BMP 콜백 처리 실패] DB/SSE 처리 중 예외 발생. userUuid={}", userUuid, e);
+            sseService.sentToClient(userUuid, GENERATE_BMP_FAILED, ErrorCode.SSE_GENERATION_FAILED);
+        }
+    }
 }
+

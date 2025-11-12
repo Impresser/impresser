@@ -1,9 +1,19 @@
 package com.semes.impresser.generateImage.service;
 
+import com.semes.impresser.common.client.ExternalApiClient;
+import com.semes.impresser.common.client.dto.request.GenerateImageApiRequest;
+import com.semes.impresser.common.client.dto.request.GenerateImageApiRequest.Auth;
+import com.semes.impresser.common.exception.BusinessException;
 import com.semes.impresser.common.exception.ErrorCode;
 import com.semes.impresser.common.service.SseService;
+import com.semes.impresser.common.util.S3Util;
 import com.semes.impresser.generateImage.dto.response.CreateBmpImageAsyncResponse;
 import com.semes.impresser.generateImage.entity.GenerationHistory;
+import com.semes.impresser.generateImage.repository.GenerationHistoryRepository;
+import com.semes.impresser.s3.dto.response.InitMultipartUploadResponse;
+import com.semes.impresser.s3.dto.response.PresignedUrlListResponse;
+import com.semes.impresser.s3.service.FilePresignedService;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,30 +28,56 @@ public class GenerateImageWorker {
     private final GenerateImageTransactionalService txService;
     private final SseService sseService;
 
-    private static final String SSE_EVENT_SUCCESS = "GENERATE_BMP_SUCCESS";
+    private final ExternalApiClient externalApiClient;
+    private final GenerationHistoryRepository generationHistoryRepository;
+    private final FilePresignedService filePresignedService;
+
+    private static final long S3_PART_SIZE = 20 * 1024 * 1024;
+
     private static final String SSE_EVENT_FAILED = "GENERATE_BMP_FAILED";
 
     @Async("imageGenerationExecutor")
-    public void createBmpImageAsync(Long generationHistoryId, UUID userUuid) {
+    public void createBmpImageAsync(Long generationHistoryId, UUID userUuid, String accessToken) {
         try {
             txService.markRunning(generationHistoryId);
-            //todo : 이미지 생성 로직 c++ 호출
 
-            //todo : test 용 추후 삭제 예정
-            Thread.sleep(3000);
-            String objectKey = "generated/" + generationHistoryId + ".bmp";
+            GenerationHistory generationHistory = generationHistoryRepository.findById(generationHistoryId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
-            GenerationHistory generationHistory = txService.markCompleted(generationHistoryId,
-                objectKey);
+            String bmpFileName = generationHistory.getUuid().toString() + ".bmp";
 
-            CreateBmpImageAsyncResponse createBmpImageAsyncResponse = CreateBmpImageAsyncResponse.success(
-                generationHistory, objectKey);
+            InitMultipartUploadResponse initMultipartUploadResponse = filePresignedService.initMultipartUpload(
+                "bmp", bmpFileName);
+            String uploadId = initMultipartUploadResponse.uploadId();
+            String objectName = initMultipartUploadResponse.objectName();
+            String bmpKey = S3Util.extractKeyFromUrl(initMultipartUploadResponse.imageUrl());
 
-            sseService.sentToClient(userUuid, SSE_EVENT_SUCCESS,
-                createBmpImageAsyncResponse);
+            txService.setBmpKey(generationHistoryId, bmpKey);
 
-            log.info("[BMP 생성 완료] userUuid={}, generationHistoryId={}, key={}",
-                userUuid, generationHistoryId, objectKey);
+            long volumeBytes = generationHistory.getBmpVolume();
+            int partCount = (int) Math.ceil((double) volumeBytes / S3_PART_SIZE);
+            if (partCount == 0) {
+                partCount = 1;
+            }
+
+            PresignedUrlListResponse presignedUrlListResponse = filePresignedService.createPartPresignedUrls(
+                objectName, uploadId, partCount);
+            List<String> partUploadUrls = presignedUrlListResponse.urls();
+
+            Auth auth = new Auth("Bearer", accessToken);
+
+            GenerateImageApiRequest apiRequest = GenerateImageApiRequest.from(
+                partUploadUrls,
+                uploadId,
+                objectName,
+                auth,
+                generationHistory
+            );
+
+            externalApiClient.requestGenerate(apiRequest);
+
+            log.info("[BMP 생성 요청] C++ API 호출 완료 (멀티파트 {}개), historyId={}", partCount,
+                generationHistoryId);
 
         } catch (Exception e) {
             log.error("[BMP 생성 실패] historyId={}, userUuid={}", generationHistoryId, userUuid, e);
