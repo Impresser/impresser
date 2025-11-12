@@ -54,6 +54,14 @@ export default function FacilityInfoSection({
             <div className="flex items-start justify-between gap-3">
               <h2 className="text-lg font-bold text-gray-900 break-words">{facility.name}</h2>
               <div className="flex flex-wrap items-center justify-end gap-2">
+                <CommonButton
+                  type="button"
+                  variant={isTaskSectionVisible ? 'gray' : 'blue'}
+                  className="px-4 py-2 text-sm"
+                  onClick={onToggleTaskSections}
+                >
+                  {isTaskSectionVisible ? '작업닫기' : '작업조회'}
+                </CommonButton>
                 <div
                   className="relative"
                   onMouseEnter={(event) => {
@@ -107,14 +115,6 @@ export default function FacilityInfoSection({
                     고장 또는 점검 설비는 성능 비교가 불가능합니다.
                   </div>
                 </div>
-                <CommonButton
-                  type="button"
-                  variant={isTaskSectionVisible ? 'gray' : 'blue'}
-                  className="px-4 py-2 text-sm"
-                  onClick={onToggleTaskSections}
-                >
-                  {isTaskSectionVisible ? '작업닫기' : '작업조회'}
-                </CommonButton>
                 {isAdmin && (
                   <>
                     <CommonButton onClick={onOpenEditModal} variant="blue" className="px-5 py-2 text-sm">
