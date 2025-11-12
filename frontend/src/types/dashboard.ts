@@ -79,6 +79,8 @@ export interface ConvertHistoryDetailResult {
   completedAt: string;
   sourceExtension: string;
   compressedExtension: string;
+  compressionTime: number;
+  elapsedTime: number;
 }
 
 // 설비 이용 시간 API 응답 타입

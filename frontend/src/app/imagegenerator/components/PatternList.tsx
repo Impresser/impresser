@@ -11,8 +11,8 @@ import CommonTableFrame from '@/components/ui/CommonTableFrame';
 // CSV 내보내기 함수
 const exportToCSV = (data: BmpDetailResult) => {
   const csvRows = [
-    'image_width,image_height,,rg_gap_w,,gb_gap_w',
-    `${data.bmpWidth},${data.bmpHeight},,${data.rgGap},,${data.gbGap}`,
+    'image_width,image_height,,rg_gap_x,rg_gap_y,,gb_gap_x,gb_gap_y',
+    `${data.bmpWidth},${data.bmpHeight},,${data.rgGapX},${data.rgGapY},,${data.gbGapX},${data.gbGapY}`,
     ',,,,,,,',
     'r_size_x,r_size_y,,r_count_x,r_count_y,,r_gap_x,r_gap_y',
     `${data.redSizeX},${data.redSizeY},,${data.redCountX},${data.redCountY},,${data.redGapX},${data.redGapY}`,
@@ -360,10 +360,10 @@ export default function PatternTable() {
                                                 W {detailData.bmpWidth} × H {detailData.bmpHeight}
                                               </td>
                                               <td className="py-2 px-3 text-center text-gray-600">
-                                                W {detailData.rgGap}
+                                                X {detailData.rgGapX} × Y {detailData.rgGapY}
                                               </td>
                                               <td className="py-2 px-3 text-center text-gray-600">
-                                                W {detailData.gbGap}
+                                                X {detailData.gbGapX} × Y {detailData.gbGapY}
                                               </td>
                                             </tr>
                                             <tr className="border-b border-gray-200">
@@ -580,10 +580,10 @@ export default function PatternTable() {
                                       W: {detailData.bmpWidth} × H: {detailData.bmpHeight}
                                     </td>
                                     <td className="py-2 px-3 text-center text-gray-600">
-                                      W: {detailData.rgGap}
+                                      X: {detailData.rgGapX} × Y: {detailData.rgGapY}
                                     </td>
                                     <td className="py-2 px-3 text-center text-gray-600">
-                                      W: {detailData.gbGap}
+                                      X: {detailData.gbGapX} × Y: {detailData.gbGapY}
                                     </td>
                                   </tr>
                                   <tr className="border-b border-gray-200">
