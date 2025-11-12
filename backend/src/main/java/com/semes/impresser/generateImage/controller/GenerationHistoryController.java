@@ -2,12 +2,12 @@ package com.semes.impresser.generateImage.controller;
 
 import com.semes.impresser.common.response.BaseResponse;
 import com.semes.impresser.common.response.PageResponse;
+import com.semes.impresser.generateImage.dto.request.CompleteBmpGernerationRequest;
 import com.semes.impresser.generateImage.dto.request.CreateBmpImageRequest;
 import com.semes.impresser.generateImage.dto.response.AllGenerationHistoryResponse;
 import com.semes.impresser.generateImage.dto.response.CreateBmpImageResponse;
 import com.semes.impresser.generateImage.dto.response.GenerationHistoryResponse;
 import com.semes.impresser.generateImage.service.GenerationHistoryService;
-import com.semes.impresser.inkjet.dto.response.AllInkjetResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -60,4 +60,11 @@ public class GenerationHistoryController {
         return BaseResponse.onSuccess(pageResponse);
     }
 
+    @PostMapping("/{generationUuid}/complete")
+    public void completeBmpGeneration(
+        @PathVariable UUID generationUuid,
+        @RequestBody CompleteBmpGernerationRequest completeBmpGernerationRequest
+    ) {
+        generationHistoryService.processGenerationCompletion(generationUuid, completeBmpGernerationRequest);
+    }
 }

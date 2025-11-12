@@ -72,10 +72,16 @@ public record CreateBmpImageRequest(
     int blueGapY,
 
     @NotNull
-    int rgGap,
+    int rgGapX,
 
     @NotNull
-    int gbGap
+    int rgGapY,
+
+    @NotNull
+    int gbGapX,
+
+    @NotNull
+    int gbGapY
 
 ) {
 
@@ -103,8 +109,10 @@ public record CreateBmpImageRequest(
             .blueSizeY(blueSizeY)
             .blueGapX(blueGapX)
             .blueGapY(blueGapY)
-            .rgGap(rgGap)
-            .gbGap(gbGap)
+            .rgGapX(rgGapX)
+            .rgGapY(rgGapY)
+            .gbGapX(gbGapX)
+            .gbGapY(gbGapY)
             .status(GenerationStatus.PENDING)
             .user(user)
             .build();

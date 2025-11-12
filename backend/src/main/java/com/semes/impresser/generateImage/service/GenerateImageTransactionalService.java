@@ -16,6 +16,14 @@ public class GenerateImageTransactionalService {
     private final GenerationHistoryRepository generationHistoryRepository;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void setBmpKey(Long generationHistoryId, String bmpKey) {
+        GenerationHistory generationHistory = generationHistoryRepository.findById(
+            generationHistoryId).orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+
+        generationHistory.updateBmpKey(bmpKey);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markRunning(Long generationHistoryId) {
         GenerationHistory generationHistory = generationHistoryRepository.findById(
             generationHistoryId).orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));

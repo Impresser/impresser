@@ -1,7 +1,9 @@
 package com.semes.impresser.common.client;
 
 import com.semes.impresser.common.client.dto.request.ConvertImageRequest;
+import com.semes.impresser.common.client.dto.request.GenerateImageApiRequest;
 import com.semes.impresser.common.client.dto.response.ConvertImageResponse;
+import com.semes.impresser.common.client.dto.response.GenerateImageApiResponse;
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
@@ -28,5 +30,20 @@ public class ExternalApiClient {
             .body(ConvertImageResponse.class);
 
         return convertImageResponse;
+    }
+
+    public GenerateImageApiResponse requestGenerate(GenerateImageApiRequest generateImageRequest) {
+
+        System.out.println(generateImageRequest);
+        GenerateImageApiResponse response = rest.post()
+            .uri("/generate")
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(generateImageRequest)
+            .retrieve()
+            .onStatus(HttpStatusCode::isError, (r, res) ->
+                new ResponseStatusException(res.getStatusCode(), "API 호출 실패"))
+            .body(GenerateImageApiResponse.class);
+
+        return response;
     }
 }

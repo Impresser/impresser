@@ -104,11 +104,17 @@ public class GenerationHistory extends BaseEntity {
     @Column(name = "blue_gap_y", nullable = false)
     private int blueGapY;
 
-    @Column(name = "rg_gap", nullable = false)
-    private int rgGap;
+    @Column(name = "rg_gap_x", nullable = false)
+    private int rgGapX;
 
-    @Column(name = "gb_gap", nullable = false)
-    private int gbGap;
+    @Column(name = "rg_gap_y", nullable = false)
+    private int rgGapY;
+
+    @Column(name = "gb_gap_x", nullable = false)
+    private int gbGapX;
+
+    @Column(name = "gb_gap_y", nullable = false)
+    private int gbGapY;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
