@@ -1,6 +1,7 @@
 package com.semes.impresser.dashboard.dto.response;
 
 import com.semes.impresser.convertImage.entity.ConvertHistory;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Builder;
 
@@ -13,7 +14,9 @@ public record ConvertHistoryDetailResponse(
     LocalDateTime requestAt,
     LocalDateTime completedAt,
     String sourceExtension,
-    String compressedExtension
+    String compressedExtension,
+    BigDecimal compressionTime,
+    Long elapsedTime
 ) {
 
     public static ConvertHistoryDetailResponse toDto(ConvertHistory history, Long elapsedTime) {
@@ -26,6 +29,8 @@ public record ConvertHistoryDetailResponse(
             .completedAt(history.getCompletedAt())
             .sourceExtension("BMP")
             .compressedExtension("TIFF")
+            .compressionTime(history.getCompressionTime())
+            .elapsedTime(elapsedTime)
             .build();
     }
 }
