@@ -39,11 +39,8 @@ export default function SimulationPage() {
   const [totalAvailablePrinters, setTotalAvailablePrinters] = useState<number>(0);
   const [printersLoading, setPrintersLoading] = useState<boolean>(false);
   const [printersError, setPrintersError] = useState<string | null>(null);
-<<<<<<< HEAD
   const [isSimulationRunning, setIsSimulationRunning] = useState<boolean>(false);
   const [hasAttemptedSimulation, setHasAttemptedSimulation] = useState<boolean>(false);
-=======
->>>>>>> 7088524ed9d08de8fafabb8d47269429e8e52c9b
   const [operationalPrinters, setOperationalPrinters] = useState<Record<GenerationLabel, InkjetPrinter[]>>(() => {
     return GENERATION_CONFIG.reduce((acc, config) => {
       acc[config.label as GenerationLabel] = [];
@@ -262,27 +259,10 @@ export default function SimulationPage() {
           assignedSheets,
         };
       });
-<<<<<<< HEAD
-=======
-
-      const status = available === 0
-        ? '설비 없음'
-        : sheetCount === 0
-          ? '배치 없음'
-          : assignments.every((assignment) => assignment.assignedSheets === 0)
-            ? '대기'
-            : '배정 완료';
-
->>>>>>> 7088524ed9d08de8fafabb8d47269429e8e52c9b
       return {
         motherGlassName: entry.motherGlassName,
         sheetCount,
         assignments,
-<<<<<<< HEAD
-=======
-        status,
-        shortage: available === 0,
->>>>>>> 7088524ed9d08de8fafabb8d47269429e8e52c9b
       };
     });
   }, [overallGenerationSummary, generationStats, operationalPrinters]);
