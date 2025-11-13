@@ -8,6 +8,10 @@ import ProductList from './components/ProductList';
 import SelectedGoalList, { SelectedGoal } from './components/SelectedGoalList';
 import ConfirmedGoalTable from './components/ConfirmedGoalTable';
 import MotherGlassLayoutPreview from './components/MotherGlassLayoutPreview';
+import OverallProductionSummary from './components/OverallProductionSummary';
+import PrintSimulationPlan from './components/PrintSimulationPlan';
+import InkConsumptionSummary from './components/InkConsumptionSummary';
+import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import MotherGlassInfoList from './components/MotherGlassInfoList';
 import { products } from './data/productionProducts';
 import { motherGlasses } from './data/motherGlasses';
@@ -35,6 +39,12 @@ export default function SimulationPage() {
   const [totalAvailablePrinters, setTotalAvailablePrinters] = useState<number>(0);
   const [printersLoading, setPrintersLoading] = useState<boolean>(false);
   const [printersError, setPrintersError] = useState<string | null>(null);
+  const [operationalPrinters, setOperationalPrinters] = useState<Record<GenerationLabel, InkjetPrinter[]>>(() => {
+    return GENERATION_CONFIG.reduce((acc, config) => {
+      acc[config.label as GenerationLabel] = [];
+      return acc;
+    }, {} as Record<GenerationLabel, InkjetPrinter[]>);
+  });
 
   const productMap = useMemo(() => {
     return new Map(products.map((product) => [product.id, product]));
@@ -74,6 +84,10 @@ export default function SimulationPage() {
         }
 
         const nextStats = createInitialGenerationStats();
+        const nextOperationalPrinters = GENERATION_CONFIG.reduce((acc, config) => {
+          acc[config.label as GenerationLabel] = [];
+          return acc;
+        }, {} as Record<GenerationLabel, InkjetPrinter[]>);
 
         aggregatedPrinters.forEach((printer) => {
           const generationLabel = resolveGenerationLabel(printer.modelName);
@@ -91,6 +105,7 @@ export default function SimulationPage() {
           generation.byStatus[printerStatus] += 1;
           if (printerStatus === 'OPERATIONAL') {
             generation.available += 1;
+            nextOperationalPrinters[generationLabel].push(printer);
           }
         });
 
@@ -101,6 +116,7 @@ export default function SimulationPage() {
 
         setGenerationStats(nextStats);
         setTotalAvailablePrinters(totalAvailable);
+        setOperationalPrinters(nextOperationalPrinters);
       } catch (error) {
         if (isMounted) {
           setPrintersError(
@@ -216,6 +232,50 @@ export default function SimulationPage() {
     });
   }, [optimizationResult]);
 
+  const printSimulationPlan = useMemo(() => {
+    return overallGenerationSummary.map((entry) => {
+      const stats = generationStats[entry.motherGlassName as GenerationLabel];
+      const printersForGeneration = operationalPrinters[entry.motherGlassName as GenerationLabel] ?? [];
+      const available = printersForGeneration.length;
+      const sheetCount = entry.sheetCount;
+      const assignments = printersForGeneration.map((printer, index) => {
+        if (available === 0) {
+          return {
+            printerUuid: printer.inkjetUuid,
+            printerName: printer.printerName,
+            modelName: printer.modelName,
+            assignedSheets: 0,
+          };
+        }
+        const base = Math.floor(sheetCount / available);
+        const remainder = sheetCount % available;
+        const assignedSheets = sheetCount === 0 ? 0 : base + (index < remainder ? 1 : 0);
+        return {
+          printerUuid: printer.inkjetUuid,
+          printerName: printer.printerName,
+          modelName: printer.modelName,
+          assignedSheets,
+        };
+      });
+
+      const status = available === 0
+        ? '설비 없음'
+        : sheetCount === 0
+          ? '배치 없음'
+          : assignments.every((assignment) => assignment.assignedSheets === 0)
+            ? '대기'
+            : '배정 완료';
+
+      return {
+        motherGlassName: entry.motherGlassName,
+        sheetCount,
+        assignments,
+        status,
+        shortage: available === 0,
+      };
+    });
+  }, [overallGenerationSummary, generationStats, operationalPrinters]);
+
   const runOptimization = useCallback((goals: SelectedGoal[]) => {
     if (goals.length === 0) {
       setOptimizationResult(null);
@@ -271,6 +331,8 @@ export default function SimulationPage() {
                 <h2 className="text-xl font-semibold text-gray-900">생산 계획 설계</h2>
               </div>
 
+              <ConfirmedGoalTable goals={confirmedGoals} />
+
               <MotherGlassInfoList
                 motherGlasses={motherGlasses}
                 generationStats={generationStats}
@@ -278,8 +340,6 @@ export default function SimulationPage() {
                 loading={printersLoading}
                 error={printersError}
               />
-
-              <ConfirmedGoalTable goals={confirmedGoals} />
 
               <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
                 모든 원장 조합을 고려하여 최적 면취 효율을 계산합니다. 목표 수량을 확정하면 최적 배치가 자동 산출됩니다.
@@ -294,9 +354,15 @@ export default function SimulationPage() {
                     <MotherGlassLayoutPreview
                       key={`${result.motherGlass.id}-${index}`}
                       layoutResult={result}
-                      overallSummary={index === 0 ? overallGenerationSummary : undefined}
                     />
                   ))}
+
+                  <div className="space-y-4 pt-4">
+                    <h2 className="text-xl font-semibold text-gray-900">생산 시뮬레이션</h2>
+                    <OverallProductionSummary summary={overallGenerationSummary} />
+                    <PrintSimulationPlan plan={printSimulationPlan} />
+                    <InkConsumptionSummary plan={printSimulationPlan} />
+                  </div>
                 </div>
               ) : confirmedGoals.length > 0 ? (
                 availableMotherGlasses.length === 0 ? (

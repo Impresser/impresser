@@ -237,16 +237,18 @@ export default function Sidebar() {
       {/* 브랜드 로고 및 이름 */}
       <Link href="/dashboard" className="flex items-center h-16 px-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors">
         <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-[#0059FF] rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">I</span>
-          </div>
-          <span 
-            className={`text-[#0059FF] font-bold text-lg whitespace-nowrap transition-all duration-300 ${
+          <img
+            src="/images/logos/impresser_logo_icon01.png"
+            alt="Impresser Brand Icon"
+            className="w-8 h-8 object-contain"
+          />
+          <img
+            src="/images/logos/impresser_logo_text01.png"
+            alt="Impresser"
+            className={`h-6 object-contain transition-all duration-300 ${
               isExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'
             }`}
-          >
-            Impresser
-          </span>
+          />
         </div>
       </Link>
 

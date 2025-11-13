@@ -138,15 +138,14 @@ export default function MotherGlassInfoList({
                       </div>
 
                       <div
-                        className={`mt-3 rounded-lg px-3 py-2 text-sm font-semibold ${availabilityHighlightClass}`}
+                        className={`mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-semibold text-right ${availabilityHighlightClass}`}
                       >
                         사용 가능: {stats.available.toLocaleString()}대
-                        {!isAvailable && <span className="ml-1 font-normal">(미가용)</span>}
+                        {!isAvailable && <span className="ml-1 font-normal">(사용불가)</span>}
                       </div>
 
                       {motherGlassMap[config.label] && maxWidthMm > 0 && (
                         <div className="mt-4">
-                          <div className="text-sm font-semibold text-gray-600">원장 규격</div>
                           <div className="mt-2 flex justify-center">
                             {(() => {
                               const motherGlass = motherGlassMap[config.label];
@@ -167,8 +166,8 @@ export default function MotherGlassInfoList({
                                       height: `${previewHeight}px`,
                                     }}
                                   >
-                                    <span className="text-xs font-semibold text-gray-700">{motherGlass.generationName}</span>
-                                    <span className="text-[11px] text-gray-500 leading-tight">
+                                    <span className="text-sm font-semibold text-gray-700">{motherGlass.generationName}</span>
+                                    <span className="text-xs text-gray-500 leading-tight">
                                       {motherGlass.widthMm.toLocaleString()}mm × {motherGlass.heightMm.toLocaleString()}mm
                                     </span>
                                   </div>
