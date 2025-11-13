@@ -381,9 +381,9 @@ export default function CompressionSettings({
     <div>
       {!hideTitle && <h1 className="text-lg font-bold text-gray-900 mb-4">압축이미지</h1>}
 
-      <CommonContainerBox>
-        <div className="space-y-6">
-          {/* 파일 선택 영역 */}
+      <div className="grid grid-cols-[3fr_1fr] gap-6">
+        {/* 왼쪽: 파일 선택 영역 */}
+        <CommonContainerBox>
           <div>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900">파일선택</h3>
@@ -436,13 +436,12 @@ export default function CompressionSettings({
                     header={
                       <thead className="bg-gray-50">
                         <tr className="text-gray-700">
-                          <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-8"></th>
-                          <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">파일명</th>
-                          <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">크기</th>
-                          <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">용량</th>
-                          <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">포맷</th>
-                          <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">업로드 상태</th>
-                          <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">작업</th>
+                          <th className="text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
+                          <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">크기</th>
+                          <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
+                          <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">포맷</th>
+                          <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">업로드 상태</th>
+                          <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
                         </tr>
                       </thead>
                     }
@@ -517,31 +516,14 @@ export default function CompressionSettings({
                                 dragOverIndex === index ? 'bg-blue-50 border-blue-300' : ''
                               }`}
                             >
-                              <td className="py-3 px-3">
-                                {selectedFiles.length > 1 && (
-                                  <svg
-                                    className="w-4 h-4 text-gray-400"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth="2"
-                                      d="M4 8h16M4 16h16"
-                                    />
-                                  </svg>
-                                )}
-                              </td>
                               <td className="py-3 px-3">{file.name}</td>
-                              <td className="py-3 px-3">
+                              <td className="py-3 px-3 text-center">
                                 {file.dimensions.width.toLocaleString()} ×{' '}
                                 {file.dimensions.height.toLocaleString()}
                               </td>
-                              <td className="py-3 px-3">{formatFileSize(file.size)}</td>
-                              <td className="py-3 px-3">{file.format}</td>
-                              <td className="py-3 px-3">
+                              <td className="py-3 px-3 text-center">{formatFileSize(file.size)}</td>
+                              <td className="py-3 px-3 text-center">{file.format}</td>
+                              <td className="py-3 px-3 text-center">
                                 <div className="space-y-2">
                                   {file.uploadStatus === 'uploading' ? (
                                     <div className="flex items-center justify-between gap-2">
@@ -555,7 +537,10 @@ export default function CompressionSettings({
                                       )}
                                     </div>
                                   ) : (
-                                    <div className={`text-xs font-medium ${getStatusColor()}`}>
+                                    <div 
+                                      className={`${file.uploadStatus === 'completed' ? 'text-medium' : 'text-xs'} font-medium ${file.uploadStatus === 'completed' ? '' : getStatusColor()}`}
+                                      style={file.uploadStatus === 'completed' ? { color: '#0059ff' } : undefined}
+                                    >
                                       {getStatusText()}
                                     </div>
                                   )}
@@ -681,7 +666,7 @@ export default function CompressionSettings({
                                   )}
                                 </div>
                               </td>
-                              <td className="py-3 px-3 ">
+                              <td className="py-3 px-3 text-center">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
@@ -689,7 +674,7 @@ export default function CompressionSettings({
                                     fileMapRef.current.delete(file.name);
                                     onFileRemove(index);
                                   }}
-                                  className="px-3 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-xs"
+                                  className="px-3 py-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors text-xs"
                                 >
                                   제거
                                 </button>
@@ -707,7 +692,7 @@ export default function CompressionSettings({
                         switch (file.uploadStatus) {
                           case 'completed':
                             return (
-                              <span className="absolute top-2 left-2 px-2 py-1 bg-green-500 text-white text-xs rounded-md shadow-md">
+                              <span className="absolute top-2 left-2 px-2 py-1 bg-green-500 text-white text-medium rounded-md shadow-md">
                                 완료
                               </span>
                             );
@@ -781,7 +766,7 @@ export default function CompressionSettings({
                           </div>
                           {/* 파일 정보 */}
                           <div className="p-3 bg-white">
-                            <p className="text-sm font-medium text-gray-900 truncate mb-1" title={file.name}>
+                            <p className="text-medium font-medium text-gray-900 truncate mb-1" title={file.name}>
                               {file.name}
                             </p>
                             <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-600">
@@ -792,7 +777,7 @@ export default function CompressionSettings({
                               <span>포맷:{file.format}</span>
                             </div>
                             {file.uploadError && (
-                              <p className="text-xs text-red-600 mt-1 truncate" title={file.uploadError}>
+                              <p className="text-medium text-red-600 mt-1 truncate" title={file.uploadError}>
                                 {file.uploadError}
                               </p>
                             )}
@@ -850,63 +835,67 @@ export default function CompressionSettings({
               </div>
             )}
           </div>
+        </CommonContainerBox>
 
-          {!hideMethodSection && (
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">압축방법</h3>
+        {/* 오른쪽: 압축 방법 선택 영역 */}
+        {!hideMethodSection && (
+          <CommonContainerBox>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">압축방법</h3>
 
-            {/* 처리방식, 알고리즘, 버전 한 줄 */}
-            <div className="grid grid-cols-3 gap-4">
-              {/* 알고리즘 */}
-              <CommonDropdown
-                label="알고리즘"
-                options={algorithmOptions}
-                value={algorithm}
-                onChange={onAlgorithmChange}
-                placeholder={loadingAlgorithms ? "로딩 중..." : algorithmOptions.length === 0 ? "알고리즘 없음" : "알고리즘 선택"}
-                disabled={loadingAlgorithms || algorithmOptions.length === 0}
-              />
+              {/* 알고리즘, 버전, 처리방식 세로 배치 */}
+              <div className="space-y-4">
+                {/* 알고리즘 */}
+                <CommonDropdown
+                  label="알고리즘"
+                  options={algorithmOptions}
+                  value={algorithm}
+                  onChange={onAlgorithmChange}
+                  placeholder={loadingAlgorithms ? "로딩 중..." : algorithmOptions.length === 0 ? "알고리즘 없음" : "알고리즘 선택"}
+                  disabled={loadingAlgorithms || algorithmOptions.length === 0}
+                />
 
-              {/* 버전 */}
-              <CommonDropdown
-                label="버전"
-                options={versionOptions}
-                value={version}
-                onChange={onVersionChange}
-                placeholder={loadingVersions ? "로딩 중..." : versionOptions.length === 0 ? "알고리즘을 먼저 선택하세요" : "버전 선택"}
-                disabled={loadingVersions || versionOptions.length === 0}
-              />
-              {/* 처리방식 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  처리방식
-                </label>
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <RadioButton
-                      name="processingMethod"
-                      value="cpu"
-                      label="CPU"
-                      checked={processingMethod === 'cpu'}
-                      onChange={onProcessingMethodChange}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <RadioButton
-                      name="processingMethod"
-                      value="gpu"
-                      label="GPU"
-                      checked={processingMethod === 'gpu'}
-                      onChange={onProcessingMethodChange}
-                    />
+                {/* 버전 */}
+                <CommonDropdown
+                  label="버전"
+                  options={versionOptions}
+                  value={version}
+                  onChange={onVersionChange}
+                  placeholder={loadingVersions ? "로딩 중..." : versionOptions.length === 0 ? "알고리즘을 먼저 선택하세요" : "버전 선택"}
+                  disabled={loadingVersions || versionOptions.length === 0}
+                />
+
+                {/* 처리방식 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    처리방식
+                  </label>
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <RadioButton
+                        name="processingMethod"
+                        value="cpu"
+                        label="CPU"
+                        checked={processingMethod === 'cpu'}
+                        onChange={onProcessingMethodChange}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <RadioButton
+                        name="processingMethod"
+                        value="gpu"
+                        label="GPU"
+                        checked={processingMethod === 'gpu'}
+                        onChange={onProcessingMethodChange}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-          )}
-        </div>
-      </CommonContainerBox>
+          </CommonContainerBox>
+        )}
+      </div>
       {!hideAddButton && selectedFiles.length > 0 && (
           <div className="flex justify-end mt-4">
             <Button 

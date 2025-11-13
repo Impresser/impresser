@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 interface DropdownOption {
   value: string;
@@ -30,26 +31,28 @@ export default function CommonDropdown({
 }: CommonDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [menuStyles, setMenuStyles] = useState<React.CSSProperties>({});
+  const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   const selectedOption = options.find(option => option.value === value);
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const updateMenuPosition = () => {
-    if (!buttonRef.current || !dropdownRef.current) return;
+    if (!buttonRef.current) return;
 
     const buttonRect = buttonRef.current.getBoundingClientRect();
-    const containerRect = dropdownRef.current.getBoundingClientRect();
-
-    const top = buttonRect.bottom - containerRect.top + 4;
-    const left = buttonRect.left - containerRect.left;
-    const width = buttonRect.width;
 
     setMenuStyles({
-      top,
-      left,
-      width,
+      position: 'fixed',
+      top: buttonRect.bottom + window.scrollY + 4,
+      left: buttonRect.left + window.scrollX,
+      width: buttonRect.width,
+      zIndex: 9999,
     });
   };
 
@@ -105,10 +108,10 @@ export default function CommonDropdown({
             ${size === 'sm' ? 'px-2 py-1 text-xs' : 'px-3 py-2 text-sm'}
           `}
         >
-          <span className={`block truncate ${selectedOption ? 'text-gray-900' : 'text-gray-500'}`}>
+          <span className={`block truncate pr-5 ${selectedOption ? 'text-gray-900' : 'text-gray-500'}`}>
             {selectedOption ? selectedOption.label : placeholder}
           </span>
-          <span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+          <span className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
             <svg
               className={`${size === 'sm' ? 'w-4 h-4' : 'w-5 h-5'} text-gray-400 transition-transform duration-200 ${
                 isOpen ? 'rotate-180' : ''
@@ -127,10 +130,10 @@ export default function CommonDropdown({
           </span>
         </button>
 
-        {isOpen && (
+        {isOpen && mounted && createPortal(
           <div
             ref={menuRef}
-            className="absolute z-[999] bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
+            className="bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
             style={menuStyles}
           >
             {options.map((option) => (
@@ -147,7 +150,8 @@ export default function CommonDropdown({
                 {option.label}
               </button>
             ))}
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </div>
