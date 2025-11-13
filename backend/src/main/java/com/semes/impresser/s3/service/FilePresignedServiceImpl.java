@@ -201,7 +201,7 @@ public class FilePresignedServiceImpl implements FilePresignedService {
     public String getPresignedUrl(String objectName) {
         try {
             PresignedGetObjectRequest request = s3Presigner.presignGetObject(r -> r
-                .signatureDuration(Duration.ofMinutes(10))
+                .signatureDuration(Duration.ofMinutes(30))
                 .getObjectRequest(g -> g
                     .bucket(s3Config.getBucket())
                     .key(objectName)
@@ -279,7 +279,7 @@ public class FilePresignedServiceImpl implements FilePresignedService {
                 .build();
 
             PresignedPutObjectRequest presigned = s3Presigner.presignPutObject(b -> b
-                .signatureDuration(Duration.ofMinutes(10))
+                .signatureDuration(Duration.ofMinutes(30))
                 .putObjectRequest(por));
 
             String imageUrl = buildPublicUrl(objectName);
