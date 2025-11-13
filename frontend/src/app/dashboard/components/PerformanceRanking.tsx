@@ -499,7 +499,7 @@ export default function EquipmentUsage() {
                           <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[110px]">{job.algorithm}</td>
                           <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">v{job.version}</td>
                           <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-20">{job.mode}</td>
-                          <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{job.size}</td>
+                          <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[100px]">{job.size}</td>
                           <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{job.owner}</td>
                           <td className="h-10 py-0 px-3 text-right border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[100px]">
                             <PrettyNumber value={job.avgSpeedMBps} unit="MB/s" />
