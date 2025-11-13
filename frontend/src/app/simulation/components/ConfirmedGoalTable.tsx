@@ -18,9 +18,9 @@ export default function ConfirmedGoalTable({ goals, className = '' }: ConfirmedG
   return (
     <CommonContainerBox className={`px-4 py-4 ${className}`.trim()}>
       <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">확정된 생산 목표</h3>
+        <h3 className="text-lg font-semibold text-gray-900">최종 생산 목표</h3>
         <p className="mt-1 text-sm text-gray-500">
-          확인된 생산 목표 목록입니다. 필요 시 다시 선택하여 수량을 조정할 수 있습니다.
+          최종 확정된 생산 목표 목록입니다. 필요 시 다시 선택하여 수량을 조정할 수 있습니다.
         </p>
       </div>
       {goals.length === 0 ? (

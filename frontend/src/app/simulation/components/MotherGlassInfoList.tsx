@@ -2,6 +2,7 @@
 
 import React from 'react';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
+import CommonButton from '@/components/ui/CommonButton';
 import type { MotherGlass } from '../data/motherGlasses';
 import {
   GENERATION_CONFIG,
@@ -19,6 +20,9 @@ interface MotherGlassInfoListProps {
   totalAvailable: number;
   loading: boolean;
   error: string | null;
+  onCalculate?: () => void;
+  isCalculating?: boolean;
+  calculateDisabled?: boolean;
 }
 
 const STATUS_LABELS: Record<PrinterStatusKey, string> = {
@@ -42,6 +46,9 @@ export default function MotherGlassInfoList({
   totalAvailable,
   loading,
   error,
+  onCalculate,
+  isCalculating = false,
+  calculateDisabled = false,
 }: MotherGlassInfoListProps) {
   const motherGlassMap = React.useMemo(() => {
     return motherGlasses.reduce<Record<GenerationLabel, MotherGlass>>((acc, motherGlass) => {
@@ -77,10 +84,10 @@ export default function MotherGlassInfoList({
     <section className={`${className}`}>
       <CommonContainerBox className="space-y-6 px-4 py-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">가용 설비 현황</h3>
+          <h3 className="text-base font-semibold text-gray-900">가용 설비 현황</h3>
           <p className="mt-1 text-sm text-gray-500">
-            인쇄 설비 목록을 조회하여 모델명 기준 세대별로 정상 설비 대수를 집계하고, 해당 세대의 대표 원장 규격을 시각적으로
-            제공합니다. 정상 상태 설비만 실제 배치에 활용할 수 있습니다.
+            인쇄 설비 목록을 조회하여 모델명 기준 세대별로 정상 설비 대수를 집계합니다. 정상 상태 설비만 실제 배치에 활용할 수
+            있습니다.
           </p>
 
           {loading ? (
@@ -185,6 +192,16 @@ export default function MotherGlassInfoList({
           )}
         </div>
 
+        <div className="flex justify-end pt-4">
+          <CommonButton
+            variant="blue"
+            className="px-4 py-2 text-sm"
+            onClick={onCalculate}
+            disabled={isCalculating || calculateDisabled}
+          >
+            {isCalculating ? '계산 중...' : '배치 계산 실행'}
+          </CommonButton>
+        </div>
       </CommonContainerBox>
     </section>
   );

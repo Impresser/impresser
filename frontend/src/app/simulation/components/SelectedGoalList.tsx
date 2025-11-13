@@ -35,7 +35,7 @@ export default function SelectedGoalList({
     <div className={containerClassName}>
       <CommonContainerBox className="flex h-full flex-col space-y-4 px-4 py-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">선택된 생산 목표</h3>
+          <h3 className="text-lg font-semibold text-gray-900">제품 및 수량 변경</h3>
         </div>
         {goals.length === 0 ? (
           <div className="flex flex-1 items-center justify-center text-sm text-gray-500 text-center leading-relaxed">
