@@ -11,18 +11,58 @@
 #include <algorithm>
 
 #include <nvtiff.h>
+#include <nvml.h>
+#include <thread>
+#include <atomic>
 
 using namespace conv;
 
+struct NvmlSampler {
+    std::atomic<bool> running{ false };
+    std::thread th;
+    std::vector<unsigned> samples;
+
+    ~NvmlSampler() {
+        if (running.load()) {
+            running.store(false);
+            if (th.joinable()) th.join();
+            nvmlShutdown();
+        }
+    }
+
+    bool start(int deviceIndex = 0, int intervalMs = 100) {
+        if (running.load()) return true;
+        if (nvmlInit_v2() != NVML_SUCCESS) return false;
+        nvmlDevice_t dev{};
+        if (nvmlDeviceGetHandleByIndex_v2(deviceIndex, &dev) != NVML_SUCCESS) { nvmlShutdown(); return false; }
+        running.store(true);
+        th = std::thread([this, dev, intervalMs] {
+            while (running.load()) {
+                nvmlUtilization_t u{};
+                if (nvmlDeviceGetUtilizationRates(dev, &u) == NVML_SUCCESS) {
+                    samples.push_back((unsigned)u.gpu);
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
+            }
+            });
+        return true;
+    }
+
+    double stopAndAverage() {
+        if (running.load()) {
+            running.store(false);
+            if (th.joinable()) th.join();
+            nvmlShutdown();
+        }
+        if (samples.empty()) return 0.0;
+        double sum = 0.0;
+        for (auto v : samples) sum += (double)v;
+        return sum / (double)samples.size();
+    }
+};
+
 static inline void ck(cudaError_t e, const char* msg) {
     if (e != cudaSuccess) throw std::runtime_error(std::string(msg) + ": " + cudaGetErrorString(e));
-}
-
-static inline void LOGI_STEP(const char* m) {
-    using namespace std::chrono;
-    static auto t0 = high_resolution_clock::now();
-    auto t = duration<double>(high_resolution_clock::now() - t0).count();
-    LOGI(std::string("[STEP] ") + m + "  t=" + std::to_string(t) + "s");
 }
 
 // rowsPerStrip 자동 결정
@@ -57,14 +97,43 @@ class NvTiffEncoder final : public IEncoder {
 public:
     const char* name() const override { return "nvTIFF(low-level)"; }
 
-    bool encode(const ImageInfo& info,
+    EncodeResult encode(const ImageInfo& info,
         const std::vector<uint8_t>& rgb,
         const std::string& outPath,
         const TiffOptions& opt) override
     {
-        try {
-            LOGI_STEP("begin encode (low-level)");
+        nvTiffEncodeCtx_t* ctx = nullptr;
+        unsigned long long* stripSize_d = nullptr;
+        unsigned long long* stripOffs_d = nullptr;
+        unsigned char* stripData_d = nullptr;
 
+        uint8_t* d_img = nullptr;
+        bool pinned = false;
+
+        cudaStream_t stream = nullptr;
+        cudaEvent_t evStart = nullptr, evStop = nullptr;
+
+        NvmlSampler sampler;
+
+        auto cleanup = [&]() {
+            if (ctx) { nvTiffEncodeCtxDestroy(ctx); ctx = nullptr; }
+            if (stripData_d) { cudaFree(stripData_d); stripData_d = nullptr; }
+            if (stripSize_d) { cudaFree(stripSize_d); stripSize_d = nullptr; }
+            if (stripOffs_d) { cudaFree(stripOffs_d); stripOffs_d = nullptr; }
+
+            if (d_img) { cudaFree(d_img); d_img = nullptr; }
+
+            if (evStart) { cudaEventDestroy(evStart); evStart = nullptr; }
+            if (evStop) { cudaEventDestroy(evStop);  evStop = nullptr; }
+            if (stream) { cudaStreamDestroy(stream); stream = nullptr; }
+
+            if (pinned) {
+                cudaHostUnregister((void*)rgb.data());
+                pinned = false;
+            }
+            };
+
+        try {
             // 0) 입력 검증
             if (info.channels != 3 || info.bitsPerSample != 8)
                 throw std::runtime_error("Only RGB24 (3x8bit) supported.");
@@ -72,11 +141,9 @@ public:
             if (rgb.size() != expected)
                 throw std::runtime_error("RGB buffer size mismatch.");
 
-            // nvTIFF v0.5 LL 경로는 사실상 LZW만 현실적으로 사용 가능
-            if (opt.compression == Compression::Deflate)
-                throw std::runtime_error("nvTIFF v0.5 does NOT support DEFLATE here. Use libtiff path.");
-            if (opt.compression == Compression::None)
-                throw std::runtime_error("nvTIFF v0.5 low-level encoder handles LZW only (NONE not supported).");
+            // LZW만 사용 가능
+            if (opt.compression != Compression::LZW)
+                throw std::runtime_error("nvTIFF v0.5 LL path supports only LZW.");
 
             // 1) CUDA 디바이스 준비 + 스트림
             int devCount = 0;
@@ -85,23 +152,25 @@ public:
             ck(cudaSetDevice(0), "cudaSetDevice(0)");
             ck(cudaFree(0), "cuda warmup");
 
-            cudaStream_t stream{};
             ck(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking), "cudaStreamCreate");
-            LOGI_STEP("cuda device ready");
 
             // 2) H2D 업로드 (pinned + async)
-            uint8_t* d_img = nullptr;
             ck(cudaMalloc(&d_img, expected), "cudaMalloc(d_img)");
 
-            bool pinned = false;
             if (!rgb.empty()) {
                 if (cudaHostRegister((void*)rgb.data(), rgb.size(), cudaHostRegisterPortable) == cudaSuccess)
                     pinned = true;
             }
             ck(cudaMemcpyAsync(d_img, rgb.data(), expected, cudaMemcpyHostToDevice, stream), "H2D async");
             ck(cudaStreamSynchronize(stream), "sync after H2D");
-            if (pinned) cudaHostUnregister((void*)rgb.data());
-            LOGI_STEP("H2D done");
+            if (pinned) { cudaHostUnregister((void*)rgb.data()); pinned = false; }
+
+            // GPU 성능 측정 시작
+            ck(cudaEventCreate(&evStart), "eventCreate start");
+            ck(cudaEventCreate(&evStop), "eventCreate stop");
+            ck(cudaEventRecord(evStart, stream), "eventRecord start");
+
+            sampler.start(0 /*deviceIndex*/, 100 /*ms*/);
 
             // 3) rowsPerStrip 계산
             const unsigned int width = (unsigned int)info.width;
@@ -120,11 +189,6 @@ public:
             const int kMaxAttempts = 4;
             bool encoded = false;
             std::string lastErr;
-
-            nvTiffEncodeCtx_t* ctx = nullptr;
-            unsigned long long* stripSize_d = nullptr;
-            unsigned long long* stripOffs_d = nullptr;
-            unsigned char* stripData_d = nullptr;
 
             std::vector<unsigned long long> stripSize_h;
             std::vector<unsigned long long> stripOffs_h;
@@ -165,7 +229,6 @@ public:
 
                 // 인코딩(LZW)
                 {
-                    LOGI_STEP("nvTiffEncode begin");
                     int rc = nvTiffEncode(
                         ctx,
                         /*nrow*/          height,
@@ -185,7 +248,6 @@ public:
                         LOGW(lastErr);
                         goto FAIL_AND_REDUCE;
                     }
-                    LOGI_STEP("nvTiffEncode done");
                 }
 
                 {
@@ -196,7 +258,6 @@ public:
                         goto FAIL_AND_REDUCE;
                     }
                     ck(cudaStreamSynchronize(stream), "sync after finalize");
-                    LOGI_STEP("nvTiffEncodeFinalize done");
                 }
 
                 // strip 메타 D2H
@@ -266,29 +327,38 @@ public:
 
             // 5) 결과 / 정리
             if (!encoded) {
-                if (ctx) nvTiffEncodeCtxDestroy(ctx);
-                if (stripData_d) cudaFree(stripData_d);
-                if (stripSize_d) cudaFree(stripSize_d);
-                if (stripOffs_d) cudaFree(stripOffs_d);
-                cudaFree(d_img);
-                cudaStreamDestroy(stream);
                 throw std::runtime_error(std::string("nvTIFF encoding failed after retries: ") + lastErr);
             }
 
-            // 성공 경로 정리
-            if (ctx) nvTiffEncodeCtxDestroy(ctx);
-            if (stripData_d) cudaFree(stripData_d);
-            if (stripSize_d) cudaFree(stripSize_d);
-            if (stripOffs_d) cudaFree(stripOffs_d);
-            cudaFree(d_img);
-            cudaStreamDestroy(stream);
+            // GPU 성능 측정 종료
+            ck(cudaEventRecord(evStop, stream), "eventRecord stop");
+            ck(cudaEventSynchronize(evStop), "eventSync stop");
 
-            LOGI_STEP("cleanup done (success)");
-            return true;
+            // 평균 이용률
+            double avgUtil = sampler.stopAndAverage();
+
+            // 평균 속도 계산 (RGB24 입력 바이트 / 인코딩 시간)
+            float ms = 0.0f;
+            ck(cudaEventElapsedTime(&ms, evStart, evStop), "eventElapsed");
+            const double encodeTimeSec = static_cast<double>(ms) / 1000.0;
+            const size_t inputBytes = static_cast<size_t>(info.width) * static_cast<size_t>(info.height) * 3ull;
+            const double mb = static_cast<double>(inputBytes) / (1024.0 * 1024.0);
+            const double avgMBps = (encodeTimeSec > 0.0) ? (mb / encodeTimeSec) : 0.0;
+
+            // 성공 경로 정리
+            cleanup();
+
+            EncodeResult encodeResult{};
+            encodeResult.gpu.avgUtil = avgUtil;
+            encodeResult.speed.avgMBps = avgMBps;
+            encodeResult.speed.minMBps = avgMBps;
+            encodeResult.speed.maxMBps = avgMBps;
+
+            return encodeResult;
         }
-        catch (const std::exception& ex) {
-            LOGE(ex.what());
-            return false;
+        catch (...) {
+            cleanup();
+            throw;
         }
     }
 };

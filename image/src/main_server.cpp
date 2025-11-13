@@ -19,6 +19,7 @@
 #include <chrono>
 #include <optional>
 #include <cctype>
+#include <cmath>
 
 using namespace conv;
 using json = nlohmann::json;
@@ -138,10 +139,9 @@ void worker_loop() {
             }
 
             Stopwatch encSw;
-            if (!enc->encode(info, rgb, creq.outputPath, creq.options)) {
-                throw std::runtime_error("Encode failed");
-            }
+            EncodeResult encodeResult = enc->encode(info, rgb, creq.outputPath, creq.options);
             encodeSec = encSw.elapsed();
+            LOGI("[encode] finished in " << encodeSec << "s");
 
             // 4) 업로드
             if (!io->uploadFromFile(outPath.string(), job.outputUrl)) {
@@ -161,6 +161,10 @@ void worker_loop() {
                     {"tiffVolume", tiffVolume},
                     {"tiffWidth",  info.width},
                     {"tiffHeight", info.height},
+                    {"avgGpuUtilization", encodeResult.gpu.avgUtil},
+                    {"avgSpeed",  encodeResult.speed.avgMBps},
+                    {"maxSpeed",  encodeResult.speed.maxMBps},
+                    {"minSpeed",  encodeResult.speed.minMBps}
                 };
                 post_with_backoff(io.get(), callbackUrl, body.dump(), headers);
             }
@@ -320,10 +324,9 @@ int main(int argc, char* argv[]) {
     LOGI("Encoder: " << enc->name());
 
     sw.reset();
-    bool ok = enc->encode(info, rgb, req.outputPath, req.options);
+    EncodeResult encodeResult = enc->encode(info, rgb, req.outputPath, req.options);
     double tEnc = sw.elapsed();
 
-    if (!ok) { LOGE("Encode failed"); return 3; }
     LOGI("Conversion completed successfully: total=" << (tLoad + tEnc)
         << "s (load=" << tLoad << "s, encode=" << tEnc << "s)");
     return 0;
