@@ -39,6 +39,11 @@ export default function SimulationPage() {
   const [totalAvailablePrinters, setTotalAvailablePrinters] = useState<number>(0);
   const [printersLoading, setPrintersLoading] = useState<boolean>(false);
   const [printersError, setPrintersError] = useState<string | null>(null);
+<<<<<<< HEAD
+  const [isSimulationRunning, setIsSimulationRunning] = useState<boolean>(false);
+  const [hasAttemptedSimulation, setHasAttemptedSimulation] = useState<boolean>(false);
+=======
+>>>>>>> 7088524ed9d08de8fafabb8d47269429e8e52c9b
   const [operationalPrinters, setOperationalPrinters] = useState<Record<GenerationLabel, InkjetPrinter[]>>(() => {
     return GENERATION_CONFIG.reduce((acc, config) => {
       acc[config.label as GenerationLabel] = [];
@@ -257,6 +262,8 @@ export default function SimulationPage() {
           assignedSheets,
         };
       });
+<<<<<<< HEAD
+=======
 
       const status = available === 0
         ? '설비 없음'
@@ -266,12 +273,16 @@ export default function SimulationPage() {
             ? '대기'
             : '배정 완료';
 
+>>>>>>> 7088524ed9d08de8fafabb8d47269429e8e52c9b
       return {
         motherGlassName: entry.motherGlassName,
         sheetCount,
         assignments,
+<<<<<<< HEAD
+=======
         status,
         shortage: available === 0,
+>>>>>>> 7088524ed9d08de8fafabb8d47269429e8e52c9b
       };
     });
   }, [overallGenerationSummary, generationStats, operationalPrinters]);
@@ -279,8 +290,10 @@ export default function SimulationPage() {
   const runOptimization = useCallback((goals: SelectedGoal[]) => {
     if (goals.length === 0) {
       setOptimizationResult(null);
+      setHasAttemptedSimulation(false);
       return;
     }
+    setHasAttemptedSimulation(true);
     if (availableMotherGlasses.length === 0) {
       setOptimizationResult(null);
       return;
@@ -292,10 +305,22 @@ export default function SimulationPage() {
   const handleConfirmGoals = useCallback(
     (goals: SelectedGoal[]) => {
       setConfirmedGoals(goals.map((goal) => ({ ...goal })));
-      runOptimization(goals);
+      setHasAttemptedSimulation(false);
     },
-    [runOptimization],
+    [],
   );
+
+  const handleRunSimulation = useCallback(() => {
+    if (printersLoading || confirmedGoals.length === 0) {
+      return;
+    }
+    setIsSimulationRunning(true);
+    try {
+      runOptimization(confirmedGoals);
+    } finally {
+      setIsSimulationRunning(false);
+    }
+  }, [confirmedGoals, printersLoading, runOptimization]);
 
   return (
     <AuthGuard>
@@ -327,6 +352,8 @@ export default function SimulationPage() {
                 />
               </div>
 
+              <ConfirmedGoalTable goals={confirmedGoals} />
+
               <div className="pt-2">
                 <h2 className="text-xl font-semibold text-gray-900">생산 계획 설계</h2>
               </div>
@@ -339,6 +366,9 @@ export default function SimulationPage() {
                 totalAvailable={totalAvailablePrinters}
                 loading={printersLoading}
                 error={printersError}
+                onCalculate={handleRunSimulation}
+                isCalculating={isSimulationRunning}
+                calculateDisabled={confirmedGoals.length === 0 || Boolean(printersError) || printersLoading}
               />
 
               <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
@@ -364,7 +394,7 @@ export default function SimulationPage() {
                     <InkConsumptionSummary plan={printSimulationPlan} />
                   </div>
                 </div>
-              ) : confirmedGoals.length > 0 ? (
+              ) : hasAttemptedSimulation ? (
                 availableMotherGlasses.length === 0 ? (
                   <div className="rounded-lg bg-gray-100 px-4 py-3 text-sm text-gray-700">
                     사용 가능한 설비가 없어 배치를 진행할 수 없습니다. 설비 상태를 확인하거나 설비 가동을 요청해주세요.
