@@ -211,7 +211,6 @@ export default function PatternGeneratorPage() {
 
           {/* 하단 정보 및 버튼 - 반응형 정렬 */}
           <div className="flex flex-row justify-end items-center gap-2 md:gap-4">
-            <span className="text-gray-600 text-sm">생성된 이미지 수: {generatedCount}</span>
             <Button variant="blue" onClick={handleGenerate} disabled={isLoading}>
               {isLoading ? '생성 중...' : '생성하기'}
             </Button>

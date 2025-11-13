@@ -160,7 +160,7 @@ export default function CompressionQueue({
   
   return (
     <div className="mt-8">
-      <h1 className="text-xl font-bold text-gray-900 mb-6">압축대기열</h1>
+      <h1 className="text-xl font-bold text-gray-900 mb-3">압축대기열</h1>
 
       <CommonContainerBox>
         <CommonTableFrame

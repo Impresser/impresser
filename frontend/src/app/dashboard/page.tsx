@@ -25,12 +25,6 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-4">
               {/* 상단: 성능 순위 전체 영역 */}
               <PerformanceRanking />
-
-              {/* 하단: 좌측 설비 이용 시간, 우측 패널 생산량 */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <EquipmentUsage />
-                <PanelOutput />
-              </div>
             </div>
           </main>
         </div>

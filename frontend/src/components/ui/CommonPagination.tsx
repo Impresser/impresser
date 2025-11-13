@@ -28,7 +28,7 @@ export default function CommonPagination({ currentPage, totalPages, onChange, cl
         type="button"
         onClick={goPrev}
         aria-label="이전 페이지"
-        className={`h-9 w-9 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition ${!canPrev ? 'opacity-40 pointer-events-none' : ''}`}
+        className={`h-9 w-9 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition cursor-pointer ${!canPrev ? 'opacity-40 pointer-events-none' : ''}`}
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
           <path d="M15 18l-6-6 6-6" />
@@ -40,9 +40,9 @@ export default function CommonPagination({ currentPage, totalPages, onChange, cl
           key={pageNumber}
           type="button"
           onClick={() => onChange(pageNumber)}
-          className={`h-9 min-w-9 px-3 flex items-center justify-center rounded-full border transition ${
+          className={`h-9 min-w-9 px-3 flex items-center justify-center rounded-full border transition cursor-pointer ${
             pageNumber === currentPage
-              ? 'bg-[#0059FF] text-white border-transparent'
+              ? 'bg-[#0059FF] text-white border-transparent pointer-events-none'
               : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
           }`}
           aria-current={pageNumber === currentPage ? 'page' : undefined}
@@ -56,7 +56,7 @@ export default function CommonPagination({ currentPage, totalPages, onChange, cl
         type="button"
         onClick={goNext}
         aria-label="다음 페이지"
-        className={`h-9 w-9 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition ${!canNext ? 'opacity-40 pointer-events-none' : ''}`}
+        className={`h-9 w-9 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition cursor-pointer ${!canNext ? 'opacity-40 pointer-events-none' : ''}`}
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
           <path d="M9 6l6 6-6 6" />
