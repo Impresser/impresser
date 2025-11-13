@@ -7,6 +7,7 @@
 #include <string>
 #include <stdexcept>
 #include <algorithm>
+#include <chrono>
 
 using namespace conv;
 
@@ -42,6 +43,9 @@ public:
     {
         EncodeResult encodeResult{};
 
+        using Clock = std::chrono::steady_clock;
+        auto t0 = Clock::now();
+
         if (info.channels != 3 || info.bitsPerSample != 8)
             throw std::runtime_error("Only RGB24 (3x8bit) supported.");
 
@@ -52,7 +56,6 @@ public:
         const unsigned int width = (unsigned int)info.width;
         const unsigned int height = (unsigned int)info.height;
         const unsigned int pixelSize = 3;  // RGB24
-        const unsigned long long bytesPerRow = (unsigned long long)width * pixelSize;
 
         unsigned int rowsPerStrip = opt.rowsPerStrip.has_value() && opt.rowsPerStrip.value() > 0
             ? (unsigned int)opt.rowsPerStrip.value()
@@ -139,6 +142,21 @@ public:
         if (!encoded) {
             throw std::runtime_error("libTIFF encoding failed after retries: " + lastErr);
         }
+
+        auto t1 = Clock::now();
+        std::chrono::duration<double> dt = t1 - t0;
+        const double encodeTimeSec = dt.count();
+
+        // 평균 속도 계산 (RGB24 입력 바이트 / 인코딩 시간)
+        const size_t inputBytes =
+            static_cast<size_t>(info.width) *
+            static_cast<size_t>(info.height) * 3ull;
+        const double mb = static_cast<double>(inputBytes) / (1024.0 * 1024.0);
+        const double avgMBps = (encodeTimeSec > 0.0) ? (mb / encodeTimeSec) : 0.0;
+
+        encodeResult.speed.avgMBps = avgMBps;
+        encodeResult.speed.minMBps = avgMBps;
+        encodeResult.speed.maxMBps = avgMBps;
 
         return encodeResult;
     }
