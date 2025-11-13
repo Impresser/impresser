@@ -449,7 +449,6 @@ export interface MotherGlassOptimizationResult {
   totalUnplacedQuantity: number;
   totalMotherGlassesUsed: number;
   overallAreaUtilizationPercent: number;
-  bestPerMotherGlassAreaUtilizationScore: number;
 }
 
 export function computeOptimalMotherGlassPlan(
@@ -563,22 +562,11 @@ export function computeOptimalMotherGlassPlan(
     ? (totalAreaUsedMm2 * 100) / totalMotherGlassAreaMm2
     : 0;
 
-  const bestPerMotherGlassAreaUtilizationScore = layoutResults.reduce((sum, result) => {
-    const bestAreaPercent = result.sheets.reduce((max, sheet) => {
-      const percent = result.motherGlass.areaMm2 > 0
-        ? (sheet.areaUsedMm2 * 100) / result.motherGlass.areaMm2
-        : 0;
-      return Math.max(max, percent);
-    }, 0);
-    return sum + bestAreaPercent;
-  }, 0);
-
   return {
     layoutResults,
     totalPlacedQuantity,
     totalUnplacedQuantity: remainingUnplaced,
     totalMotherGlassesUsed,
     overallAreaUtilizationPercent,
-    bestPerMotherGlassAreaUtilizationScore,
   };
 }
