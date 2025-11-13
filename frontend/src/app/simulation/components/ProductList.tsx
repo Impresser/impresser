@@ -92,18 +92,23 @@ export default function ProductList({
   return (
     <section className={`${className}`}>
       <div className="mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">생산 목표 선택</h2>
+        <h2 className="text-xl font-semibold text-gray-900">생산 목표 선택</h2>
       </div>
       <CommonContainerBox className="space-y-6">
         <div className="space-y-1">
-          <h3 className="text-base font-semibold text-gray-900">제품을 선택하세요</h3>
+          <h3 className="text-lg font-semibold text-gray-900">제품을 선택하세요</h3>
           <p className="mt-1 text-sm text-gray-500">
             선택한 제품의 생산 목표 수량을 입력할 수 있습니다.
           </p>
         </div>
         <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
           {products.map((product) => (
-            <ProductCard key={product.id} product={product} onSelect={handleSelectProduct} />
+            <ProductCard
+              key={product.id}
+              product={product}
+              onSelect={handleSelectProduct}
+              isActive={selectedProduct?.id === product.id || activeProductId === product.id}
+            />
           ))}
         </div>
       </CommonContainerBox>

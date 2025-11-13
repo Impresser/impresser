@@ -133,9 +133,9 @@ export default function LoginContain() {
 
         {/* 텍스트 콘텐츠 */}
         <div className="relative z-10 flex flex-col justify-center px-12 text-white">
-          <h1 className="text-5xl font-bold mb-4">Welcome to SEMES!</h1>
+          <h1 className="text-5xl font-bold mb-4">We make you IMPRESSED!</h1>
           <p className="text-lg text-white/90">
-            사번으로 로그인하여 접근할 수 있습니다.
+            사번으로 Impresser에 로그인하세요
           </p>
         </div>
 

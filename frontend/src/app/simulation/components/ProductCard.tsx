@@ -16,9 +16,10 @@ export interface ProductInfo {
 interface ProductCardProps {
   product: ProductInfo;
   onSelect?: (product: ProductInfo) => void;
+  isActive?: boolean;
 }
 
-export default function ProductCard({ product, onSelect }: ProductCardProps) {
+export default function ProductCard({ product, onSelect, isActive = false }: ProductCardProps) {
   const handleSelect = () => {
     onSelect?.(product);
   };
@@ -36,7 +37,13 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
       tabIndex={onSelect ? 0 : undefined}
       onClick={handleSelect}
       onKeyDown={handleKeyDown}
-      className={`flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm transition-transform duration-200 hover:scale-105 ${onSelect ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400' : ''}`}
+      className={`flex flex-col gap-3 rounded-xl border ${
+        isActive
+          ? 'border-[#0059FF] shadow-[0_0_0_1px_rgba(0,89,255,0.35)]'
+          : 'border-gray-200 shadow-sm'
+      } bg-white p-4 transition-transform duration-200 hover:scale-105 ${
+        onSelect ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400' : ''
+      }`}
     >
       <div className="aspect-video overflow-hidden rounded-lg bg-gray-100 flex items-center justify-center">
         <img
@@ -60,10 +67,6 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
         <div className="flex items-center justify-between">
           <dt className="text-gray-500">대각선(inch)</dt>
           <dd className="font-medium text-gray-900">{product.diagonalInch}</dd>
-        </div>
-        <div className="flex items-center justify-between">
-          <dt className="text-gray-500">화면비</dt>
-          <dd className="font-medium text-gray-900">{product.aspectRatio}</dd>
         </div>
         <div className="flex items-center justify-between">
           <dt className="text-gray-500">가로(mm)</dt>

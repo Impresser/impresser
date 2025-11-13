@@ -17,6 +17,7 @@ interface SelectedGoalListProps {
   onConfirm?: (goals: SelectedGoal[]) => void;
   className?: string;
   emptyMessage?: string;
+  activeProductId?: string | null;
 }
 
 export default function SelectedGoalList({
@@ -26,6 +27,7 @@ export default function SelectedGoalList({
   onConfirm,
   className = '',
   emptyMessage = '선택된 생산 목표가 없습니다.',
+  activeProductId = null,
 }: SelectedGoalListProps) {
   const containerClassName = `w-80 mt-10 ${className}`.trim();
 
@@ -33,7 +35,7 @@ export default function SelectedGoalList({
     <div className={containerClassName}>
       <CommonContainerBox className="flex h-full flex-col space-y-4 px-4 py-4">
         <div>
-          <h3 className="text-base font-semibold text-gray-900">선택된 생산 목표</h3>
+          <h3 className="text-lg font-semibold text-gray-900">선택된 생산 목표</h3>
         </div>
         {goals.length === 0 ? (
           <div className="flex flex-1 items-center justify-center text-sm text-gray-500 text-center leading-relaxed">
@@ -58,7 +60,13 @@ export default function SelectedGoalList({
                   onEdit ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400' : ''
                 } group`}
               >
-                <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm transition-transform duration-200 group-hover:scale-105 group-hover:shadow-md">
+                <div
+                  className={`rounded-lg border bg-white px-4 py-3 shadow-sm transition-transform duration-200 group-hover:scale-105 group-hover:shadow-md ${
+                    activeProductId === goal.product.id
+                      ? 'border-[#0059FF] shadow-[0_0_0_1px_rgba(0,89,255,0.35)]'
+                      : 'border-gray-200'
+                  }`}
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="space-y-1">
                       <p className="text-sm font-semibold text-gray-900">{goal.product.productName}</p>

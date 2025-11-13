@@ -4,8 +4,17 @@ import React, { useMemo } from 'react';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import type { LayoutComputationResult } from '../utils/layoutCalculations';
 
+interface GenerationOverallSummary {
+  motherGlassName: string;
+  productSummary: string;
+  averageUsedPercent: number;
+  averageRemainingPercent: number;
+  sheetCount: number;
+}
+
 interface MotherGlassLayoutPreviewProps {
   layoutResult: LayoutComputationResult;
+  overallSummary?: GenerationOverallSummary[];
 }
 
 interface SheetSummaryGroup {
@@ -35,7 +44,7 @@ function createSheetSignature(sheet: LayoutComputationResult['sheets'][number]):
   return signatureParts.join('|');
 }
 
-export default function MotherGlassLayoutPreview({ layoutResult }: MotherGlassLayoutPreviewProps) {
+export default function MotherGlassLayoutPreview({ layoutResult, overallSummary }: MotherGlassLayoutPreviewProps) {
   const { motherGlass, sheets, summaries } = layoutResult;
 
   const groupedSheets = useMemo(() => {
@@ -107,14 +116,15 @@ export default function MotherGlassLayoutPreview({ layoutResult }: MotherGlassLa
     return totalMotherGlassArea > 0 ? (totalAreaUsed * 100) / totalMotherGlassArea : 0;
   }, [summaries, totalMotherGlassesUsed, motherGlass.areaMm2]);
 
+  const overallGenerationSummary = overallSummary ?? [];
+
   return (
     <CommonContainerBox className="px-4 py-4">
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h3 className="text-base font-semibold text-gray-900">원장 배치 미리보기</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            선택한 원장 크기와 제품 정보를 기반으로 배치 가능한 수량을 계산했습니다.
-          </p>
+          <h3 className="text-lg font-semibold text-gray-900">
+            {motherGlass.generationName || '-'} 원장 배치도
+          </h3>
         </div>
         <div className="rounded-full bg-blue-50 px-4 py-2 text-sm font-medium text-blue-600">
           원장 크기: {motherGlass.widthMm.toLocaleString()}mm × {motherGlass.heightMm.toLocaleString()}mm
@@ -128,7 +138,6 @@ export default function MotherGlassLayoutPreview({ layoutResult }: MotherGlassLa
       ) : (
         <div className="space-y-6">
           <div>
-            <h4 className="text-sm font-semibold text-gray-900">원장별 배치 가상도</h4>
             <div className="mt-2 grid gap-4 lg:grid-cols-2">
               {uniqueSheetsForVisualization.map((sheet, index) => {
                 const placements = sheet.placements;
@@ -158,7 +167,7 @@ export default function MotherGlassLayoutPreview({ layoutResult }: MotherGlassLa
                   <div key={`sheet-${sheet.sheetIndex}`} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                     <div className="mb-3 flex items-center justify-between text-sm">
                       <span className="font-semibold text-gray-900">배치 유형 #{index + 1}</span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-sm text-gray-500">
                         실제 사용: {groupedSheets[index].sheetIndices.length.toLocaleString()}장 · 원장 종류: {groupedSheets[index].motherGlassName}
                       </span>
                     </div>
@@ -189,7 +198,7 @@ export default function MotherGlassLayoutPreview({ layoutResult }: MotherGlassLa
                           return (
                             <div
                               key={`${placement.productId}-${placementIndex}`}
-                              className="absolute flex items-center justify-center rounded-[4px] border border-blue-300 bg-blue-100 text-[11px] font-medium text-blue-800"
+                              className="absolute flex items-center justify-center rounded-[4px] border border-blue-300 bg-blue-100 text-[13px] font-medium text-blue-800"
                               style={{
                                 left: `${adjustedLeft}%`,
                                 top: `${adjustedTop}%`,
@@ -200,7 +209,7 @@ export default function MotherGlassLayoutPreview({ layoutResult }: MotherGlassLa
                               <span className="px-1 text-center leading-tight">
                                 {placement.productName}
                                 <br />
-                                <span className="text-[9px] text-blue-700">
+                                <span className="text-[12px] text-blue-700">
                                   {placement.modelName}
                                   {placement.rotated && ' (회전)'}
                                 </span>
@@ -214,42 +223,70 @@ export default function MotherGlassLayoutPreview({ layoutResult }: MotherGlassLa
                 );
               })}
             </div>
-            <p className="mt-2 text-xs text-gray-500">
+            <p className="mt-2 text-sm text-gray-500">
               * 배치는 제품 회전 가능 여부를 자동 판단하여 구성되며, 실제 생산에서는 추가 최적화가 필요할 수 있습니다. 실제 사용된 원장 수: {totalMotherGlassesUsed.toLocaleString()} 장
             </p>
           </div>
 
-          <div>
-            <h4 className="text-sm font-semibold text-gray-900">배치 기준 요약</h4>
-            <div className="mt-2 overflow-hidden rounded-xl border border-gray-200">
-              <div className="grid grid-cols-[1.2fr_1fr_2fr_1fr_1fr] gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-600">
-                <span>원장 종류</span>
-                <span className="text-right">배치 유형</span>
-                <span className="text-right">포함 제품</span>
-                <span className="text-right">사용 면적</span>
-                <span className="text-right">사용 장수</span>
-              </div>
-              <div className="divide-y divide-gray-100 text-xs text-gray-700">
-                {groupedSheets.map((sheet, index) => (
-                  <div key={`sheet-summary-${sheet.signature}`} className="grid grid-cols-[1.2fr_1fr_2fr_1fr_1fr] gap-2 px-4 py-2">
-                    <span className="text-sm font-medium text-gray-900">{sheet.motherGlassName}</span>
-                    <span className="text-right text-gray-900">유형 #{index + 1}</span>
-                    <span className="text-right text-gray-600 whitespace-pre-line">{sheet.productSummary}</span>
-                    <span className="text-right text-blue-600">{sheet.areaUsedPercent.toFixed(1)}% 사용<br />
-                      <span className="text-[10px] text-gray-400">잔여 {sheet.areaRemainingPercent.toFixed(1)}%</span>
-                    </span>
-                    <span className="text-right text-gray-900">{sheet.sheetIndices.length.toLocaleString()} 장</span>
-                  </div>
-                ))}
-              </div>
-              <div className="grid grid-cols-[1.2fr_1fr_2fr_1fr_1fr] gap-2 border-t border-gray-100 bg-gray-50 px-4 py-2 text-xs font-semibold text-gray-700">
-                <span className="text-right">총계</span>
-                <span className="text-right">-</span>
-                <span className="text-right text-gray-500">총 배치 {totalPlacedProducts.toLocaleString()} 개</span>
-                <span className="text-right text-blue-600">평균 효율 {overallAreaUtilizationPercent.toFixed(1)}%</span>
-                <span className="text-right">{totalMotherGlassesUsed.toLocaleString()} 장</span>
+          <div className="space-y-6">
+            <div>
+              <h4 className="text-base font-semibold text-gray-900">세대별 배치 요약</h4>
+              <div className="mt-2 overflow-hidden rounded-xl border border-gray-200">
+                <div className="grid grid-cols-[0.5fr_0.5fr_3fr_1fr_1fr] gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-600 text-center">
+                  <span>원장 종류</span>
+                  <span>배치 유형</span>
+                  <span>포함 제품</span>
+                  <span>사용 면적</span>
+                  <span>사용 장수</span>
+                </div>
+                <div className="divide-y divide-gray-100 text-sm text-gray-700">
+                  {groupedSheets.map((sheet, index) => (
+                    <div key={`sheet-summary-${sheet.signature}`} className="grid grid-cols-[0.5fr_0.5fr_3fr_1fr_1fr] gap-2 px-4 py-2">
+                      <span className="text-center text-sm font-medium text-gray-900">{sheet.motherGlassName}</span>
+                      <span className="text-center text-gray-900">유형 #{index + 1}</span>
+                      <span className="text-right text-gray-600 whitespace-pre-line">{sheet.productSummary}</span>
+                      <span className="text-right text-blue-600">{sheet.areaUsedPercent.toFixed(1)}% 사용<br />
+                        <span className="text-[10px] text-gray-400">잔여 {sheet.areaRemainingPercent.toFixed(1)}%</span>
+                      </span>
+                      <span className="text-right text-gray-900">{sheet.sheetIndices.length.toLocaleString()} 장</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-[0.5fr_0.5fr_3fr_1fr_1fr] gap-2 border-t border-gray-100 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700">
+                  <span className="text-left">총계</span>
+                  <span className="text-left">-</span>
+                  <span className="text-right text-gray-500">총 배치 {totalPlacedProducts.toLocaleString()} 개</span>
+                  <span className="text-right text-blue-600">평균 효율 {overallAreaUtilizationPercent.toFixed(1)}%</span>
+                  <span className="text-right">{totalMotherGlassesUsed.toLocaleString()} 장</span>
+                </div>
               </div>
             </div>
+
+            {overallGenerationSummary.length > 0 && (
+              <div>
+                <h4 className="text-base font-semibold text-gray-900">전체 배치 요약</h4>
+                <div className="mt-2 overflow-hidden rounded-xl border border-[#0059FF]/20">
+                  <div className="grid grid-cols-[1.2fr_2.8fr_1fr_1fr] gap-2 border-b border-[#0059FF]/10 bg-[#0059FF]/5 px-4 py-2 text-sm font-semibold text-[#0059FF] text-center">
+                    <span>원장 세대</span>
+                    <span>포함 제품</span>
+                    <span>평균 사용 면적</span>
+                    <span>사용 장수</span>
+                  </div>
+                  <div className="divide-y divide-[#0059FF]/10 text-sm text-gray-700">
+                    {overallGenerationSummary.map((summary) => (
+                      <div key={`overall-summary-${summary.motherGlassName}`} className="grid grid-cols-[1.2fr_2.8fr_1fr_1fr] gap-2 px-4 py-2">
+                        <span className="text-sm font-semibold text-gray-900">{summary.motherGlassName}</span>
+                        <span className="text-right text-gray-600 whitespace-pre-line">{summary.productSummary}</span>
+                        <span className="text-right text-[#0059FF]">{summary.averageUsedPercent.toFixed(1)}% 사용<br />
+                          <span className="text-[10px] text-gray-400">잔여 {summary.averageRemainingPercent.toFixed(1)}%</span>
+                        </span>
+                        <span className="text-right text-gray-900">{summary.sheetCount.toLocaleString()} 장</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
