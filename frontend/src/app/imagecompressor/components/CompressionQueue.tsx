@@ -160,10 +160,11 @@ export default function CompressionQueue({
   
   return (
     <div className="mt-8">
-      <h1 className="text-lg font-bold text-gray-900 mb-6">압축대기열</h1>
+      <h1 className="text-xl font-bold text-gray-900 mb-6">압축대기열</h1>
 
       <CommonContainerBox>
         <CommonTableFrame
+          className="overflow-visible"
           header={
             <thead className="bg-gray-50">
               <tr className="text-gray-700">
@@ -198,7 +199,7 @@ export default function CompressionQueue({
                     <td className="py-3 px-3" title={item.fileName}>
                       {truncateFileName(item.fileName)}
                     </td>
-                    <td className="py-3 px-3">
+                    <td className="py-3 px-3 overflow-visible">
                       {item.status === '대기' && !isCompressionInProgress ? (
                         <AlgorithmDropdown
                           processingUnit={item.processingMethod}
@@ -213,7 +214,7 @@ export default function CompressionQueue({
                         </span>
                       )}
                     </td>
-                    <td className="py-3 px-3 text-center">
+                    <td className="py-3 px-3 text-center overflow-visible">
                       {item.status === '대기' && !isCompressionInProgress ? (
                         <div className="flex justify-center">
                           <VersionDropdown

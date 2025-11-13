@@ -41,7 +41,7 @@ export interface JobDetailRow {
   owner: string;
   startedAt: string;
   finishedAt: string;
-  elapsed: string; // 소요시간
+  elapsedTime: string; // 소요시간
   inputFormat: string;
   outputFormat: string;
   avgGpuUtilPercent: number;
