@@ -35,116 +35,112 @@ class LibTiffEncoder final : public IEncoder {
 public:
     const char* name() const override { return "libTIFF(CPU)"; }
 
-    bool encode(const ImageInfo& info,
+    EncodeResult encode(const ImageInfo& info,
         const std::vector<uint8_t>& rgb,
         const std::string& outPath,
         const TiffOptions& opt) override
     {
-        try {
-            if (info.channels != 3 || info.bitsPerSample != 8)
-                throw std::runtime_error("Only RGB24 (3x8bit) supported.");
+        EncodeResult encodeResult{};
 
-            const size_t expected = static_cast<size_t>(info.width) * info.height * 3;
-            if (rgb.size() != expected)
-                throw std::runtime_error("RGB buffer size mismatch.");
+        if (info.channels != 3 || info.bitsPerSample != 8)
+            throw std::runtime_error("Only RGB24 (3x8bit) supported.");
 
-            const unsigned int width = (unsigned int)info.width;
-            const unsigned int height = (unsigned int)info.height;
-            const unsigned int pixelSize = 3;  // RGB24
-            const unsigned long long bytesPerRow = (unsigned long long)width * pixelSize;
+        const size_t expected = static_cast<size_t>(info.width) * info.height * 3;
+        if (rgb.size() != expected)
+            throw std::runtime_error("RGB buffer size mismatch.");
 
-            unsigned int rowsPerStrip = opt.rowsPerStrip.has_value() && opt.rowsPerStrip.value() > 0
-                ? (unsigned int)opt.rowsPerStrip.value()
-                : pickRowsPerStrip(info.width, info.height);
-            rowsPerStrip = std::max(1u, std::min(rowsPerStrip, height));
+        const unsigned int width = (unsigned int)info.width;
+        const unsigned int height = (unsigned int)info.height;
+        const unsigned int pixelSize = 3;  // RGB24
+        const unsigned long long bytesPerRow = (unsigned long long)width * pixelSize;
 
-            const int maxAttempts = 4;
-            bool encoded = false;
-            std::string lastErr;
+        unsigned int rowsPerStrip = opt.rowsPerStrip.has_value() && opt.rowsPerStrip.value() > 0
+            ? (unsigned int)opt.rowsPerStrip.value()
+            : pickRowsPerStrip(info.width, info.height);
+        rowsPerStrip = std::max(1u, std::min(rowsPerStrip, height));
 
-            for (int attempt = 0; attempt < maxAttempts && !encoded; ++attempt) {
-                TIFF* tif = TIFFOpen(outPath.c_str(), "w");
-                if (!tif) {
-                    lastErr = "Cannot open TIFF file: " + outPath;
-                    if (attempt < maxAttempts - 1)
-                        rowsPerStrip = std::max(1u, rowsPerStrip / 2);
-                    continue;
-                }
+        const int maxAttempts = 4;
+        bool encoded = false;
+        std::string lastErr;
 
-                TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, info.width);
-                TIFFSetField(tif, TIFFTAG_IMAGELENGTH, info.height);
-                TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, info.channels);
-                TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, info.bitsPerSample);
-                TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, rowsPerStrip);
-                TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
-                TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
-                TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+        for (int attempt = 0; attempt < maxAttempts && !encoded; ++attempt) {
+            TIFF* tif = TIFFOpen(outPath.c_str(), "w");
+            if (!tif) {
+                lastErr = "Cannot open TIFF file: " + outPath;
+                if (attempt < maxAttempts - 1)
+                    rowsPerStrip = std::max(1u, rowsPerStrip / 2);
+                continue;
+            }
 
-                // 압축 설정
-                switch (opt.compression) {
-                case Compression::LZW:
-                    TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_LZW);
-                    TIFFSetField(tif, TIFFTAG_PREDICTOR, 2);
-                    LOGI("Using LZW compression");
-                    break;
-                case Compression::Deflate:
-                    TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_ADOBE_DEFLATE);
-                    TIFFSetField(tif, TIFFTAG_PREDICTOR, 2);
-                    LOGI("Using Deflate compression");
-                    break;
-                case Compression::PackBits:
-                    TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_PACKBITS);
-                    LOGI("Using PackBits compression");
-                    break;
-                case Compression::None:
-                default:
-                    TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
-                    LOGI("Using no compression");
-                    break;
-                }
+            TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, info.width);
+            TIFFSetField(tif, TIFFTAG_IMAGELENGTH, info.height);
+            TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, info.channels);
+            TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, info.bitsPerSample);
+            TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, rowsPerStrip);
+            TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
+            TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+            TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
 
-                // 스트립 단위로 쓰기
-                tsize_t stripSize = TIFFStripSize(tif);
-                tstrip_t numStrips = TIFFNumberOfStrips(tif);
-                bool stripError = false;
-
-                for (tstrip_t s = 0; s < numStrips; ++s) {
-                    size_t offset = static_cast<size_t>(s) * static_cast<size_t>(stripSize);
-                    size_t size = std::clamp(
-                        static_cast<size_t>(expected - offset),
-                        static_cast<size_t>(0),
-                        static_cast<size_t>(stripSize)
-                    );
-
-                    if (TIFFWriteEncodedStrip(tif, s, (tdata_t)(rgb.data() + offset), size) == -1) {
-                        lastErr = "Failed to write strip " + std::to_string(s);
-                        stripError = true;
-                        break;
-                    }
-                }
-
-                TIFFClose(tif);
-
-                if (stripError) {
-                    if (attempt < maxAttempts - 1)
-                        rowsPerStrip = std::max(1u, rowsPerStrip / 2);
-                    continue;
-                }
-
-                encoded = true;
+            // 압축 설정
+            switch (opt.compression) {
+            case Compression::LZW:
+                TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_LZW);
+                TIFFSetField(tif, TIFFTAG_PREDICTOR, 2);
+                LOGI("[libtiff] Using LZW compression");
+                break;
+            case Compression::Deflate:
+                TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_ADOBE_DEFLATE);
+                TIFFSetField(tif, TIFFTAG_PREDICTOR, 2);
+                LOGI("[libtiff] Using Deflate compression");
+                break;
+            case Compression::PackBits:
+                TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_PACKBITS);
+                LOGI("[libtiff] Using PackBits compression");
+                break;
+            case Compression::None:
+            default:
+                TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);
+                LOGI("[libtiff] Using no compression");
                 break;
             }
 
-            if (!encoded) {
-                throw std::runtime_error("libTIFF encoding failed after retries: " + lastErr);
+            // 스트립 단위로 쓰기
+            tsize_t stripSize = TIFFStripSize(tif);
+            tstrip_t numStrips = TIFFNumberOfStrips(tif);
+            bool stripError = false;
+
+            for (tstrip_t s = 0; s < numStrips; ++s) {
+                size_t offset = static_cast<size_t>(s) * static_cast<size_t>(stripSize);
+                size_t size = std::clamp(
+                    static_cast<size_t>(expected - offset),
+                    static_cast<size_t>(0),
+                    static_cast<size_t>(stripSize)
+                );
+
+                if (TIFFWriteEncodedStrip(tif, s, (tdata_t)(rgb.data() + offset), size) == -1) {
+                    lastErr = "Failed to write strip " + std::to_string(s);
+                    stripError = true;
+                    break;
+                }
             }
 
-            return true;
+            TIFFClose(tif);
+
+            if (stripError) {
+                if (attempt < maxAttempts - 1)
+                    rowsPerStrip = std::max(1u, rowsPerStrip / 2);
+                continue;
+            }
+
+            encoded = true;
+            break;
         }
-        catch (const std::exception& ex) {
-            LOGE(ex.what());
-            return false;
+
+        if (!encoded) {
+            throw std::runtime_error("libTIFF encoding failed after retries: " + lastErr);
         }
+
+        return encodeResult;
     }
 };
 

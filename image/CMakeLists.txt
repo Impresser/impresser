@@ -34,7 +34,7 @@ include_directories(${CUDA_INCLUDE_DIR})
 # NVML
 # -----------------------------------------------------------------------------
 find_path(NVML_INCLUDE_DIR nvml.h PATHS /usr/local/cuda/include /usr/include/nvidia-ml)
-find_library(NVML_LIBRARY NAMES nvidia-ml nvml PATHS /usr/lib /usr/lib/x86_64-linux-gnu)
+find_library(NVML_LIBRARY NAMES nvidia-ml nvml PATHS /usr/lib /usr/lib/x86_64-linux-gnu REQUIRED)
 include_directories(${NVML_INCLUDE_DIR})
 
 # -----------------------------------------------------------------------------

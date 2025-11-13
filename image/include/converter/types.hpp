@@ -32,4 +32,19 @@ namespace conv {
         TiffOptions options;
     };
 
+    struct GpuStats {
+        double avgUtil = 0.0;
+    };
+
+    struct SpeedStats {
+        double avgMBps = 0.0;
+        double minMBps = 0.0;
+        double maxMBps = 0.0;
+    };
+
+    struct EncodeResult {
+        GpuStats   gpu;
+        SpeedStats speed;
+    };
+
 }
