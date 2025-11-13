@@ -168,14 +168,15 @@ export default function MotherGlassLayoutPreview({ layoutResult, overallSummary 
                     <div className="mb-3 flex items-center justify-between text-sm">
                       <span className="font-semibold text-gray-900">배치 유형 #{index + 1}</span>
                       <span className="text-sm text-gray-500">
-                        실제 사용: {groupedSheets[index].sheetIndices.length.toLocaleString()}장 · 원장 종류: {groupedSheets[index].motherGlassName}
+                        실제 사용: {groupedSheets[index].sheetIndices.length.toLocaleString()}장
                       </span>
                     </div>
                     <div
                       className="relative overflow-hidden rounded-lg border border-dashed border-gray-300 bg-gray-50"
                       style={{
-                        width: '100%',
-                        paddingTop: `${(motherGlass.heightMm / motherGlass.widthMm) * 100}%`,
+                        width: '75%',
+                        paddingTop: `${(motherGlass.heightMm / motherGlass.widthMm) * 75}%`,
+                        margin: '0 auto',
                       }}
                     >
                       <div className="absolute inset-0">
@@ -230,7 +231,7 @@ export default function MotherGlassLayoutPreview({ layoutResult, overallSummary 
 
           <div className="space-y-6">
             <div>
-              <h4 className="text-base font-semibold text-gray-900">세대별 배치 요약</h4>
+              <h4 className="text-base font-semibold text-gray-900">패널 배치 요약</h4>
               <div className="mt-2 overflow-hidden rounded-xl border border-gray-200">
                 <div className="grid grid-cols-[0.5fr_0.5fr_3fr_1fr_1fr] gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-600 text-center">
                   <span>원장 종류</span>
@@ -246,7 +247,7 @@ export default function MotherGlassLayoutPreview({ layoutResult, overallSummary 
                       <span className="text-center text-gray-900">유형 #{index + 1}</span>
                       <span className="text-right text-gray-600 whitespace-pre-line">{sheet.productSummary}</span>
                       <span className="text-right text-blue-600">{sheet.areaUsedPercent.toFixed(1)}% 사용<br />
-                        <span className="text-[10px] text-gray-400">잔여 {sheet.areaRemainingPercent.toFixed(1)}%</span>
+                        <span className="text-[12px] text-gray-400">잔여 {sheet.areaRemainingPercent.toFixed(1)}%</span>
                       </span>
                       <span className="text-right text-gray-900">{sheet.sheetIndices.length.toLocaleString()} 장</span>
                     </div>
