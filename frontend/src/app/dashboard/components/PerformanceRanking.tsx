@@ -198,7 +198,7 @@ export default function EquipmentUsage() {
       mode: (item.processingUnit === "GPU" ? "GPU" : "CPU") as "GPU" | "CPU",
       algorithm: item.compressionType,
       version: String(item.version),
-      size: `${(item.tiffVolume / 1024 / 1024).toFixed(2)} MB`,
+      size: `${(item.tiffVolume / 1024).toFixed(2)} MB`,
       owner: item.userName,
       startedAt: "-", // API 응답에 없음
       finishedAt: "-", // API 응답에 없음
