@@ -46,10 +46,39 @@ const formatTime = (seconds: number): string => {
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = Math.floor(seconds % 60);
   
+  const parts: string[] = [];
   if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    parts.push(`${hours}시간`);
   }
-  return `${minutes}:${secs.toString().padStart(2, '0')}`;
+  if (minutes > 0) {
+    parts.push(`${minutes}분`);
+  }
+  if (secs > 0 || parts.length === 0) {
+    parts.push(`${secs}초`);
+  }
+  
+  return parts.join(' ');
+};
+
+const formatSeconds = (seconds: number): string => {
+  if (!seconds && seconds !== 0) return '-';
+  return `${seconds.toFixed(2)}초`;
+};
+
+const formatTimeMinutesSeconds = (seconds: number): string => {
+  if (!seconds && seconds !== 0) return '-';
+  const totalMinutes = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  
+  const parts: string[] = [];
+  if (totalMinutes > 0) {
+    parts.push(`${totalMinutes}분`);
+  }
+  if (secs > 0 || parts.length === 0) {
+    parts.push(`${secs}초`);
+  }
+  
+  return parts.join(' ');
 };
 
 function RadialGauge({ percent, size = 120, color = "#5A73FF" }: { percent: number; size?: number; color?: string }) {
@@ -171,7 +200,7 @@ export default function EquipmentUsage() {
       owner: item.userName,
       startedAt: "-", // API 응답에 없음
       finishedAt: "-", // API 응답에 없음
-      elapsed: `${item.elapsedTime}초`,
+      elapsedTime: item.elapsedTime,
       inputFormat: "TIFF",
       outputFormat: "TIFF",
       avgGpuUtilPercent: 0, // API 응답에 없음
@@ -450,7 +479,7 @@ export default function EquipmentUsage() {
                       <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">용량</th>
                       <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">담당자</th>
                       <th className="text-right font-semibold text-medium tracking-wide py-2 px-3 w-[105px]">평균압축속도</th>
-                      <th className="text-right font-semibold text-medium tracking-wide py-2 px-3 w-20">소요시간</th>
+                      <th className="text-right font-semibold text-medium tracking-wide py-2 px-3 w-25">총 소요시간</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -473,7 +502,7 @@ export default function EquipmentUsage() {
                           <td className="h-10 py-0 px-3 text-right border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[100px]">
                             <PrettyNumber value={job.avgSpeedMBps} unit="MB/s" />
                           </td>
-                          <td className="h-10 py-0 px-3 text-right border border-gray-200 border-l-0 bg-white group-hover:bg-gray-50 w-20">{job.elapsed}</td>
+                          <td className="h-10 py-0 px-3 text-right border border-gray-200 border-l-0 bg-white group-hover:bg-gray-50 w-20">{formatTimeMinutesSeconds(job.elapsedTime)}</td>
                         </tr>
                       );
                     })}
@@ -522,7 +551,7 @@ export default function EquipmentUsage() {
                     <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">용량</th>
                     <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">담당자</th>
                     <th className="text-right font-semibold text-medium tracking-wide py-2 px-3 w-[105px]">평균압축속도</th>
-                    <th className="text-right font-semibold text-medium tracking-wide py-2 px-3 w-20">소요시간</th>
+                    <th className="text-right font-semibold text-medium tracking-wide py-2 px-3 w-25">총 소요시간</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -537,7 +566,7 @@ export default function EquipmentUsage() {
                     <td className="h-10 py-0 px-3 text-right border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[100px]">
                       <PrettyNumber value={selectedJob.avgSpeedMBps} unit="MB/s" />
                     </td>
-                    <td className="h-10 py-0 px-3 text-right border border-gray-200 border-l-0 bg-white group-hover:bg-gray-50 w-20">{selectedJob.elapsed}</td>
+                    <td className="h-10 py-0 px-3 text-right border border-gray-200 border-l-0 bg-white group-hover:bg-gray-50 w-20">{formatTimeMinutesSeconds(selectedJob.elapsedTime)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -570,10 +599,10 @@ export default function EquipmentUsage() {
                       <div>{new Date(historyDetailData.requestAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</div>
                       <div className="text-gray-500">완료일시</div>
                       <div>{new Date(historyDetailData.completedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</div>
-                      <div className="text-gray-500">압축 소요시간 </div>
-                      <div>{formatTime(historyDetailData.compressionTime)}</div>
+                      <div className="text-gray-500">압축 소요시간</div>
+                      <div>{formatSeconds(historyDetailData.compressionTime)}</div>
                       <div className="text-gray-500">총 소요시간</div>
-                      <div>{formatTime(historyDetailData.elapsedTime)}</div>
+                      <div>{formatTimeMinutesSeconds(historyDetailData.elapsedTime)}</div>
                     </div>
                     </div>
                   </div>
@@ -590,5 +619,6 @@ export default function EquipmentUsage() {
     </CommonContainerBox>
   );
 }
+
 
 

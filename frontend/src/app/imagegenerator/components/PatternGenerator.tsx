@@ -6,10 +6,11 @@ import CommonButton from '@/components/ui/CommonButton';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import CommonInput from '@/components/ui/CommonInput01';
 import CommonModal from '@/components/ui/CommonModal';
-import { usePatternForm } from '@/app/imagegenerator/hooks/usePatternForm';
+import { useImageGeneratorStore } from '@/store/imageGeneratorStore';
 
 export default function PatternForm() {
-  const { form, setFormField } = usePatternForm();
+  const form = useImageGeneratorStore((s) => s.form);
+  const setFormField = useImageGeneratorStore((s) => s.setFormField);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const previewContainerRef = useRef<HTMLDivElement | null>(null);
@@ -1027,7 +1028,7 @@ export default function PatternForm() {
     <div>
       {/* 제목 & 불러오기 버튼 */}
       <div className="flex justify-between items-center mb-3">
-        <h2 className="text-lg font-semibold text-gray-800">생성할 패턴</h2>
+        <h2 className="text-xl font-semibold text-gray-800">생성할 패턴</h2>
         <div className="flex items-center gap-3">
           <input
             ref={fileInputRef}

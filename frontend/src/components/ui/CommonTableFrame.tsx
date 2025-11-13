@@ -10,8 +10,11 @@ interface CommonTableFrameProps {
 }
 
 export default function CommonTableFrame({ className = "", tableClassName = "", header, body }: CommonTableFrameProps) {
+  const hasOverflowVisible = className.includes('overflow-visible');
+  const overflowClass = hasOverflowVisible ? '' : 'overflow-hidden';
+  
   return (
-    <div className={`overflow-hidden rounded-md border border-gray-200 ${className}`}>
+    <div className={`${overflowClass} rounded-md border border-gray-200 ${className}`}>
       <table className={`w-full text-sm ${tableClassName}`}>
         {header}
         {body}

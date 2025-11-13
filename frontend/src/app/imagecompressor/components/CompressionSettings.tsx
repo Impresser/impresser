@@ -379,7 +379,7 @@ export default function CompressionSettings({
 
   return (
     <div>
-      {!hideTitle && <h1 className="text-lg font-bold text-gray-900 mb-4">압축이미지</h1>}
+      {!hideTitle && <h1 className="text-xl font-bold text-gray-900 mb-4">압축이미지</h1>}
 
       <div className="grid grid-cols-[3fr_1fr] gap-6">
         {/* 왼쪽: 파일 선택 영역 */}

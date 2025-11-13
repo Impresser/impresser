@@ -6,15 +6,17 @@ import Navbar from '@/components/layout/navbar';
 import PatternGenerator from './components/PatternGenerator';
 import PatternList from './components/PatternList';
 import Button from '@/components/ui/CommonButton';
-import { usePatternJobs } from '@/app/imagegenerator/hooks/usePatternJobs';
 import { useImageGeneratorStore } from '@/store/imageGeneratorStore';
 import { createBmpPattern, subscribeSSEWithAuth, SSEEventData } from '@/service/imageGenerator';
 import AuthGuard from '@/components/auth/AuthGuard';
 import { useToast } from '@/components/ui/CommonToast';
 
 export default function PatternGeneratorPage() {
-  const { generatedCount, addJob, updateJobProgress, markJobDone } = usePatternJobs();
   const form = useImageGeneratorStore((s) => s.form);
+  const generatedCount = useImageGeneratorStore((s) => s.generatedCount);
+  const addJob = useImageGeneratorStore((s) => s.addJob);
+  const updateJobProgress = useImageGeneratorStore((s) => s.updateJobProgress);
+  const markJobDone = useImageGeneratorStore((s) => s.markJobDone);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
   const [sseControllers, setSseControllers] = useState<Map<string, AbortController>>(new Map());

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 
 interface DropdownOption {
   value: string;
@@ -30,55 +29,25 @@ export default function CommonDropdown({
   size = 'md',
 }: CommonDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [menuStyles, setMenuStyles] = useState<React.CSSProperties>({});
-  const [mounted, setMounted] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
 
   const selectedOption = options.find(option => option.value === value);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const updateMenuPosition = () => {
-    if (!buttonRef.current) return;
-
-    const buttonRect = buttonRef.current.getBoundingClientRect();
-
-    setMenuStyles({
-      position: 'fixed',
-      top: buttonRect.bottom + window.scrollY + 4,
-      left: buttonRect.left + window.scrollX,
-      width: buttonRect.width,
-      zIndex: 9999,
-    });
-  };
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
       if (
         dropdownRef.current &&
-        !dropdownRef.current.contains(target) &&
-        menuRef.current &&
-        !menuRef.current.contains(target)
+        !dropdownRef.current.contains(target)
       ) {
         setIsOpen(false);
       }
     };
 
     if (isOpen) {
-      updateMenuPosition();
       document.addEventListener('mousedown', handleClickOutside);
-      window.addEventListener('scroll', updateMenuPosition, true);
-      window.addEventListener('resize', updateMenuPosition);
-
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
-        window.removeEventListener('scroll', updateMenuPosition, true);
-        window.removeEventListener('resize', updateMenuPosition);
       };
     }
   }, [isOpen]);
@@ -97,7 +66,6 @@ export default function CommonDropdown({
       )}
       <div ref={dropdownRef} className="relative">
         <button
-          ref={buttonRef}
           type="button"
           onClick={() => !disabled && setIsOpen(!isOpen)}
           disabled={disabled}
@@ -130,12 +98,8 @@ export default function CommonDropdown({
           </span>
         </button>
 
-        {isOpen && mounted && createPortal(
-          <div
-            ref={menuRef}
-            className="bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto"
-            style={menuStyles}
-          >
+        {isOpen && (
+          <div className="absolute z-[9999] top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
             {options.map((option) => (
               <button
                 key={option.value}
@@ -150,8 +114,7 @@ export default function CommonDropdown({
                 {option.label}
               </button>
             ))}
-          </div>,
-          document.body
+          </div>
         )}
       </div>
     </div>
