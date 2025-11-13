@@ -55,6 +55,11 @@ const formatDateTime = (date: Date): string => {
   return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
 };
 
+const truncateFileName = (fileName: string, maxLength: number = 30): string => {
+  if (fileName.length <= maxLength) return fileName;
+  return fileName.substring(0, maxLength) + '...';
+};
+
 export default function CompressionQueue({
   queue,
   onStartCompression,
@@ -162,17 +167,17 @@ export default function CompressionQueue({
           header={
             <thead className="bg-gray-50">
               <tr className="text-gray-700">
-                <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">파일명</th>
-                <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">알고리즘</th>
-                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">버전</th>
-                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3 whitespace-nowrap">처리방식</th>
-                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">파일용량</th>
-                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">상태</th>
-                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">담당자</th>
-                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">시작시각</th>
-                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">경과시간</th>
-                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">예상시간</th>
-                <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">진행률</th>
+                <th className="text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
+                <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">알고리즘</th>
+                <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">버전</th>
+                <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 whitespace-nowrap">처리방식</th>
+                <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">파일용량</th>
+                <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">상태</th>
+                <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">담당자</th>
+                <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">시작시각</th>
+                <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">경과시간</th>
+                <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">예상시간</th>
+                <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">진행률</th>
               </tr>
             </thead>
           }
@@ -190,8 +195,8 @@ export default function CompressionQueue({
                     key={item.id}
                     className="border-b border-gray-100 text-sm text-gray-900 hover:bg-gray-50"
                   >
-                    <td className="py-3 px-3 truncate max-w-xs" title={item.fileName}>
-                      {item.fileName}
+                    <td className="py-3 px-3" title={item.fileName}>
+                      {truncateFileName(item.fileName)}
                     </td>
                     <td className="py-3 px-3">
                       {item.status === '대기' && !isCompressionInProgress ? (
@@ -424,7 +429,7 @@ function VersionDropdown({
       options={options}
       value={value}
       onChange={onChange}
-      className="w-[110px]"
+      className="w-[100px]"
       size="sm"
       placeholder={loading ? "로딩 중..." : "버전 선택"}
       disabled={loading || options.length === 0}

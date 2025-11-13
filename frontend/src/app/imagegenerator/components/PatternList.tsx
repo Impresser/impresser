@@ -238,15 +238,15 @@ export default function PatternTable() {
             header={(
               <thead className="bg-gray-50">
                 <tr className="text-gray-700">
-                  <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">No.</th>
-                  <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">생성일시</th>
-                  <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">이미지 크기</th>
-                  <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">상태</th>
-                  <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">담당자</th>
-                  <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">시작시각</th>
-                  <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">완료시간</th>
-                  <th className="text-center font-semibold text-xs tracking-wide py-2 px-3 w-[140px]">진행률</th>
-                  <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">작업</th>
+                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">No.</th>
+                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">생성일시</th>
+                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">이미지 크기</th>
+                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">상태</th>
+                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">담당자</th>
+                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">시작시각</th>
+                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">완료시간</th>
+                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[140px]">진행률</th>
+                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
                 </tr>
               </thead>
             )}
@@ -337,7 +337,7 @@ export default function PatternTable() {
                                         <h3 className="text-lg font-semibold text-gray-800">패턴 파라미터</h3>
                                         <button
                                           onClick={() => exportToCSV(detailData)}
-                                          className="text-blue-600 hover:underline text-sm cursor-pointer flex items-center"
+                                          className="text-blue-600 hover:underline text-medium cursor-pointer flex items-center"
                                         >
                                           <CsvIcon />
                                           내보내기

@@ -360,11 +360,11 @@ export default function EquipmentUsage() {
             header={(
               <thead className="bg-gray-50">
                 <tr className="text-gray-700">
-                  <th className="text-center font-semibold text-xs tracking-wide py-2 px-3 w-16">순위</th>
-                  <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">알고리즘</th>
-                  <th className="text-center font-semibold text-xs tracking-wide py-2 px-3 w-20">버전</th>
-                  <th className="text-center font-semibold text-xs tracking-wide py-2 px-3 w-20 whitespace-nowrap">처리 방식</th>
-                  <th className="text-right font-semibold text-xs tracking-wide py-2 px-3 w-36">평균압축속도</th>
+                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-16">순위</th>
+                  <th className="text-left font-semibold text-medium tracking-wide py-2 px-3">알고리즘</th>
+                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-20">버전</th>
+                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-20 whitespace-nowrap">처리 방식</th>
+                  <th className="text-right font-semibold text-medium tracking-wide py-2 px-3 w-36">평균압축속도</th>
                 </tr>
               </thead>
             )}
@@ -442,15 +442,15 @@ export default function EquipmentUsage() {
                 <table className="w-full text-sm border-separate border-spacing-y-0">
                   <thead>
                     <tr className="text-gray-700 bg-gray-50">
-                      <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-[60px]">No</th>
-                      <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">이름</th>
-                      <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-20">방식</th>
-                      <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-[110px]">알고리즘</th>
-                      <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-[90px]">버전</th>
-                      <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-[90px]">용량</th>
-                      <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-[90px]">담당자</th>
-                      <th className="text-right font-semibold text-xs tracking-wide py-2 px-3 w-[100px]">평균압축속도</th>
-                      <th className="text-right font-semibold text-xs tracking-wide py-2 px-3 w-20">소요시간</th>
+                      <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[60px]">No.</th>
+                      <th className="text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
+                      <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[110px]">알고리즘</th>
+                      <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">버전</th>
+                      <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-21">처리 방식</th>
+                      <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">용량</th>
+                      <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">담당자</th>
+                      <th className="text-right font-semibold text-medium tracking-wide py-2 px-3 w-[105px]">평균압축속도</th>
+                      <th className="text-right font-semibold text-medium tracking-wide py-2 px-3 w-20">소요시간</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -463,13 +463,13 @@ export default function EquipmentUsage() {
                           onClick={() => setSelectedDetailId(prev => (prev === job.id ? null : job.id))}
                           className={`cursor-pointer group ${isActive ? 'ring-1 ring-inset ring-blue-300 bg-blue-50' : ''}`}
                         >
-                          <td className="h-10 py-0 px-3 text-left text-gray-600 border border-gray-200 border-r-0 bg-white group-hover:bg-gray-50 w-[60px]">{globalIndex + 1}</td>
+                          <td className="h-10 py-0 px-3 text-center text-gray-600 border border-gray-200 border-r-0 bg-white group-hover:bg-gray-50 w-[60px]">{globalIndex + 1}</td>
                           <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50">{job.name}</td>
-                          <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-20">{job.mode}</td>
-                          <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[110px]">{job.algorithm}</td>
-                          <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{job.version}</td>
-                          <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{job.size}</td>
-                          <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{job.owner}</td>
+                          <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[110px]">{job.algorithm}</td>
+                          <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">v{job.version}</td>
+                          <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-20">{job.mode}</td>
+                          <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{job.size}</td>
+                          <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{job.owner}</td>
                           <td className="h-10 py-0 px-3 text-right border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[100px]">
                             <PrettyNumber value={job.avgSpeedMBps} unit="MB/s" />
                           </td>
@@ -514,26 +514,26 @@ export default function EquipmentUsage() {
               <table className="w-full text-sm border-separate border-spacing-y-0 mb-4">
                 <thead>
                   <tr className="text-gray-700 bg-gray-50">
-                    <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-[60px]">No</th>
-                    <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">이름</th>
-                    <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-20">방식</th>
-                    <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-[110px]">알고리즘</th>
-                    <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-[90px]">버전</th>
-                    <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-[90px]">용량</th>
-                    <th className="text-left font-semibold text-xs tracking-wide py-2 px-3 w-[90px]">담당자</th>
-                    <th className="text-right font-semibold text-xs tracking-wide py-2 px-3 w-[100px]">평균압축속도</th>
-                    <th className="text-right font-semibold text-xs tracking-wide py-2 px-3 w-20">소요시간</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[60px]">No.</th>
+                    <th className="text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[110px]">알고리즘</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">버전</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-21">처리 방식</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">용량</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">담당자</th>
+                    <th className="text-right font-semibold text-medium tracking-wide py-2 px-3 w-[105px]">평균압축속도</th>
+                    <th className="text-right font-semibold text-medium tracking-wide py-2 px-3 w-20">소요시간</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr className="group">
-                    <td className="h-10 py-0 px-3 text-left text-gray-600 border border-gray-200 border-r-0 bg-white group-hover:bg-gray-50 w-[60px]">{selectedJob.id}</td>
+                    <td className="h-10 py-0 px-3 text-center text-gray-600 border border-gray-200 border-r-0 bg-white group-hover:bg-gray-50 w-[60px]">{selectedJob.id}</td>
                     <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50">{selectedJob.name}</td>
-                    <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-20">{selectedJob.mode}</td>
-                    <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[110px]">{selectedJob.algorithm}</td>
-                    <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{selectedJob.version}</td>
-                    <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{selectedJob.size}</td>
-                    <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{selectedJob.owner}</td>
+                    <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[110px]">{selectedJob.algorithm}</td>
+                    <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">v{selectedJob.version}</td>
+                    <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-20">{selectedJob.mode}</td>
+                    <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{selectedJob.size}</td>
+                    <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{selectedJob.owner}</td>
                     <td className="h-10 py-0 px-3 text-right border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[100px]">
                       <PrettyNumber value={selectedJob.avgSpeedMBps} unit="MB/s" />
                     </td>

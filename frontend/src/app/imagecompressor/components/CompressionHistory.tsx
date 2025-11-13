@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import CommonTableFrame from '@/components/ui/CommonTableFrame';
 import { HistoryItem } from '@/components/ui/CommonTable';
-import Button from '@/components/ui/CommonButton';
+import CommonPagination from '@/components/ui/CommonPagination';
 import { useImageCompressorStore } from '@/store/imageCompressorStore';
 import { ConvertHistoryItem, ConvertHistoryDetailItem } from '@/types/imageCompressor';
 import { getConvertHistoryDetail } from '@/service/imageCompressor';
@@ -108,9 +108,9 @@ const formatDateTime = (date: Date | string | null | undefined): string => {
 // 숫자 포맷팅 컴포넌트
 function PrettyNumber({ value, unit }: { value: number | null | undefined; unit: string }) {
   if (value === null || value === undefined || isNaN(value)) {
-    return <span>-{unit}</span>;
+    return <span className="text-medium">-{unit}</span>;
   }
-  return <span>{value.toLocaleString(undefined, { maximumFractionDigits: 1 })}{unit}</span>;
+  return <span className="text-medium">{value.toLocaleString(undefined, { maximumFractionDigits: 1 })}{unit}</span>;
 }
 
 // 원형 게이지 컴포넌트
@@ -250,16 +250,16 @@ export default function CompressionHistory({
               header={
                 <thead className="bg-gray-50">
                   <tr className="text-gray-700">
-                    <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">파일명</th>
-                    <th className="text-left font-semibold text-xs tracking-wide py-2 px-3">알고리즘</th>
-                    <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">버전</th>
-                    <th className="text-center font-semibold text-xs tracking-wide py-2 px-3 whitespace-nowrap">처리방식</th>
-                    <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">파일용량</th>
-                    <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">상태</th>
-                    <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">담당자</th>
-                    <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">완료일시</th>
-                    <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">소요시간</th>
-                    <th className="text-center font-semibold text-xs tracking-wide py-2 px-3">작업</th>
+                    <th className="text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">알고리즘</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">버전</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 whitespace-nowrap">처리방식</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">파일용량</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">상태</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">담당자</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">완료일시</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">소요시간</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
                   </tr>
                 </thead>
               }
@@ -286,7 +286,7 @@ export default function CompressionHistory({
                             <td className="py-3 px-3 truncate max-w-xs" title={item.fileName}>
                               {item.fileName}
                             </td>
-                            <td className="py-3 px-3 truncate max-w-xs" title={item.algorithm}>
+                            <td className="py-3 px-3 truncate max-w-xs text-center" title={item.algorithm}>
                               {item.algorithm}
                             </td>
                             <td className="py-3 px-3 text-center">
@@ -345,40 +345,40 @@ export default function CompressionHistory({
                                         {/* 상세 카드 - 5열 구성: [타이틀] [게이지] [속도/확장자] [시간] */}
                                         <div className="flex gap-7 mt-4 items-center justify-center">
                                           {/* 맨맨 왼쪽: 타이틀 */}
-                                          <div className="w-[60px] font-semibold text-gray-900">압축 성능</div>
+                                          <div className="w-[60px] font-semibold text-gray-900 text-medium">압축 성능</div>
 
                                           {/* 맨 왼쪽: 평균 GPU 이용률 그래프 */}
                                           <div className="w-40 flex flex-col items-center">
-                                            <div className="text-center text-gray-500 mb-1">평균 GPU 이용률</div>
+                                            <div className="text-center text-gray-500 mb-1 text-medium">평균 GPU 이용률</div>
                                             <RadialGauge percent={detail.avgGpuUtilization} size={120} />
                                           </div>
 
                                           {/* 왼쪽: 속도들 */}
                                           <div className="flex-1 min-w-[120px] max-w-[220px]">
                                             <div className="grid grid-cols-[120px_1fr] gap-y-2 gap-x-2">
-                                              <div className="text-gray-500">평균속도</div>
-                                              <div><PrettyNumber value={detail.avgSpeed} unit="MB/s" /></div>
-                                              <div className="text-gray-500">원본확장자</div>
-                                              <div>{detail.sourceExtension}</div>
-                                              <div className="text-gray-500">압축확장자</div>
-                                              <div>{detail.compressedExtension}</div>
+                                              <div className="text-gray-500 text-medium">평균속도</div>
+                                              <div className="text-medium"><PrettyNumber value={detail.avgSpeed} unit="MB/s" /></div>
+                                              <div className="text-gray-500 text-medium">원본확장자</div>
+                                              <div className="text-medium">{detail.sourceExtension}</div>
+                                              <div className="text-gray-500 text-medium">압축확장자</div>
+                                              <div className="text-medium">{detail.compressedExtension}</div>
                                             </div>
                                           </div>
 
                                           {/* 중앙쪽: 시작/완료/시간들 */}
                                           <div className="flex-1 min-w-40 max-w-[290px] grid grid-cols-[120px_1fr] gap-y-2 gap-x-2">
-                                            <div className="text-gray-500">시작일시</div>
-                                            <div className="whitespace-nowrap">{formatDateTime(detail.requestedAt)}</div>
-                                            <div className="text-gray-500">완료일시</div>
-                                            <div className="whitespace-nowrap">{formatDateTime(detail.completedAt)}</div>
-                                            <div className="text-gray-500">압축 소요 시간</div>
-                                            <div>
+                                            <div className="text-gray-500 text-medium">시작일시</div>
+                                            <div className="whitespace-nowrap text-medium">{formatDateTime(detail.requestedAt)}</div>
+                                            <div className="text-gray-500 text-medium">완료일시</div>
+                                            <div className="whitespace-nowrap text-medium">{formatDateTime(detail.completedAt)}</div>
+                                            <div className="text-gray-500 text-medium">압축 소요 시간</div>
+                                            <div className="text-medium">
                                               {typeof detail.compressionTime === 'number' && detail.compressionTime >= 0
                                                 ? formatTime(Math.floor(detail.compressionTime))
                                                 : '-'}
                                             </div>
-                                            <div className="text-gray-500">총 소요시간</div>
-                                            <div>
+                                            <div className="text-gray-500 text-medium">총 소요시간</div>
+                                            <div className="text-medium">
                                               {typeof detail.elapsedTime === 'number' && detail.elapsedTime >= 0
                                                 ? formatTime(Math.floor(detail.elapsedTime))
                                                 : '-'}
@@ -403,33 +403,11 @@ export default function CompressionHistory({
             />
             {/* 페이지네이션 */}
             {pagination && pagination.totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200">
-                <div className="text-sm text-gray-700">
-                  전체 {pagination.totalElements}개 중 {page * size + 1}-
-                  {Math.min((page + 1) * size, pagination.totalElements)}개 표시
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => setPage(p => Math.max(0, p - 1))}
-                    disabled={pagination.first}
-                    variant="gray"
-                    className="px-3 py-1 text-xs"
-                  >
-                    이전
-                  </Button>
-                  <span className="px-3 py-1 text-sm text-gray-700">
-                    {page + 1} / {pagination.totalPages}
-                  </span>
-                  <Button
-                    onClick={() => setPage(p => p + 1)}
-                    disabled={pagination.last}
-                    variant="gray"
-                    className="px-3 py-1 text-xs"
-                  >
-                    다음
-                  </Button>
-                </div>
-              </div>
+              <CommonPagination
+                  currentPage={page + 1}
+                  totalPages={pagination.totalPages}
+                  onChange={(newPage) => setPage(newPage - 1)}
+                />
             )}
           </>
         )}
