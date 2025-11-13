@@ -1,6 +1,6 @@
 package com.semes.impresser.inkjet.consumer;
 
-import com.semes.impresser.queue.dto.PrintMessage;
+import com.semes.impresser.queue.dto.PrintImageMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -26,7 +26,7 @@ public class InkjetConsumer {
         },
         containerFactory = "inkjetListenerFactory"
     )
-    public void consumePrintMessage(PrintMessage message) {
+    public void consumePrintMessage(PrintImageMessage message) {
         log.info("Received print message for user: {}, printer: {}",
             message.getUserUuid(), message.getPrinterUuid());
     }

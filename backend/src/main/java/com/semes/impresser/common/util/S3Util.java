@@ -112,4 +112,17 @@ public class S3Util {
 
         return sb.toString();
     }
+
+    public static String toTiffFileName(String name) {
+        if (name == null || name.isBlank()) {
+            return "output.tiff";
+        }
+        int slash = Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\'));
+        String onlyName = (slash >= 0) ? name.substring(slash + 1) : name;
+
+        int dot = onlyName.lastIndexOf('.');
+        String base = (dot > 0) ? onlyName.substring(0, dot) : onlyName;
+
+        return base + ".tiff";
+    }
 }
