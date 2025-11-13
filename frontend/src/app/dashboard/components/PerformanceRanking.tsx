@@ -151,8 +151,10 @@ export default function EquipmentUsage() {
     return Math.max(...filteredAlgorithms.map(a => a.avgSpeedMBps));
   }, [filteredAlgorithms]);
   const overallAvg = useMemo(() => {
-    const sum = filteredAlgorithms.reduce((acc, a) => acc + a.avgSpeedMBps, 0);
-    return sum / filteredAlgorithms.length;
+    const nonZeroValues = filteredAlgorithms.filter(a => a.avgSpeedMBps > 0);
+    if (nonZeroValues.length === 0) return 0;
+    const sum = nonZeroValues.reduce((acc, a) => acc + a.avgSpeedMBps, 0);
+    return sum / nonZeroValues.length;
   }, [filteredAlgorithms]);
   const range1 = maxSpeed * 0.5; // 낮음
   const range2 = maxSpeed * 0.8; // 보통

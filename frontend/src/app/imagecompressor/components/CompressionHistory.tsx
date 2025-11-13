@@ -261,7 +261,7 @@ export default function CompressionHistory({
 
   return (
     <div className="mt-8">
-      <h1 className="text-lg font-bold text-gray-900 mb-6">압축내역</h1>
+      <h1 className="text-lg font-bold text-gray-900 mb-3">압축내역</h1>
 
       <CommonContainerBox>
         {loading && (
@@ -445,5 +445,3 @@ export default function CompressionHistory({
     </div>
   );
 }
-
-
