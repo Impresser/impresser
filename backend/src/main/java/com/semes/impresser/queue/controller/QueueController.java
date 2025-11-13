@@ -1,6 +1,7 @@
 package com.semes.impresser.queue.controller;
 
 import com.semes.impresser.common.response.BaseResponse;
+import com.semes.impresser.queue.dto.ConvertRequest;
 import com.semes.impresser.queue.dto.PrintRequest;
 import com.semes.impresser.queue.service.QueueService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,6 +27,14 @@ public class QueueController {
 
         queueService.enqueueInkjetPrinterJobs(printerUuid, printRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(BaseResponse.onSuccess());
+    }
 
+    @PostMapping("/convert/jobs")
+    @Operation(summary = "이미지 변환 대기열 등록")
+    public ResponseEntity<BaseResponse<Void>> enqueueConvertJobs(
+        @RequestBody ConvertRequest convertRequest) {
+
+        queueService.enqueueCompressImageJobs(convertRequest);
+        return ResponseEntity.status(HttpStatus.CREATED).body(BaseResponse.onSuccess());
     }
 }

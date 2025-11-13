@@ -8,15 +8,16 @@ import lombok.Getter;
 
 @Getter
 @Builder
-public class PrintMessage implements Serializable {
+public class PrintImageMessage implements Serializable {
 
+    private static final long serialVersionUID = 1L;
     private UUID userUuid;
     private List<String> tiffKeys;
     private UUID printerUuid;
 
-    public static PrintMessage toDto(
+    public static PrintImageMessage toDto(
         UUID userUuid, UUID printerUuid, PrintRequest printRequest) {
-        return PrintMessage.builder()
+        return PrintImageMessage.builder()
             .userUuid(userUuid)
             .tiffKeys(printRequest.tiffKeys())
             .printerUuid(printerUuid)
