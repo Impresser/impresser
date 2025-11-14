@@ -31,12 +31,21 @@ const convertToHistoryItem = (item: ConvertHistoryItem): HistoryItem => {
   };
 };
 
-const formatFileSize = (bytes: number) => {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+const formatFileSize = (kb: number) => {
+  if (kb === 0) return '0.00 KB';
+  const k = 1000; // 1000 단위로 계산
+  const sizes = ['KB', 'MB', 'GB'];
+  // KB 단위로 들어오므로
+  // 0 ~ 999 KB → KB
+  // 1000 ~ 999999 KB → MB (1000으로 나눔)
+  // 1000000 KB 이상 → GB (1000^2로 나눔)
+  if (kb < k) {
+    return kb.toFixed(2) + ' ' + sizes[0];
+  } else if (kb < k * k) {
+    return (kb / k).toFixed(2) + ' ' + sizes[1];
+  } else {
+    return (kb / (k * k)).toFixed(2) + ' ' + sizes[2];
+  }
 };
 
 const formatTime = (seconds: number): string => {
@@ -304,10 +313,10 @@ export default function CompressionHistory({
                     <th className="text-left font-semibold text-medium tracking-wide py-2 px-3">알고리즘</th>
                     <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">버전</th>
                     <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 whitespace-nowrap">처리방식</th>
-                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">파일용량</th>
-                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">상태</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">압축 전 용량</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">압축 후 용량</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">압축률</th>
                     <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">담당자</th>
-                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">완료일시</th>
                     <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">총 소요시간</th>
                     <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
                   </tr>
@@ -317,7 +326,7 @@ export default function CompressionHistory({
                 <tbody>
                   {historyItems.length === 0 ? (
                     <tr>
-                      <td colSpan={11} className="py-12 text-center text-gray-500 text-sm">
+                      <td colSpan={12} className="py-12 text-center text-gray-500 text-sm">
                         완료된 압축 내역이 없습니다.
                       </td>
                     </tr>
@@ -330,6 +339,8 @@ export default function CompressionHistory({
                       const rowNumber = pagination?.totalElements 
                         ? pagination.totalElements - (page * size + index)
                         : page * size + index + 1;
+                      // 원본 데이터에서 tiffVolume 가져오기
+                      const originalItem = histories[index];
                       
                       return (
                         <React.Fragment key={item.id}>
@@ -356,16 +367,22 @@ export default function CompressionHistory({
                                 {item.processingMethod}
                               </span>
                             </td>
-                            <td className="py-3 px-3 text-center">{`${(item.fileSize / 1024).toFixed(2)} MB`}</td>
+                            <td className="py-3 px-3 text-center">{formatFileSize(originalItem?.bmpVolume || 0)}</td>
+                            <td className="py-3 px-3 text-center">{formatFileSize(originalItem?.tiffVolume || 0)}</td>
                             <td className="py-3 px-3 text-center">
-                              <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] bg-gray-100 text-gray-700 border-gray-200">
-                                {item.status}
-                              </span>
+                              {(() => {
+                                const bmpVol = originalItem?.bmpVolume || 0;
+                                const tiffVol = originalItem?.tiffVolume || 0;
+                                if (bmpVol === 0) return '-';
+                                const compressionRatio = ((bmpVol - tiffVol) / bmpVol) * 100;
+                                return (
+                                  <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] bg-green-50 text-green-700 border-green-200">
+                                    {compressionRatio.toFixed(2)}%
+                                  </span>
+                                );
+                              })()}
                             </td>
                             <td className="py-3 px-3 text-center">{item.assignedUser}</td>
-                            <td className="py-3 px-3 text-center">
-                              {formatDateTime(item.completedTime)}
-                            </td>
                             <td className="py-3 px-3 text-center">
                               {formatTime(item.duration)}
                             </td>
@@ -391,7 +408,7 @@ export default function CompressionHistory({
                           {/* 상세 정보 행 */}
                           {isExpanded && (
                             <tr>
-                              <td colSpan={11} className="p-0">
+                              <td colSpan={12} className="p-0">
                                 <div className="border border-gray-200 rounded-lg m-3">
                                   <div className="p-3">
                                     {/* 상세 정보 표 */}
@@ -458,7 +475,7 @@ export default function CompressionHistory({
                 </tbody>
               }
             />
-            {/* 페이지네이션 */}
+            {/* 페이지네이션 */}            
             {pagination && pagination.totalPages > 1 && (              
               <CommonPagination
                 currentPage={page + 1}
@@ -472,3 +489,5 @@ export default function CompressionHistory({
     </div>
   );
 }
+
+            {/* 페이지네이션 */}
