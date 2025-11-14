@@ -100,6 +100,54 @@ const formatTimeMinutesSeconds = (seconds: number): string => {
   return parts.join(' ');
 };
 
+const formatDateTime = (date: Date | string | null | undefined): string => {
+  if (!date) {
+    return '-';
+  }
+  
+  let dateObj: Date;
+  if (typeof date === 'string') {
+    if (!date.trim()) {
+      return '-';
+    }
+    
+    let dateString = date.trim();
+    const hasTimezone = dateString.includes('Z') || 
+                        dateString.includes('+') || 
+                        (dateString.match(/[-+]\d{2}:\d{2}$/) !== null);
+    
+    if (!hasTimezone && dateString.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+      dateString = dateString + 'Z';
+    }
+    
+    dateObj = new Date(dateString);
+  } else {
+    dateObj = date;
+  }
+  
+  if (!dateObj || isNaN(dateObj.getTime())) {
+    return '-';
+  }
+  
+  const formatter = new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  
+  const parts = formatter.formatToParts(dateObj).reduce<Record<string, string>>((acc, p) => {
+    if (p.type !== 'literal') acc[p.type] = p.value;
+    return acc;
+  }, {});
+  
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+};
+
 function RadialGauge({ percent, size = 120, color = "#5A73FF" }: { percent: number; size?: number; color?: string }) {
   const clamped = Math.max(0, Math.min(100, percent));
   const inner = Math.max(10, Math.floor(size / 2) - 28);
@@ -693,9 +741,9 @@ export default function EquipmentUsage() {
                     <div className="shrink-0">
                       <div className="grid grid-cols-[160px_1fr] gap-y-2 gap-x-3">
                       <div className="text-gray-500">시작일시</div>
-                      <div>{new Date(historyDetailData.requestAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</div>
+                      <div className="whitespace-nowrap">{formatDateTime(historyDetailData.requestAt)}</div>
                       <div className="text-gray-500">완료일시</div>
-                      <div>{new Date(historyDetailData.completedAt).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}</div>
+                      <div className="whitespace-nowrap">{formatDateTime(historyDetailData.completedAt)}</div>
                       <div className="text-gray-500">압축 소요시간</div>
                       <div>{formatSeconds(historyDetailData.compressionTime)}</div>
                       <div className="text-gray-500">총 소요시간</div>
