@@ -266,7 +266,7 @@ export default function PatternTable() {
   };
 
   return (
-    <div>
+    <div className="mt-8">
       <h2 className="text-xl font-semibold text-gray-800 mb-3">목록</h2>
 
       <CommonContainerBox className="p-6">
