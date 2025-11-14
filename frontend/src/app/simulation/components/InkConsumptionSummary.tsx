@@ -43,7 +43,7 @@ function formatDurationDetail(value: number) {
   return parts.join(' ');
 }
 
-const PIXELS_PER_ML = 50000;
+const PIXELS_PER_ML = 10000;
 
 function computeColorUsage(detail: BmpDetailResult, color: 'red' | 'green' | 'blue', sheets: number) {
   const countX = detail[`${color}CountX` as const] ?? 0;
@@ -188,7 +188,7 @@ export default function InkConsumptionSummary({ plan, selectedAssignments }: Ink
       <div>
         <h3 className="text-lg font-semibold text-gray-900">잉크 소모량 및 예상 시간 계산</h3>
         <p className="mt-1 text-sm text-gray-500">
-          이미지 픽셀 수와 인쇄 수량을 반영해 색상별 잉크 사용량을 계산합니다. 50,000px당 1ml 기준으로 환산합니다.
+          이미지 픽셀 수와 인쇄 수량을 반영해 색상별 잉크 사용량을 계산합니다. 10,000px당 1ml 기준으로 환산합니다.
         </p>
       </div>
 
@@ -204,7 +204,7 @@ export default function InkConsumptionSummary({ plan, selectedAssignments }: Ink
               <React.Fragment key={`${metric.motherGlassName}-${metric.printerName}`}>
               <div className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="h-24 w-32 rounded-lg border border-gray-200 bg-white flex items-center justify-center p-2">
+                  <div className="h-48 w-64 rounded-lg border border-gray-200 bg-white flex items-center justify-center p-2">
                     <img
                       src="/images/facilities/inkjet_detail01.png"
                       alt={`${metric.printerName} 이미지`}

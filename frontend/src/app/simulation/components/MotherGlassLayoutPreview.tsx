@@ -89,7 +89,14 @@ export default function MotherGlassLayoutPreview({ layoutResult, overallSummary 
       }
     });
 
-    return Array.from(groups.values());
+    const sortedGroups = Array.from(groups.values()).sort((a, b) => {
+      if (b.areaUsedPercent !== a.areaUsedPercent) {
+        return b.areaUsedPercent - a.areaUsedPercent;
+      }
+      return (a.sheetIndices[0] ?? 0) - (b.sheetIndices[0] ?? 0);
+    });
+
+    return sortedGroups;
   }, [sheets, motherGlass.areaMm2, motherGlass.generationName]);
 
   const uniqueSheetsForVisualization = useMemo(() => {
@@ -166,16 +173,16 @@ export default function MotherGlassLayoutPreview({ layoutResult, overallSummary 
 
                 return (
                   <div key={`sheet-${sheet.sheetIndex}`} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                    <div className="mb-3 grid gap-2 text-sm sm:grid-cols-[auto_auto] sm:items-center sm:justify-between">
-                      <span className="font-semibold text-base text-gray-900 sm:col-auto">배치 유형 #{index + 1}</span>
-                      <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 sm:justify-end">
-                        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600 sm:text-sm">
-                          사용 효율 {groupedSheet.areaUsedPercent.toFixed(1)}%
-                        </span>
-                        <span className="text-gray-600 sm:text-sm">
-                          실제 사용 {groupedSheet.sheetIndices.length.toLocaleString()}장
+                    <div className="mb-3 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-base text-gray-900">배치 유형 #{index + 1}</span>
+                        <span className="text-sm text-gray-600">
+                          {groupedSheet.sheetIndices.length.toLocaleString()}장
                         </span>
                       </div>
+                      <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600 sm:text-sm">
+                        사용 효율 {groupedSheet.areaUsedPercent.toFixed(1)}%
+                      </span>
                     </div>
                     <div
                       className="relative overflow-hidden rounded-lg border border-dashed border-gray-300 bg-gray-50"
@@ -260,8 +267,8 @@ export default function MotherGlassLayoutPreview({ layoutResult, overallSummary 
                   ))}
                 </div>
                 <div className="grid grid-cols-[0.5fr_0.5fr_3fr_1fr_1fr] gap-2 border-t border-gray-100 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700">
-                  <span className="text-left">총계</span>
-                  <span className="text-left">-</span>
+                  <span className="text-center">총계</span>
+                  <span className="text-center">-</span>
                   <span className="text-right text-gray-500">총 배치 {totalPlacedProducts.toLocaleString()} 개</span>
                   <span className="text-right text-blue-600">평균 효율 {overallAreaUtilizationPercent.toFixed(1)}%</span>
                   <span className="text-right">{totalMotherGlassesUsed.toLocaleString()} 장</span>

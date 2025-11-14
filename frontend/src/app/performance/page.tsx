@@ -5,7 +5,7 @@ import Sidebar from '@/components/layout/sidebar';
 import Navbar from '@/components/layout/navbar';
 import FacilityList from './components/FacilityList';
 import FacilityDetailPanel from './components/FacilityDetailPanel';
-import FacilityAddModal from './components/FacilityAddModal';
+import AddFacilityModal from './components/AddFacilityModal';
 import AuthGuard from '@/components/auth/AuthGuard';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import TileMap, { type TileType } from './components/TileMap';
@@ -14,7 +14,7 @@ import { useAuthStore } from '@/store/authStore';
 import { getInkjetPrinters, getInkjetPrinterDetail, getDailyProduction, getInkjetJobs, type InkjetPrinter, type InkjetPrinterDetail, type DailyProductionResponse, type InkjetJob } from '@/service/inkjet';
 import { QueueItem, HistoryItem } from '@/components/ui/CommonTable';
 import type { Facility } from './types';
-import FacilityEditModal from './components/FacilityEditModal';
+import EditFacilityModal from './components/EditFacilityModal';
 import PerformanceSimulatorContainer from './components/PerformanceSimulatorContainer';
 import FacilityQueueModal from './components/FacilityQueueModal';
 import FacilityComparisonModal from './components/FacilityComparisonModal';
@@ -748,7 +748,7 @@ export default function SimulationPage() {
         <main className="flex-1 px-6 py-6 overflow-y-auto">
           <div className="w-full max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-4 gap-6">
-              <h1 className="text-lg font-bold text-gray-900 whitespace-nowrap">
+              <h1 className="text-xl font-bold text-gray-900 whitespace-nowrap">
                 설비 선택
               </h1>
               {error && (
@@ -923,7 +923,7 @@ export default function SimulationPage() {
       </div>
 
       {/* 설비 추가 모달 */}
-      <FacilityAddModal
+      <AddFacilityModal
         isOpen={isAddModalOpen}
         onClose={() => closeFacilityAddModal()}
         onAdd={async (facilityData) => {
@@ -935,7 +935,7 @@ export default function SimulationPage() {
         onRequestLocationChange={handleRequestLocationChange}
       />
 
-      <FacilityEditModal
+      <EditFacilityModal
         facility={facilityBeingEdited}
         isOpen={isFacilityEditModalOpen}
         onClose={handleCloseEditModal}

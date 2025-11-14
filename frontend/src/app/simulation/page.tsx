@@ -472,18 +472,16 @@ export default function SimulationPage() {
               />
 
               {optimizationResult ? (
-                <OverallProductionSummary summary={overallGenerationSummary} />
-              ) : null}
-
-              <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
-                모든 원장 조합을 고려하여 최적 면취 효율을 계산합니다. 목표 수량을 확정하면 최적 배치가 자동 산출됩니다.
-              </div>
-
-              {optimizationResult ? (
-                <div className="space-y-4">
+                <>
                   <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
                     총 배치 {optimizationResult.totalPlacedQuantity.toLocaleString()}개 · 미배치 {optimizationResult.totalUnplacedQuantity.toLocaleString()}개 · 사용 원장 {optimizationResult.totalMotherGlassesUsed.toLocaleString()}장 · 전체 면취 효율 {optimizationResult.overallAreaUtilizationPercent.toFixed(1)}%
                   </div>
+                  <OverallProductionSummary summary={overallGenerationSummary} />
+                </>
+              ) : null}
+
+              {optimizationResult ? (
+                <div className="space-y-4">
                   {optimizationResult.layoutResults.map((result, index) => (
                     <MotherGlassLayoutPreview
                       key={`${result.motherGlass.id}-${index}`}

@@ -5,7 +5,7 @@ import CommonModal from '@/components/ui/CommonModal';
 import CommonButton from '@/components/ui/CommonButton';
 import { createInkjetPrinter } from '@/service/inkjet';
 
-interface FacilityAddModalProps {
+interface AddFacilityModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAdd: (facilityData: {
@@ -25,7 +25,7 @@ interface FacilityAddModalProps {
   onRequestLocationChange?: () => void;
 }
 
-export default function FacilityAddModal({
+export default function AddFacilityModal({
   isOpen,
   onClose,
   onAdd,
@@ -33,7 +33,7 @@ export default function FacilityAddModal({
   navbarHeight = 64,
   initialCanvasPosition = null,
   onRequestLocationChange,
-}: FacilityAddModalProps) {
+}: AddFacilityModalProps) {
   const [printerName, setPrinterName] = useState('');
   const [modelName, setModelName] = useState('');
   const [installDate, setInstallDate] = useState('');
@@ -287,3 +287,4 @@ export default function FacilityAddModal({
     </CommonModal>
   );
 }
+
