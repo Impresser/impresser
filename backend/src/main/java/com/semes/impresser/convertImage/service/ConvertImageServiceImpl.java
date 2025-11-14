@@ -123,6 +123,38 @@ public class ConvertImageServiceImpl implements ConvertImageService {
     }
 
     @Override
+    public PageResponse<ConvertHistoryItemResponse> getMyCompletedHistoryPage(int page, int size) {
+        UUID userUuid = SecurityUtil.getCurrentUserUuid()
+            .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_TOKEN));
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<ConvertHistoryItemResponse> result =
+            convertHistoryRepository.getMyCompletedHistories(userUuid, pageable);
+
+        List<ConvertHistoryItemResponse> items = result.getContent().stream()
+            .map(it -> {
+                String key = it.tiffUrl();
+                String tiffName = S3Util.extractOriginalFileName(key);
+                String url = key == null ? null : filePresignedService.getPresignedUrl(key);
+                return ConvertHistoryItemResponse.toEntity(it, tiffName, url);
+            })
+            .toList();
+
+        PaginationResponse pagination = new PaginationResponse(
+            result.getNumber(),
+            result.getSize(),
+            result.getTotalPages(),
+            result.getTotalElements(),
+            result.isFirst(),
+            result.isLast(),
+            result.hasNext()
+        );
+
+        return new PageResponse<>(items, pagination);
+    }
+
+    @Override
     public ConvertHistoryDetailResponse getCompletedHistoryDetail(UUID convertHistoryUuid) {
         ConvertHistoryDetailResponse convertHistoryDetailResponse =
             convertHistoryRepository.getCompletedHistoryDetail(convertHistoryUuid)

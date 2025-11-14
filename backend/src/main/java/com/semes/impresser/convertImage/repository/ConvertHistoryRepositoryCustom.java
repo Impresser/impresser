@@ -18,5 +18,7 @@ public interface ConvertHistoryRepositoryCustom {
 
     Page<ConvertHistoryItemResponse> getCompletedHistories(Pageable pageable);
 
+    Page<ConvertHistoryItemResponse> getMyCompletedHistories(UUID userUuid, Pageable pageable);
+
     Optional<ConvertHistoryDetailResponse> getCompletedHistoryDetail(UUID convertHistoryUuid);
 }

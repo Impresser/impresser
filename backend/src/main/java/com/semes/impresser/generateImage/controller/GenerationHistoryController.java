@@ -50,14 +50,25 @@ public class GenerationHistoryController {
     }
 
     @GetMapping
-    @Operation(summary = "전체 이미지 생성 내역 목록 조회")
+    @Operation(summary = "이미지 생성 내역 목록 조회")
     public BaseResponse<PageResponse<AllGenerationHistoryResponse>> getAllGenerationHistories(
         @RequestParam(defaultValue = "0") @Min(0) Integer page,
         @RequestParam(defaultValue = "10") @Min(1) Integer size
     ) {
-        PageResponse<AllGenerationHistoryResponse> pageResponse = generationHistoryService.getAllGenerationHistories(
+        PageResponse<AllGenerationHistoryResponse> allGenerationHistoriesResponse = generationHistoryService.getAllGenerationHistories(
             page, size);
-        return BaseResponse.onSuccess(pageResponse);
+        return BaseResponse.onSuccess(allGenerationHistoriesResponse);
+    }
+
+    @GetMapping("/me")
+    @Operation(summary = "내 이미지 생성 내역 목록 조회")
+    public BaseResponse<PageResponse<AllGenerationHistoryResponse>> getMyGenerationHistories(
+        @RequestParam(defaultValue = "0") @Min(0) Integer page,
+        @RequestParam(defaultValue = "10") @Min(1) Integer size
+    ) {
+        PageResponse<AllGenerationHistoryResponse> allGenerationHistoryResponse =
+            generationHistoryService.getMyGenerationHistories(page, size);
+        return BaseResponse.onSuccess(allGenerationHistoryResponse);
     }
 
     @PostMapping("/{generationUuid}/complete")

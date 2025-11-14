@@ -1,5 +1,6 @@
 package com.semes.impresser.convertImage.repository;
 
+import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.core.types.dsl.NumberExpression;
@@ -76,6 +77,11 @@ public class ConvertHistoryRepositoryCustomImpl implements ConvertHistoryReposit
             hist.completedAt
         );
 
+        BooleanBuilder builder = new BooleanBuilder();
+        if (compressionTypeUuid != null) {
+            builder.and(ctype.uuid.eq(compressionTypeUuid));
+        }
+
         List<ConvertHistoryListResponse> content = queryFactory
             .select(Projections.constructor(
                 ConvertHistoryListResponse.class,
@@ -92,7 +98,7 @@ public class ConvertHistoryRepositoryCustomImpl implements ConvertHistoryReposit
             .from(hist)
             .join(hist.compressionType, ctype)
             .join(hist.user, user)
-            .where(ctype.uuid.eq(compressionTypeUuid))
+            .where(builder)
             .orderBy(hist.requestedAt.desc())
             .offset(pageable.getOffset())
             .limit(pageable.getPageSize())
@@ -102,7 +108,7 @@ public class ConvertHistoryRepositoryCustomImpl implements ConvertHistoryReposit
             .select(hist.id.count())
             .from(hist)
             .join(hist.compressionType, ctype)
-            .where(ctype.uuid.eq(compressionTypeUuid))
+            .where(builder)
             .fetchOne();
 
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
@@ -147,6 +153,59 @@ public class ConvertHistoryRepositoryCustomImpl implements ConvertHistoryReposit
             .from(hist)
             .join(hist.compressionType, ctype)
             .where(hist.completedAt.isNotNull())
+            .fetchOne();
+
+        return new PageImpl<>(content, pageable, total == null ? 0L : total);
+    }
+
+    @Override
+    public Page<ConvertHistoryItemResponse> getMyCompletedHistories(
+        UUID userUuid, Pageable pageable
+    ) {
+        NumberExpression<Long> secsExpr = Expressions.numberTemplate(
+            Long.class,
+            "COALESCE(timestampdiff(SECOND, {0}, {1}), 0)",
+            hist.requestedAt, hist.completedAt
+        );
+
+        List<ConvertHistoryItemResponse> content = queryFactory
+            .select(Projections.constructor(
+                ConvertHistoryItemResponse.class,
+                hist.uuid,
+                hist.tiffKey,
+                ctype.processingUnit,
+                ctype.compressionType,
+                ctype.version,
+                hist.bmpVolume,
+                hist.tiffVolume,
+                hist.compressionRatio,
+                user.userName,
+                Expressions.stringTemplate("DATE_FORMAT({0}, '%Y-%m-%dT%H:%i:%s')",
+                    hist.completedAt),
+                secsExpr,
+                hist.tiffKey
+            ))
+            .from(hist)
+            .join(hist.compressionType, ctype)
+            .join(hist.user, user)
+            .where(
+                hist.completedAt.isNotNull(),
+                user.uuid.eq(userUuid)
+            )
+            .orderBy(hist.completedAt.desc())
+            .offset(pageable.getOffset())
+            .limit(pageable.getPageSize())
+            .fetch();
+
+        Long total = queryFactory
+            .select(hist.id.count())
+            .from(hist)
+            .join(hist.compressionType, ctype)
+            .join(hist.user, user)
+            .where(
+                hist.completedAt.isNotNull(),
+                user.uuid.eq(userUuid)
+            )
             .fetchOne();
 
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
