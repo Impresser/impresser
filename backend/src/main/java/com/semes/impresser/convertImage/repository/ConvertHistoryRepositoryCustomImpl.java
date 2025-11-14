@@ -91,6 +91,7 @@ public class ConvertHistoryRepositoryCustomImpl implements ConvertHistoryReposit
                 ctype.processingUnit,
                 ctype.version,
                 hist.tiffVolume,
+                hist.bmpVolume,
                 user.userName,
                 hist.avgSpeed,
                 elapsedTimeExpr
