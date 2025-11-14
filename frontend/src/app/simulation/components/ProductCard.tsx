@@ -55,14 +55,10 @@ export default function ProductCard({ product, onSelect, isActive = false }: Pro
       <div>
         <h3 className="text-base font-semibold text-gray-900">{product.productName}</h3>
       </div>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-gray-600">
-        <div className="col-span-2 flex items-center justify-between">
+      <dl className="space-y-2 text-xs text-gray-600">
+        <div className="flex items-center justify-between">
           <dt className="text-gray-500">모델명</dt>
           <dd className="font-medium text-gray-900">{product.modelName}</dd>
-        </div>
-        <div className="flex items-center justify-between">
-          <dt className="text-gray-500">대각선(cm)</dt>
-          <dd className="font-medium text-gray-900">{product.diagonalCm}</dd>
         </div>
         <div className="flex items-center justify-between">
           <dt className="text-gray-500">대각선(inch)</dt>
@@ -76,7 +72,7 @@ export default function ProductCard({ product, onSelect, isActive = false }: Pro
           <dt className="text-gray-500">세로(mm)</dt>
           <dd className="font-medium text-gray-900">{product.heightMm}</dd>
         </div>
-        <div className="col-span-2 flex items-center justify-between">
+        <div className="flex items-center justify-between">
           <dt className="text-gray-500">면적(mm²)</dt>
           <dd className="font-medium text-gray-900">{product.areaMm2}</dd>
         </div>

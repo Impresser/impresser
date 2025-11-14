@@ -52,7 +52,7 @@ export default function PerformanceSimulatorContainer({
 
   return (
     <section className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-900">알고리즘 성능 비교</h2>
+      <h2 className="text-xl font-semibold text-gray-900">알고리즘 성능 비교</h2>
       <CommonContainerBox>
         <div className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2">

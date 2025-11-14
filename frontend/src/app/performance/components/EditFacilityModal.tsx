@@ -7,7 +7,7 @@ import CommonDropdown from '@/components/ui/CommonDropdown';
 import type { Facility } from '../types';
 import { updateInkjetPrinter } from '@/service/inkjet';
 
-interface FacilityEditModalProps {
+interface EditFacilityModalProps {
   facility: Facility | null;
   isOpen: boolean;
   onClose: () => void;
@@ -37,14 +37,14 @@ const mapFacilityStatusToPrinterStatus = (status: Facility['status']): 'OPERATIO
 
 const NAVBAR_HEIGHT = 64;
 
-export default function FacilityEditModal({
+export default function EditFacilityModal({
   facility,
   isOpen,
   onClose,
   onUpdated,
   onRequestLocationChange,
   draftLocation,
-}: FacilityEditModalProps) {
+}: EditFacilityModalProps) {
   const [printerName, setPrinterName] = useState('');
   const [modelName, setModelName] = useState('');
   const [cpu, setCpu] = useState('');
@@ -285,3 +285,4 @@ export default function FacilityEditModal({
     </>
   );
 }
+

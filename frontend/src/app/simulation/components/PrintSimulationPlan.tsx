@@ -198,22 +198,59 @@ export default function PrintSimulationPlan({
             </>
           )}
 
-          <div className="flex justify-end">
-            <CommonButton
-              variant="blue"
-              disabled={isConfirmDisabled}
-              onClick={onConfirm}
-              className="px-4 py-2 text-sm font-semibold"
+          <div className="relative flex justify-end">
+            <div
+              className="relative"
+              onMouseEnter={(event) => {
+                if (!isConfirmDisabled) return;
+                const tooltip = event.currentTarget.querySelector('[data-tooltip]');
+                if (tooltip instanceof HTMLElement) {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  const tooltipWidth = tooltip.offsetWidth || 200;
+                  tooltip.style.opacity = '1';
+                  tooltip.style.visibility = 'visible';
+                  tooltip.style.left = `${event.clientX - rect.left - tooltipWidth - 8}px`;
+                  tooltip.style.top = `${event.clientY - rect.top - 8}px`;
+                }
+              }}
+              onMouseMove={(event) => {
+                if (!isConfirmDisabled) return;
+                const tooltip = event.currentTarget.querySelector('[data-tooltip]');
+                if (tooltip instanceof HTMLElement) {
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  const tooltipWidth = tooltip.offsetWidth || 200;
+                  tooltip.style.left = `${event.clientX - rect.left - tooltipWidth - 8}px`;
+                  tooltip.style.top = `${event.clientY - rect.top - 8}px`;
+                }
+              }}
+              onMouseLeave={(event) => {
+                if (!isConfirmDisabled) return;
+                const tooltip = event.currentTarget.querySelector('[data-tooltip]');
+                if (tooltip instanceof HTMLElement) {
+                  tooltip.style.opacity = '0';
+                  tooltip.style.visibility = 'hidden';
+                }
+              }}
             >
-              확인
-            </CommonButton>
-          </div>
-
-          {!isConfirmed && (
-            <div className="rounded-lg border border-blue-100 bg-blue-50 px-4 py-2 text-xs text-blue-700">
-              설비마다 ‘가져오기’ 버튼으로 이미지 생성 내역을 선택한 뒤 확인 버튼을 눌러주세요.
+              <CommonButton
+                variant="blue"
+                disabled={isConfirmDisabled}
+                onClick={onConfirm}
+                className="px-4 py-2 text-sm font-semibold"
+              >
+                확인
+              </CommonButton>
+              {isConfirmDisabled && (
+                <div
+                  data-tooltip
+                  className="pointer-events-none absolute z-10 w-max rounded-md bg-gray-900 px-3 py-1 text-[11px] font-medium text-white shadow transition-opacity duration-150"
+                  style={{ opacity: 0, visibility: 'hidden' }}
+                >
+                  설비를 클릭한 뒤 인쇄할 이미지 정보를 등록해 주세요.
+                </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       )}
 
