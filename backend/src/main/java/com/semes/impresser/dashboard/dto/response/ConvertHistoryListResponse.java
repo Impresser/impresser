@@ -10,6 +10,7 @@ public record ConvertHistoryListResponse(
     String processingUnit,
     Integer version,
     Long tiffVolume,
+    Long bmpVolume,
     String userName,
     BigDecimal avgSpeed,
     Long elapsedTime

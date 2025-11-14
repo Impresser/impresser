@@ -9,6 +9,7 @@ public record AllGenerationHistoryResponse(
     String userName,
     Long bmpHeight,
     Long bmpWidth,
+    Long bmpVolume,
     LocalDateTime requestedAt,
     LocalDateTime completedAt,
     boolean isGenerated
