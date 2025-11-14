@@ -89,59 +89,9 @@ const formatTimeMinutesSeconds = (seconds: number): string => {
   return parts.join(' ');
 };
 
-const formatDateTime = (date: Date | string | null | undefined): string => {
-  // null이나 undefined인 경우
-  if (!date) {
-    return '-';
-  }
-  
-  // 문자열인 경우 Date 객체로 변환
-  let dateObj: Date;
-  if (typeof date === 'string') {
-    // 빈 문자열인 경우
-    if (!date.trim()) {
-      return '-';
-    }
-    
-    // ISO 8601 형식 처리
-    let dateString = date.trim();
-    
-    // 타임존 정보가 없으면 UTC로 간주
-    const hasTimezone = dateString.includes('Z') || 
-                        dateString.includes('+') || 
-                        (dateString.match(/[-+]\d{2}:\d{2}$/) !== null);
-    
-    if (!hasTimezone && dateString.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
-      dateString = dateString + 'Z';
-    }
-    
-    dateObj = new Date(dateString);
-  } else {
-    dateObj = date;
-  }
-  
-  // Date 객체가 유효한지 확인
-  if (!dateObj || isNaN(dateObj.getTime())) {
-    return '-'; // 유효하지 않은 날짜는 '-' 반환
-  }
-  
-  const formatter = new Intl.DateTimeFormat('ko-KR', {
-    timeZone: 'Asia/Seoul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  });
-  
-  const parts = formatter.formatToParts(dateObj).reduce<Record<string, string>>((acc, p) => {
-    if (p.type !== 'literal') acc[p.type] = p.value;
-    return acc;
-  }, {});
-  
-  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+const formatDateTime = (dateString: string | null | undefined): string => {
+  if (!dateString) return '-';
+  return dateString.replace('T', ' ');
 };
 
 // 숫자 포맷팅 컴포넌트
