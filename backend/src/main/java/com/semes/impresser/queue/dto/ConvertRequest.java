@@ -4,7 +4,7 @@ import com.semes.impresser.convertImage.dto.request.CreateConvertRequest;
 import java.util.List;
 
 public record ConvertRequest(
-    List<CreateConvertRequest> createConvertRequests
+        List<CreateConvertRequest> createConvertRequests
 ) {
 
 }

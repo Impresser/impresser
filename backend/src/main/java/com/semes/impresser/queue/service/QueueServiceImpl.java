@@ -12,7 +12,6 @@ import com.semes.impresser.convertImage.repository.ConvertHistoryRepository;
 import com.semes.impresser.inkjet.service.InkjetSlotService;
 import com.semes.impresser.queue.dto.CompressImageMessage;
 import com.semes.impresser.queue.dto.ConvertRequest;
-import com.semes.impresser.queue.dto.PrintImageMessage;
 import com.semes.impresser.queue.dto.PrintRequest;
 import com.semes.impresser.queue.producer.ImageMessageProducer;
 import com.semes.impresser.queue.producer.PrintMessageProducer;
@@ -45,7 +44,7 @@ public class QueueServiceImpl implements QueueService {
 
     @Override
     public void enqueueInkjetPrinterJobs(UUID printerUuid, PrintRequest printRequest) {
-
+        List<CreateConvertRequest> createConvertRequests = printRequest.createConvertRequests();
         Optional<UUID> currentUserUuid = SecurityUtil.getCurrentUserUuid();
 
         if (currentUserUuid.isEmpty()) {
@@ -53,18 +52,25 @@ public class QueueServiceImpl implements QueueService {
         }
 
         UUID userUuid = currentUserUuid.get();
+        User user = userRepository.findByUuid(userUuid)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
-        PrintImageMessage printImageMessage = PrintImageMessage.toDto(
-            userUuid, printerUuid, printRequest);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String accessToken = (String) authentication.getCredentials();
 
-        String routingKey = inkjetSlotService.getRoutingKey(printerUuid);
+        for (CreateConvertRequest createConvertRequest : createConvertRequests) {
 
-        printMessageProducer.sendPrintMessage(routingKey, printImageMessage);
+            CompressImageMessage compressImageMessage = createCompressionJobMessage(
+                    createConvertRequest, user, accessToken);
+            String routingKey = inkjetSlotService.getRoutingKey(printerUuid);
+            printMessageProducer.sendPrintMessage(routingKey, compressImageMessage);
+        }
+
+
     }
 
     @Override
     public void enqueueCompressImageJobs(ConvertRequest convertRequest) {
-
         List<CreateConvertRequest> createConvertRequests = convertRequest.createConvertRequests();
         Optional<UUID> currentUserUuid = SecurityUtil.getCurrentUserUuid();
 
@@ -74,31 +80,44 @@ public class QueueServiceImpl implements QueueService {
 
         UUID userUuid = currentUserUuid.get();
         User user = userRepository.findByUuid(userUuid)
-            .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String accessToken = (String) authentication.getCredentials();
 
         for (CreateConvertRequest createConvertRequest : createConvertRequests) {
+            CompressImageMessage compressImageMessage = createCompressionJobMessage(
+                    createConvertRequest, user, accessToken);
+            String routingKey = getCompressRoutingKey(userUuid);
+            imageMessageProducer.sendToCompressQueue(routingKey, compressImageMessage);
+        }
+    }
 
-            CompressionType compressionType = compressionTypeRepository.findByUuid(
-                    createConvertRequest.compressionTypeUuid())
+    private String getCompressRoutingKey(UUID userUuid) {
+        int shardIndex = Math.abs(userUuid.hashCode()) % 32;
+        return "compress.shard." + shardIndex;
+    }
+
+    private CompressImageMessage createCompressionJobMessage(
+            CreateConvertRequest createConvertRequest, User user, String accessToken) {
+        CompressionType compressionType = compressionTypeRepository.findByUuid(
+                        createConvertRequest.compressionTypeUuid())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
-            String bmpKey = S3Util.extractKeyFromUrl(createConvertRequest.bmpUrl());
-            String bmpFileName = S3Util.extractOriginalFileName(bmpKey);
-            String tiffFileName = S3Util.toTiffFileName(bmpFileName);
+        String bmpKey = S3Util.extractKeyFromUrl(createConvertRequest.bmpUrl());
+        String bmpFileName = S3Util.extractOriginalFileName(bmpKey);
+        String tiffFileName = S3Util.toTiffFileName(bmpFileName);
 
-            CreateTiffUploadResponse createTiffUploadResponse = filePresignedService.createTiffUpload(
+        CreateTiffUploadResponse createTiffUploadResponse = filePresignedService.createTiffUpload(
                 tiffFileName);
-            String tiffKey = S3Util.extractKeyFromUrl(createTiffUploadResponse.uploadUrl());
+        String tiffKey = S3Util.extractKeyFromUrl(createTiffUploadResponse.uploadUrl());
 
-            ConvertHistory convertHistory = createConvertRequest.toEntity(bmpKey, tiffKey,
+        ConvertHistory convertHistory = createConvertRequest.toEntity(bmpKey, tiffKey,
                 LocalDateTime.now(), compressionType, user);
-            convertHistoryRepository.save(convertHistory);
+        convertHistoryRepository.save(convertHistory);
 
-            CompressImageMessage.Auth auth = CompressImageMessage.Auth.of("Bearer", accessToken);
-            CompressImageMessage message = CompressImageMessage.of(
+        CompressImageMessage.Auth auth = CompressImageMessage.Auth.of("Bearer", accessToken);
+        CompressImageMessage message = CompressImageMessage.of(
                 auth,
                 createConvertRequest.bmpUrl(),
                 createTiffUploadResponse.uploadUrl(),
@@ -107,13 +126,6 @@ public class QueueServiceImpl implements QueueService {
                 24,
                 convertHistory.getUuid());
 
-            String routingKey = getCompressRoutingKey(userUuid);
-            imageMessageProducer.sendToCompressQueue(routingKey, message);
-        }
-    }
-
-    private String getCompressRoutingKey(UUID userUuid) {
-        int shardIndex = Math.abs(userUuid.hashCode()) % 32;
-        return "compress.shard." + shardIndex;
+        return message;
     }
 }

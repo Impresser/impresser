@@ -1,6 +1,5 @@
 package com.semes.impresser.inkjet.consumer;
 
-import com.semes.impresser.queue.dto.PrintImageMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
