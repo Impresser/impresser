@@ -18,23 +18,23 @@ public class CompressImageMessage {
     private Auth auth;
 
     public static CompressImageMessage of(
-        Auth auth,
-        String inputUrl,
-        String outputUrl,
-        String compressionType,
-        String processingUnit,
-        Integer rowsPerStrip,
-        UUID convertUuid) {
+            Auth auth,
+            String inputUrl,
+            String outputUrl,
+            String compressionType,
+            String processingUnit,
+            Integer rowsPerStrip,
+            UUID convertUuid) {
 
         return CompressImageMessage.builder()
-            .auth(auth)
-            .inputUrl(inputUrl)
-            .outputUrl(outputUrl)
-            .compressionType(compressionType)
-            .processingUnit(processingUnit)
-            .rowsPerStrip(rowsPerStrip)
-            .convertUuid(convertUuid)
-            .build();
+                .auth(auth)
+                .inputUrl(inputUrl)
+                .outputUrl(outputUrl)
+                .compressionType(compressionType)
+                .processingUnit(processingUnit)
+                .rowsPerStrip(rowsPerStrip)
+                .convertUuid(convertUuid)
+                .build();
     }
 
     @Getter
@@ -46,9 +46,9 @@ public class CompressImageMessage {
 
         public static Auth of(String scheme, String accessToken) {
             return Auth.builder()
-                .scheme(scheme)
-                .accessToken(accessToken)
-                .build();
+                    .scheme(scheme)
+                    .accessToken(accessToken)
+                    .build();
         }
     }
 }

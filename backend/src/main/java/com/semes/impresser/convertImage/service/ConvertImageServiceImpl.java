@@ -58,12 +58,12 @@ public class ConvertImageServiceImpl implements ConvertImageService {
         List<CompressionType> list = compressionTypeRepository.findByProcessingUnitIgnoreCase(unit);
 
         return list.stream()
-            .map(ct -> new CompressionTypeResponse(
-                ct.getUuid(),
-                ct.getCompressionType(),
-                ct.getProcessingUnit().toLowerCase()
-            ))
-            .toList();
+                .map(ct -> new CompressionTypeResponse(
+                        ct.getUuid(),
+                        ct.getCompressionType(),
+                        ct.getProcessingUnit().toLowerCase()
+                ))
+                .toList();
     }
 
     private String normalizeProcessingUnit(String raw) {
@@ -79,44 +79,44 @@ public class ConvertImageServiceImpl implements ConvertImageService {
 
     @Override
     public List<CompressionTypeVersionResponse> getVersionsByCompressionTypeUuid(
-        UUID compressionTypeUuid) {
+            UUID compressionTypeUuid) {
         CompressionType base = compressionTypeRepository.findByUuid(compressionTypeUuid)
-            .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT));
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT));
 
         List<Integer> versions = compressionTypeRepository.findDistinctVersions(
-            base.getCompressionType(),
-            base.getProcessingUnit()
+                base.getCompressionType(),
+                base.getProcessingUnit()
         );
 
         return versions.stream()
-            .map(version -> new CompressionTypeVersionResponse(compressionTypeUuid,
-                base.getCompressionType(), version))
-            .toList();
+                .map(version -> new CompressionTypeVersionResponse(compressionTypeUuid,
+                        base.getCompressionType(), version))
+                .toList();
     }
 
     @Override
     public PageResponse<ConvertHistoryItemResponse> getCompletedHistoryPage(int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
         Page<ConvertHistoryItemResponse> result = convertHistoryRepository.getCompletedHistories(
-            pageable);
+                pageable);
 
         List<ConvertHistoryItemResponse> items = result.getContent().stream()
-            .map(it -> {
-                String key = it.tiffUrl();
-                String tiffName = S3Util.extractOriginalFileName(key);
-                String url = key == null ? null : filePresignedService.getPresignedUrl(key);
-                return ConvertHistoryItemResponse.toEntity(it, tiffName, url);
-            })
-            .toList();
+                .map(it -> {
+                    String key = it.tiffUrl();
+                    String tiffName = S3Util.extractOriginalFileName(key);
+                    String url = key == null ? null : filePresignedService.getPresignedUrl(key);
+                    return ConvertHistoryItemResponse.toEntity(it, tiffName, url);
+                })
+                .toList();
 
         PaginationResponse pagination = new PaginationResponse(
-            result.getNumber(),
-            result.getSize(),
-            result.getTotalPages(),
-            result.getTotalElements(),
-            result.isFirst(),
-            result.isLast(),
-            result.hasNext()
+                result.getNumber(),
+                result.getSize(),
+                result.getTotalPages(),
+                result.getTotalElements(),
+                result.isFirst(),
+                result.isLast(),
+                result.hasNext()
         );
 
         return new PageResponse<>(items, pagination);
@@ -125,8 +125,8 @@ public class ConvertImageServiceImpl implements ConvertImageService {
     @Override
     public ConvertHistoryDetailResponse getCompletedHistoryDetail(UUID convertHistoryUuid) {
         ConvertHistoryDetailResponse convertHistoryDetailResponse =
-            convertHistoryRepository.getCompletedHistoryDetail(convertHistoryUuid)
-                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT));
+                convertHistoryRepository.getCompletedHistoryDetail(convertHistoryUuid)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_INPUT));
 
         return convertHistoryDetailResponse;
     }
@@ -143,20 +143,20 @@ public class ConvertImageServiceImpl implements ConvertImageService {
         UUID userUuid = currentUserUuid.get();
 
         CompressionType compressionType = compressionTypeRepository.findByUuid(
-                creatConvertRequest.compressionTypeUuid())
-            .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+                        creatConvertRequest.compressionTypeUuid())
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         User user = userRepository.findByUuid(userUuid)
-            .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
         String bmpKey = S3Util.extractKeyFromUrl(creatConvertRequest.bmpUrl());
         String bmpFileName = S3Util.extractOriginalFileName(bmpKey);
         String tiffFileName = S3Util.toTiffFileName(bmpFileName);
         CreateTiffUploadResponse createTiffUploadResponse = filePresignedService.createTiffUpload(
-            tiffFileName);
+                tiffFileName);
         String tiffKey = S3Util.extractKeyFromUrl(createTiffUploadResponse.uploadUrl());
 
         ConvertHistory convertHistory = creatConvertRequest.toEntity(bmpKey, tiffKey,
-            LocalDateTime.now(), compressionType, user);
+                LocalDateTime.now(), compressionType, user);
         convertHistoryRepository.save(convertHistory);
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -164,9 +164,9 @@ public class ConvertImageServiceImpl implements ConvertImageService {
 
         Auth auth = new Auth("Bearer", accessToken);
         ConvertImageRequest convertImageRequest = new ConvertImageRequest(
-            creatConvertRequest.bmpUrl(), createTiffUploadResponse.uploadUrl(),
-            compressionType.getCompressionType(),
-            compressionType.getProcessingUnit(), 24, convertHistory.getUuid(), auth);
+                creatConvertRequest.bmpUrl(), createTiffUploadResponse.uploadUrl(),
+                compressionType.getCompressionType(),
+                compressionType.getProcessingUnit(), 24, convertHistory.getUuid(), auth);
         externalApiClient.requestConvert(convertImageRequest);
 
         return new CreateConvertResponse(convertHistory.getUuid());
@@ -175,17 +175,24 @@ public class ConvertImageServiceImpl implements ConvertImageService {
     @Override
     @Transactional
     public void completeConvert(UUID convertUuid, CompleteConvertRequest completeConvertRequest) {
+        Optional<UUID> currentUserUuid = SecurityUtil.getCurrentUserUuid();
+
+        if (currentUserUuid.isEmpty()) {
+            throw new BusinessException(ErrorCode.BAD_REQUEST);
+        }
+
+        UUID userUuid = currentUserUuid.get();
         if (completeConvertRequest.isSuccess()) {
             ConvertHistory convertHistory = convertHistoryRepository.findByUuid(convertUuid)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
             convertHistory.update(completeConvertRequest);
 
             ConvertHistoryItemResponse convertHistoryItemResponse = ConvertHistoryItemResponse.fromEntity(
-                convertHistory);
-            sseService.sentToClient(convertUuid, SSE_EVENT_SUCCESS, convertHistoryItemResponse);
+                    convertHistory);
+            sseService.sentToClient(userUuid, SSE_EVENT_SUCCESS, convertHistoryItemResponse);
         } else {
-            sseService.sentToClient(convertUuid, SSE_EVENT_FAILED, null);
+            sseService.sentToClient(userUuid, SSE_EVENT_FAILED, ErrorCode.SSE_GENERATION_FAILED);
         }
     }
 }

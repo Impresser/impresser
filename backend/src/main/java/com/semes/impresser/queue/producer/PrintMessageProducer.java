@@ -1,6 +1,6 @@
 package com.semes.impresser.queue.producer;
 
-import com.semes.impresser.queue.dto.PrintImageMessage;
+import com.semes.impresser.queue.dto.CompressImageMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,7 +15,7 @@ public class PrintMessageProducer {
     @Value("${spring.rabbitmq.print.exchange}")
     private String printExchange;
 
-    public void sendPrintMessage(String routingKey, PrintImageMessage message) {
+    public void sendPrintMessage(String routingKey, CompressImageMessage message) {
         rabbitTemplate.convertAndSend(printExchange, routingKey, message);
     }
 }

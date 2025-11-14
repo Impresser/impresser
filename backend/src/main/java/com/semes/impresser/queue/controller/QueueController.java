@@ -23,7 +23,7 @@ public class QueueController {
     @PostMapping("/inkjet-printer/{printerUuid}/jobs")
     @Operation(summary = "잉크젯 설비 대기열 등록")
     public ResponseEntity<BaseResponse<Void>> enqueueInkjetPrinterJobs(
-        @PathVariable UUID printerUuid, @RequestBody PrintRequest printRequest) {
+            @PathVariable UUID printerUuid, @RequestBody PrintRequest printRequest) {
 
         queueService.enqueueInkjetPrinterJobs(printerUuid, printRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(BaseResponse.onSuccess());
@@ -32,7 +32,7 @@ public class QueueController {
     @PostMapping("/convert/jobs")
     @Operation(summary = "이미지 변환 대기열 등록")
     public ResponseEntity<BaseResponse<Void>> enqueueConvertJobs(
-        @RequestBody ConvertRequest convertRequest) {
+            @RequestBody ConvertRequest convertRequest) {
 
         queueService.enqueueCompressImageJobs(convertRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(BaseResponse.onSuccess());
