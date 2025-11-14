@@ -59,6 +59,7 @@ export interface ConvertDetailItem {
   processingUnit: string;
   version: number;
   tiffVolume: number;
+  bmpVolume: number;
   userName: string;
   avgSpeed: number;
   elapsedTime: number;

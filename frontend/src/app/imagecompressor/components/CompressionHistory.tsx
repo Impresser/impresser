@@ -33,18 +33,18 @@ const convertToHistoryItem = (item: ConvertHistoryItem): HistoryItem => {
 
 const formatFileSize = (kb: number) => {
   if (kb === 0) return '0.00 KB';
-  const k = 1000; // 1000 단위로 계산
+  const k = 1024; // 1024 단위로 계산 (1 MB = 1024 KB, 1 GB = 1024 MB)
   const sizes = ['KB', 'MB', 'GB'];
   // KB 단위로 들어오므로
-  // 0 ~ 999 KB → KB
-  // 1000 ~ 999999 KB → MB (1000으로 나눔)
-  // 1000000 KB 이상 → GB (1000^2로 나눔)
+  // 0 ~ 1023 KB → KB
+  // 1024 ~ 1048575 KB → MB (1024로 나눔)
+  // 1048576 KB 이상 → GB (1024^2로 나눔)
   if (kb < k) {
-    return kb.toFixed(2) + ' ' + sizes[0];
+    return (Math.floor(kb * 100) / 100).toFixed(2) + ' ' + sizes[0];
   } else if (kb < k * k) {
-    return (kb / k).toFixed(2) + ' ' + sizes[1];
+    return (Math.floor((kb / k) * 100) / 100).toFixed(2) + ' ' + sizes[1];
   } else {
-    return (kb / (k * k)).toFixed(2) + ' ' + sizes[2];
+    return (Math.floor((kb / (k * k)) * 100) / 100).toFixed(2) + ' ' + sizes[2];
   }
 };
 

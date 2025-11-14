@@ -10,7 +10,7 @@ import { FileInfo } from '@/types/imageCompressor';
 import CompressionQueue from './components/CompressionQueue';
 import CompressionHistory from './components/CompressionHistory';
 import { useAuthStore } from '@/store/authStore';
-import { createConvert, createConvertJobs } from '@/service/imageCompressor';
+import { createConvertJobs } from '@/service/imageCompressor';
 
 export default function ImageCompressorPage() {
   const userName = useAuthStore((state) => state.user?.userName ?? '사용자');
@@ -19,7 +19,6 @@ export default function ImageCompressorPage() {
   const [algorithm, setAlgorithm] = useState('lzw');
   const [version, setVersion] = useState('1.0');
   const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [isStartingCompression, setIsStartingCompression] = useState(false);
   const idCounterRef = useRef(0);
   const queueSectionRef = useRef<HTMLDivElement | null>(null);
 
@@ -180,7 +179,7 @@ export default function ImageCompressorPage() {
           assignedUser: userName,
           startTime: null,
           elapsedTime: 0,
-          estimatedTime: 0,
+          estimatedTime: 10,
           progress: 0,
           bmpUrl: fileInfo.imageUrl,
           compressionTypeUuid: fileInfo.compressionTypeUuid,
@@ -193,6 +192,24 @@ export default function ImageCompressorPage() {
       
       // 선택된 파일 초기화
       setSelectedFiles([]);
+
+      // 대기열에 추가한 후 바로 압축 시작 (각 파일에 대해)
+      // createConvertJobs가 이미 압축을 시작하므로 상태만 '진행'으로 변경
+      setQueue((prev) => {
+        const updated = [...prev];
+        // 방금 추가한 항목들을 찾아서 '진행' 상태로 변경
+        newItems.forEach((newItem) => {
+          const index = updated.findIndex(item => item.id === newItem.id);
+          if (index !== -1) {
+            updated[index] = {
+              ...updated[index],
+              status: '진행' as const,
+              startTime: new Date(),
+            };
+          }
+        });
+        return updated;
+      });
 
       // 대기열 섹션으로 스크롤 이동 (중앙 정렬)
       // 렌더링 완료 후 스크롤을 보장하기 위해 다음 틱에 실행
@@ -220,65 +237,6 @@ export default function ImageCompressorPage() {
     });
   };
 
-  const handleStartCompression = async () => {
-    if (isStartingCompression) {
-      return;
-    }
-
-    const processingExists = queue.some(item => item.status === '진행');
-    if (processingExists) {
-      alert('이미 진행 중인 작업이 있습니다.');
-      return;
-    }
-
-    const waitingIndex = queue.findIndex(item => item.status === '대기');
-    if (waitingIndex === -1) {
-      alert('대기 중인 작업이 없습니다.');
-      return;
-    }
-
-    const targetItem = queue[waitingIndex];
-    if (!targetItem.bmpUrl || !targetItem.compressionTypeUuid) {
-      alert('필수 변환 정보가 없습니다. 다시 대기열에 추가해주세요.');
-      return;
-    }
-
-    setIsStartingCompression(true);
-    try {
-      const response = await createConvert({
-        bmpUrl: targetItem.bmpUrl,
-        compressionTypeUuid: targetItem.compressionTypeUuid,
-        bmpVolume: targetItem.fileSize,
-        bmpWidth: targetItem.bmpWidth ?? 0,
-        bmpHeight: targetItem.bmpHeight ?? 0,
-      });
-
-      if (!response.isSuccess || !response.result) {
-        throw new Error(response.message || '압축 요청에 실패했습니다.');
-      }
-
-      const convertHistoryUuid = response.result.convertHistoryUuid;
-
-      setQueue((prev) => {
-        const updated = [...prev];
-        if (updated[waitingIndex]) {
-          updated[waitingIndex] = {
-            ...updated[waitingIndex],
-            status: '진행',
-            startTime: new Date(),
-            estimatedTime: 10,
-            convertHistoryUuid,
-          };
-        }
-        return updated;
-      });
-    } catch (error) {
-      console.error('압축 요청 실패:', error);
-      alert(error instanceof Error ? error.message : '압축 요청에 실패했습니다.');
-    } finally {
-      setIsStartingCompression(false);
-    }
-  };
 
   // 경과시간 업데이트 및 완료 처리를 위한 useEffect
   useEffect(() => {
@@ -346,8 +304,8 @@ export default function ImageCompressorPage() {
             <div ref={queueSectionRef}>
               <CompressionQueue
                 queue={queue}
-                onStartCompression={handleStartCompression}
-                isStarting={isStartingCompression}
+                onStartCompression={() => {}}
+                isStarting={false}
               />
             </div>
 

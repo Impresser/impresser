@@ -223,7 +223,7 @@ export default function Compressionlist() {
 
   return (
     <div className="mt-8">
-      <h1 className="text-lg font-bold text-gray-900 mb-3">전체 압축 목록</h1>
+      <h1 className="text-xl font-bold text-gray-900 mb-3">전체 압축 목록</h1>
 
       <CommonContainerBox>
         {loading && (

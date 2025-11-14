@@ -9,6 +9,7 @@ import { usePerformanceRankingStore } from "@/store/performanceRankingStore";
 import { DashboardRankItem, AlgorithmPerf, JobDetailRow, ConvertDetailItem, ConvertHistoryDetailResult } from "@/types/dashboard";
 import { getDashboardConvertDetail, getDashboardConvertHistoryDetail } from "@/service/dashboard";
 import CommonTableFrame from "@/components/ui/CommonTableFrame";
+import { useSidebarStore } from "@/store/sidebarStore";
 
 // API 데이터 → 컴포넌트 표시용으로 매핑
 function mapApiToPerf(items: DashboardRankItem[]): AlgorithmPerf[] {
@@ -39,6 +40,24 @@ function PrettyNumber({ value, unit }: { value: number | null | undefined; unit:
   }
   return <span>{value.toLocaleString(undefined, { maximumFractionDigits: 2 })}{unit}</span>;
 }
+
+// 파일 크기 포맷팅 함수 (KB 단위로 들어옴)
+const formatFileSize = (kb: number) => {
+  if (kb === 0) return '0.00 KB';
+  const k = 1024; // 1024 단위로 계산 (1 MB = 1024 KB, 1 GB = 1024 MB)
+  const sizes = ['KB', 'MB', 'GB'];
+  // KB 단위로 들어오므로
+  // 0 ~ 1023 KB → KB
+  // 1024 ~ 1048575 KB → MB (1024로 나눔)
+  // 1048576 KB 이상 → GB (1024^2로 나눔)
+  if (kb < k) {
+    return (Math.floor(kb * 100) / 100).toFixed(2) + ' ' + sizes[0];
+  } else if (kb < k * k) {
+    return (Math.floor((kb / k) * 100) / 100).toFixed(2) + ' ' + sizes[1];
+  } else {
+    return (Math.floor((kb / (k * k)) * 100) / 100).toFixed(2) + ' ' + sizes[2];
+  }
+};
 
 const formatTime = (seconds: number): string => {
   if (!seconds && seconds !== 0) return '-';
@@ -111,6 +130,7 @@ function RadialGauge({ percent, size = 120, color = "#5A73FF" }: { percent: numb
 }
 
 export default function EquipmentUsage() {
+  const { isCollapsed } = useSidebarStore();
   const { items, pagination, loading, fetch, error } = usePerformanceRankingStore() as any;
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [selectedDetailId, setSelectedDetailId] = useState<number | null>(null);
@@ -141,12 +161,6 @@ export default function EquipmentUsage() {
   const itemsPerPage = 10;
   const totalPages = Math.ceil(filteredAlgorithms.length / itemsPerPage);
   
-  const currentPageData = useMemo(() => {
-    const start = (currentPage - 1) * itemsPerPage;
-    const end = start + itemsPerPage;
-    return filteredAlgorithms.slice(start, end);
-  }, [currentPage, filteredAlgorithms]);
-
   const maxSpeed = useMemo(() => {
     return Math.max(...filteredAlgorithms.map(a => a.avgSpeedMBps));
   }, [filteredAlgorithms]);
@@ -156,6 +170,34 @@ export default function EquipmentUsage() {
     const sum = nonZeroValues.reduce((acc, a) => acc + a.avgSpeedMBps, 0);
     return sum / nonZeroValues.length;
   }, [filteredAlgorithms]);
+  
+  const currentPageData = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    const pageData = filteredAlgorithms.slice(start, end).map(item => ({
+      ...item,
+      displayValue: item.avgSpeedMBps,
+      isAverage: false,
+    }));
+    
+    // 평균 값을 그래프 맨 위에 추가 (GPU 필터일 때는 제외)
+    if (filteredAlgorithms.length > 0 && overallAvg > 0 && modeFilter !== "GPU") {
+      return [
+        {
+          key: '평균',
+          label: '평균',
+          version: '',
+          mode: '' as const,
+          avgSpeedMBps: overallAvg,
+          displayValue: overallAvg,
+          originalItem: null,
+          isAverage: true, // 평균 바 구분용
+        },
+        ...pageData,
+      ];
+    }
+    return pageData;
+  }, [currentPage, filteredAlgorithms, overallAvg, modeFilter]);
   const range1 = maxSpeed * 0.5; // 낮음
   const range2 = maxSpeed * 0.8; // 보통
 
@@ -198,7 +240,9 @@ export default function EquipmentUsage() {
       mode: (item.processingUnit === "GPU" ? "GPU" : "CPU") as "GPU" | "CPU",
       algorithm: item.compressionType,
       version: String(item.version),
-      size: `${(item.tiffVolume / 1024).toFixed(2)} MB`,
+      size: formatFileSize(item.tiffVolume), // 압축 후 용량
+      bmpVolume: item.bmpVolume, // 압축 전 용량 (KB)
+      tiffVolume: item.tiffVolume, // 압축 후 용량 (KB)
       owner: item.userName,
       startedAt: "-", // API 응답에 없음
       finishedAt: "-", // API 응답에 없음
@@ -287,21 +331,15 @@ export default function EquipmentUsage() {
   }, [selectedIndex]);
 
   return (
-    <CommonContainerBox>
+    <>
+      <h1 className="text-xl font-bold text-gray-900 mb-3">전체 압축 성능 순위</h1>
+      <CommonContainerBox>
       <div className="flex flex-col gap-4">
       {/* 상단: 좌측 그래프, 우측 순위 표 */}
       <div className="flex gap-4 flex-wrap min-w-0 items-stretch">
         {/* 좌측 Recharts 세로 막대 차트 */}
         <div className="flex-1 min-w-[280px] border border-gray-200 rounded-lg p-4 flex flex-col">
         <div className="flex items-center justify-between mb-2">
-          <div className="font-semibold flex items-center gap-2">
-            전체 압축 성능 순위
-            {filteredAlgorithms.length > 0 && (
-              <span className="text-red-500 text-sm font-medium">
-                (평균 {overallAvg.toFixed(2)} MB/s)
-              </span>
-            )}
-          </div>
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-gray-700">처리방식:</span>
             <div className="flex gap-3">
@@ -353,6 +391,10 @@ export default function EquipmentUsage() {
                     tickFormatter={(value, index) => {
                       const item = currentPageData[index];
                       if (item) {
+                        // 평균바는 version과 mode 없이 표시
+                        if (item.isAverage) {
+                          return item.label;
+                        }
                         // 알고리즘, 버전, 방식을 한 세트로 표시
                         return `${item.label} v${item.version} ${item.mode}`;
                       }
@@ -363,7 +405,8 @@ export default function EquipmentUsage() {
                     formatter={(value: number, name: string, props: any) => {
                       // API에서 받아온 원본 avgSpeed 값 사용
                       const originalValue = props.payload?.originalItem?.avgSpeed ?? value;
-                      return `${originalValue} MB/s`;
+                      // 소수점 2자리로 포맷팅
+                      return `${Number(originalValue).toFixed(2)} MB/s`;
                     }} 
                   />
                   {/* 불릿 차트: 정성 구간 배경 */}
@@ -377,8 +420,20 @@ export default function EquipmentUsage() {
                     strokeWidth={2} 
                     strokeDasharray="3 3" 
                   />
-                  {/* 측정값 바 (그라데이션) */}
-                  <Bar dataKey="avgSpeedMBps" name="평균속도(MB/s)" fill="url(#bulletBarGradient)" radius={[0, 8, 8, 0]} barSize={14} />
+                  {/* 측정값 바 */}
+                  <Bar 
+                    dataKey="displayValue" 
+                    name="평균속도(MB/s)" 
+                    radius={[0, 8, 8, 0]} 
+                    barSize={14}
+                  >
+                    {currentPageData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.isAverage ? '#ef4444' : 'url(#bulletBarGradient)'} 
+                      />
+                    ))}
+                  </Bar>
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -403,9 +458,9 @@ export default function EquipmentUsage() {
               <tbody>
                 {loading ? (
                   <tr><td colSpan={5} className="py-6 text-center text-gray-500 text-sm">불러오는 중…</td></tr>
-                ) : currentPageData.length === 0 ? (
+                ) : currentPageData.filter(a => a.key !== '평균').length === 0 ? (
                   <tr><td colSpan={5} className="py-6 text-center text-gray-500 text-sm">데이터가 없습니다</td></tr>
-                ) : currentPageData.map((a, idx) => {
+                ) : currentPageData.filter(a => a.key !== '평균').map((a, idx) => {
                   const globalIndex = (currentPage - 1) * itemsPerPage + idx;
                   const isActive = selectedIndex === globalIndex;
                   return (
@@ -473,12 +528,14 @@ export default function EquipmentUsage() {
                 <table className="w-full text-sm border-separate border-spacing-y-0">
                   <thead>
                     <tr className="text-gray-700 bg-gray-50">
-                      <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[60px]">No.</th>
+                      <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-10">No.</th>
                       <th className="text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
-                      <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[110px]">알고리즘</th>
-                      <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">버전</th>
+                      <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">알고리즘</th>
+                      <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[30px]">버전</th>
                       <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-21">처리 방식</th>
-                      <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">용량</th>
+                      <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[100px]">압축 전 용량</th>
+                      <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[100px]">압축 후 용량</th>
+                      <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-20">압축률</th>
                       <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">담당자</th>
                       <th className="text-right font-semibold text-medium tracking-wide py-2 px-3 w-[105px]">평균압축속도</th>
                       <th className="text-right font-semibold text-medium tracking-wide py-2 px-3 w-25">총 소요시간</th>
@@ -494,12 +551,30 @@ export default function EquipmentUsage() {
                           onClick={() => setSelectedDetailId(prev => (prev === job.id ? null : job.id))}
                           className={`cursor-pointer group ${isActive ? 'ring-1 ring-inset ring-blue-300 bg-blue-50' : ''}`}
                         >
-                          <td className="h-10 py-0 px-3 text-center text-gray-600 border border-gray-200 border-r-0 bg-white group-hover:bg-gray-50 w-[60px]">{globalIndex + 1}</td>
-                          <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50">{job.name}</td>
-                          <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[110px]">{job.algorithm}</td>
-                          <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">v{job.version}</td>
+                          <td className="h-10 py-0 px-3 text-center text-gray-600 border border-gray-200 border-r-0 bg-white group-hover:bg-gray-50 w-10">{globalIndex + 1}</td>
+                          <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50">
+                            <span className={`block truncate ${isCollapsed ? 'max-w-[400px]' : 'max-w-[300px]'}`} title={job.name}>
+                              {job.name}
+                            </span>
+                          </td>
+                          <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{job.algorithm}</td>
+                          <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[70px]">v{job.version}</td>
                           <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-20">{job.mode}</td>
-                          <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[100px]">{job.size}</td>
+                          <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{formatFileSize(job.bmpVolume)}</td>
+                          <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{formatFileSize(job.tiffVolume)}</td>
+                          <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-20">
+                            {(() => {
+                              const bmpVol = job.bmpVolume || 0;
+                              const tiffVol = job.tiffVolume || 0;
+                              if (bmpVol === 0) return '-';
+                              const compressionRatio = ((bmpVol - tiffVol) / bmpVol) * 100;
+                              return (
+                                <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] bg-green-50 text-green-700 border-green-200">
+                                  {compressionRatio.toFixed(2)}%
+                                </span>
+                              );
+                            })()}
+                          </td>
                           <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{job.owner}</td>
                           <td className="h-10 py-0 px-3 text-right border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[100px]">
                             <PrettyNumber value={job.avgSpeedMBps} unit="MB/s" />
@@ -545,12 +620,14 @@ export default function EquipmentUsage() {
               <table className="w-full text-sm border-separate border-spacing-y-0 mb-4">
                 <thead>
                   <tr className="text-gray-700 bg-gray-50">
-                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[60px]">No.</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-10">No.</th>
                     <th className="text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
-                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[110px]">알고리즘</th>
-                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">버전</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">알고리즘</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[30px]">버전</th>
                     <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-21">처리 방식</th>
-                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">용량</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[100px]">압축 전 용량</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[100px]">압축 후 용량</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-20">압축률</th>
                     <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[90px]">담당자</th>
                     <th className="text-right font-semibold text-medium tracking-wide py-2 px-3 w-[105px]">평균압축속도</th>
                     <th className="text-right font-semibold text-medium tracking-wide py-2 px-3 w-25">총 소요시간</th>
@@ -558,12 +635,30 @@ export default function EquipmentUsage() {
                 </thead>
                 <tbody>
                   <tr className="group">
-                    <td className="h-10 py-0 px-3 text-center text-gray-600 border border-gray-200 border-r-0 bg-white group-hover:bg-gray-50 w-[60px]">{selectedJob.id}</td>
-                    <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50">{selectedJob.name}</td>
-                    <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[110px]">{selectedJob.algorithm}</td>
-                    <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">v{selectedJob.version}</td>
+                    <td className="h-10 py-0 px-3 text-center text-gray-600 border border-gray-200 border-r-0 bg-white group-hover:bg-gray-50 w-10">{selectedJob.id}</td>
+                    <td className="h-10 py-0 px-3 text-left border-t border-b border-gray-200 bg-white group-hover:bg-gray-50">
+                      <span className={`block truncate ${isCollapsed ? 'max-w-[400px]' : 'max-w-[300px]'}`} title={selectedJob.name}>
+                        {selectedJob.name}
+                      </span>
+                    </td>
+                    <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{selectedJob.algorithm}</td>
+                    <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[70px]">v{selectedJob.version}</td>
                     <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-20">{selectedJob.mode}</td>
-                    <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{selectedJob.size}</td>
+                    <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{formatFileSize(selectedJob.bmpVolume)}</td>
+                    <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{formatFileSize(selectedJob.tiffVolume)}</td>
+                    <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-20">
+                      {(() => {
+                        const bmpVol = selectedJob.bmpVolume || 0;
+                        const tiffVol = selectedJob.tiffVolume || 0;
+                        if (bmpVol === 0) return '-';
+                        const compressionRatio = ((bmpVol - tiffVol) / bmpVol) * 100;
+                        return (
+                          <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] bg-green-50 text-green-700 border-green-200">
+                            {compressionRatio.toFixed(2)}%
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{selectedJob.owner}</td>
                     <td className="h-10 py-0 px-3 text-right border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[100px]">
                       <PrettyNumber value={selectedJob.avgSpeedMBps} unit="MB/s" />
@@ -619,6 +714,7 @@ export default function EquipmentUsage() {
       )}
       </div>
     </CommonContainerBox>
+    </>
   );
 }
 
