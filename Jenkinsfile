@@ -282,10 +282,10 @@ pipeline {
                   echo "[image-worker] Downloading nvTIFF .deb from presigned URL..."
 
                   curl -fL --retry 5 --retry-delay 2 \
-                    -o nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb \
+                    -o nvtiff-local-repo-ubuntu2404-0.6.0_0.6.0-1_amd64.deb \
                     "$NVTIFF_URL"
 
-                  ls -lh nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb
+                  ls -lh nvtiff-local-repo-ubuntu2404-0.6.0_0.6.0-1_amd64.deb
                 '''
               }
             }
@@ -304,7 +304,7 @@ pipeline {
             }
 
             dir('image') {
-              sh 'rm -f nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb || true'
+              sh 'rm -f nvtiff-local-repo-ubuntu2404-0.6.0_0.6.0-1_amd64.deb || true'
             }
           }
         }
