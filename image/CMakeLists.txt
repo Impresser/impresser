@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(image_converter LANGUAGES CXX)
+project(image_converter LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -83,6 +83,7 @@ set(SRC_MUST
 
 set(SRC_OPTIONAL
   "${CMAKE_SOURCE_DIR}/src/encoder_libtiff.cpp"
+  "${CMAKE_SOURCE_DIR}/src/generate_bmp.cu"
 )
 
 set(IMAGE_CORE_SOURCES "")

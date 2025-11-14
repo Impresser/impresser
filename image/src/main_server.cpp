@@ -3,6 +3,7 @@
 #include "converter/stopwatch.hpp"
 #include "converter/log.hpp"
 #include "converter/http_io.hpp"
+#include "converter/generate_bmp.hpp"
 
 #include "../vendor/httplib.h"
 #include "../vendor/json.hpp"
@@ -20,6 +21,7 @@
 #include <optional>
 #include <cctype>
 #include <cmath>
+#include <cuda_runtime.h>
 
 using namespace conv;
 using json = nlohmann::json;
@@ -209,6 +211,8 @@ static bool fileExists(const std::string& p) {
 }
 
 static int runServer(int port) {
+    conv::startGenerateWorkers(1);
+
     httplib::Server svr;
 
     svr.Get("/healthz", [](const httplib::Request&, httplib::Response& res) {
@@ -257,6 +261,76 @@ static int runServer(int port) {
         }
         });
 
+    svr.Post("/generate", [](const httplib::Request& req, httplib::Response& res) {
+        LOGI("req.body.size=" << req.body.size());
+        try {
+            json j = json::parse(req.body);
+            LOGI("parsed json keys=" << j.size());
+
+            conv::GenerateJob job;
+            // 새로운 멀티파트 필드(프론트->백->C++ 경로)
+            if (j.contains("partUploadUrls")) {
+                job.partUploadUrls = j.at("partUploadUrls").get<std::vector<std::string>>();
+                job.uploadId = j.at("uploadId").get<std::string>();
+                job.objectName = j.at("objectName").get<std::string>();
+            }
+
+            // 구버전 단일 업로드 호환(옵션)
+            if (j.contains("outputUrl")) {
+                job.outputUrl = j.at("outputUrl").get<std::string>();
+            }
+
+            job.generationUuid = j.at("generationUuid").get<std::string>();
+            job.bmpWidth = j.at("bmpWidth").get<uint32_t>();
+            job.bmpHeight = j.at("bmpHeight").get<uint32_t>();
+            job.bmpVolume = j.at("bmpVolume").get<uint64_t>();
+
+            job.redCountX = j.at("redCountX").get<int>();
+            job.redCountY = j.at("redCountY").get<int>();
+            job.redSizeX = j.at("redSizeX").get<int>();
+            job.redSizeY = j.at("redSizeY").get<int>();
+            job.redGapX = j.at("redGapX").get<int>();
+            job.redGapY = j.at("redGapY").get<int>();
+
+            job.greenCountX = j.at("greenCountX").get<int>();
+            job.greenCountY = j.at("greenCountY").get<int>();
+            job.greenSizeX = j.at("greenSizeX").get<int>();
+            job.greenSizeY = j.at("greenSizeY").get<int>();
+            job.greenGapX = j.at("greenGapX").get<int>();
+            job.greenGapY = j.at("greenGapY").get<int>();
+
+            job.blueCountX = j.at("blueCountX").get<int>();
+            job.blueCountY = j.at("blueCountY").get<int>();
+            job.blueSizeX = j.at("blueSizeX").get<int>();
+            job.blueSizeY = j.at("blueSizeY").get<int>();
+            job.blueGapX = j.at("blueGapX").get<int>();
+            job.blueGapY = j.at("blueGapY").get<int>();
+
+            job.rgGapX = j.at("rgGapX").get<int>();
+            job.rgGapY = j.at("rgGapY").get<int>();
+            job.gbGapX = j.at("gbGapX").get<int>();
+            job.gbGapY = j.at("gbGapY").get<int>();
+
+            if (j.contains("auth")) {
+                const auto& a = j.at("auth");
+                job.authScheme = a.value("scheme", "");
+                job.accessToken = a.value("accessToken", "");
+            }
+
+            conv::enqueueGenerateJob(std::move(job));
+
+            json ack = { {"ok", true}, {"status", "ACCEPTED"}, {"generationUuid", j.at("generationUuid").get<std::string>()} };
+            res.status = 202;
+            res.set_content(ack.dump(), "application/json");
+        }
+        catch (const std::exception& ex) {
+            LOGE(" parse/handle error: " << ex.what());
+            json er = { {"ok", false}, {"error", ex.what()} };
+            res.status = 400;
+            res.set_content(er.dump(), "application/json");
+        }
+        });
+
     std::vector<std::thread> workers;
     const int workerCount = 1;
     for (int i = 0; i < workerCount; ++i) {
@@ -275,6 +349,8 @@ static int runServer(int port) {
 }
 
 int main(int argc, char* argv[]) {
+    cudaSetDevice(0);
+    cudaFree(0);
     if (argc >= 2 && std::string(argv[1]) == "--server") {
         int port = 8080;
         if (argc >= 3) port = std::stoi(argv[2]);
@@ -329,5 +405,9 @@ int main(int argc, char* argv[]) {
 
     LOGI("Conversion completed successfully: total=" << (tLoad + tEnc)
         << "s (load=" << tLoad << "s, encode=" << tEnc << "s)");
+
+    g_shutdown.store(true);
+    g_cv.notify_all();
+
     return 0;
 }
