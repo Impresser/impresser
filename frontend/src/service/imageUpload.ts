@@ -128,6 +128,60 @@ export async function completeBatchMultipartUpload(
 }
 
 /**
+ * 멀티파트 업로드 중단 API 호출
+ */
+export async function abortMultipartUpload(
+  objectName: string,
+  uploadId: string
+): Promise<ApiResponse<{}>> {
+  const accessToken = localStorage.getItem("accessToken");
+
+  const url = `${API_BASE_URL}/s3/abort?objectName=${encodeURIComponent(objectName)}&uploadId=${encodeURIComponent(uploadId)}`;
+
+  const headers: HeadersInit = {};
+  if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+
+  const response = await fetch(url, {
+    method: "DELETE",
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `멀티파트 업로드 중단 실패: ${response.status} ${response.statusText}`
+    );
+  }
+
+  // 응답 본문이 비어있을 수 있으므로 확인
+  const contentType = response.headers.get("content-type");
+  const text = await response.text();
+  
+  if (!text || !contentType?.includes("application/json")) {
+    // 빈 응답이거나 JSON이 아닌 경우 기본 성공 응답 반환
+    return {
+      isSuccess: true,
+      code: "SUCCESS",
+      message: "업로드가 중단되었습니다.",
+      result: {},
+    };
+  }
+
+  try {
+    const data: ApiResponse<{}> = JSON.parse(text);
+    return data;
+  } catch (error) {
+    // JSON 파싱 실패 시 기본 성공 응답 반환
+    return {
+      isSuccess: true,
+      code: "SUCCESS",
+      message: "업로드가 중단되었습니다.",
+      result: {},
+    };
+  }
+}
+
+/**
  * 업로드 결과 타입
  */
 export interface UploadPartResult {
@@ -161,12 +215,16 @@ export async function uploadPartsInBatch({
   onProgress = () => {},
   batchSize = 20,
   maxRetries = 3,
+  fileName,
+  checkAborted,
 }: {
   file: File;
   presignedUrls: Array<{ url: string; partNumber: number }>;
   onProgress?: (info: ProgressInfo) => void;
   batchSize?: number;
   maxRetries?: number;
+  fileName?: string;
+  checkAborted?: () => boolean;
 }): Promise<UploadPartsResult> {
   const chunkSize = getChunkSize(file.size);
   const chunks: Blob[] = [];
@@ -226,6 +284,14 @@ export async function uploadPartsInBatch({
     }
   };
 
+  // 중단 여부 확인 함수
+  const isAborted = () => {
+    if (checkAborted) {
+      return checkAborted();
+    }
+    return false;
+  };
+
   // ✅ XMLHttpRequest로 각 파트 업로드 (ETag 추출 + 재시도 포함)
   async function uploadPart({
     url,
@@ -239,8 +305,18 @@ export async function uploadPartsInBatch({
     const chunkSize = chunk.size;
     partBytesUploaded.set(partNumber, 0);
 
+    // 중단 확인
+    if (isAborted()) {
+      throw new Error("Upload aborted by user");
+    }
+
     let attempt = 0;
     while (attempt < maxRetries) {
+      // 중단 확인
+      if (isAborted()) {
+        throw new Error("Upload aborted by user");
+      }
+
       try {
         return await new Promise<UploadPartResult>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
@@ -254,6 +330,12 @@ export async function uploadPartsInBatch({
           });
 
           xhr.addEventListener("load", () => {
+            // 중단 확인
+            if (isAborted()) {
+              reject(new Error("Upload aborted by user"));
+              return;
+            }
+
             if (xhr.status >= 200 && xhr.status < 300) {
               const etag = xhr.getResponseHeader("ETag")?.replace(/"/g, "");
               if (!etag) {
@@ -278,13 +360,23 @@ export async function uploadPartsInBatch({
             }
           });
 
-          xhr.addEventListener("error", () => reject(new Error("Network error")));
-          xhr.addEventListener("abort", () => reject(new Error("Upload aborted")));
+          xhr.addEventListener("error", () => {
+            if (isAborted()) {
+              reject(new Error("Upload aborted by user"));
+            } else {
+              reject(new Error("Network error"));
+            }
+          });
+          xhr.addEventListener("abort", () => reject(new Error("Upload aborted by user")));
 
           xhr.open("PUT", url);
           xhr.send(chunk);
         });
       } catch (err) {
+        // 중단된 경우 재시도하지 않음
+        if (err instanceof Error && err.message === "Upload aborted by user") {
+          throw err;
+        }
         attempt++;
         if (attempt >= maxRetries) throw err;
         console.warn(`⚠️ Part ${partNumber} 실패 (${attempt}/${maxRetries}) 재시도 중...`);
@@ -313,9 +405,23 @@ export async function uploadPartsInBatch({
       error: r.reason instanceof Error ? r.reason : new Error(String(r.reason)),
     }));
 
-  if (failedParts.length > 0) {
-    console.error(`❌ 실패한 파트 ${failedParts.length}개 존재`);
+  // 중단으로 인한 실패인지 확인
+  const abortedParts = failedParts.filter(
+    (part) => part.error.message === "Upload aborted by user"
+  );
+  const actualFailedParts = failedParts.filter(
+    (part) => part.error.message !== "Upload aborted by user"
+  );
+
+  // 실제 실패한 파트만 로그 출력
+  if (actualFailedParts.length > 0) {
+    console.error(`❌ 실패한 파트 ${actualFailedParts.length}개 존재`);
   }
 
-  return { successParts, failedParts };
+  // 중단된 경우 빈 배열 반환 (실패로 처리하지 않음)
+  if (abortedParts.length > 0 && actualFailedParts.length === 0) {
+    return { successParts: [], failedParts: [] };
+  }
+
+  return { successParts, failedParts: actualFailedParts };
 }
