@@ -192,14 +192,14 @@ export default function MotherGlassInfoList({
           )}
         </div>
 
-        <div className="flex justify-end pt-4">
+        <div className="flex justify-end">
           <CommonButton
             variant="blue"
             className="px-4 py-2 text-sm"
             onClick={onCalculate}
             disabled={isCalculating || calculateDisabled}
           >
-            {isCalculating ? '계산 중...' : '배치 계산 실행'}
+            {isCalculating ? '배치 중...' : '배치'}
           </CommonButton>
         </div>
       </CommonContainerBox>
