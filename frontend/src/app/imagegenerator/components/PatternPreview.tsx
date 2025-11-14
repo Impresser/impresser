@@ -361,12 +361,79 @@ export default function PatternPreview({ form, onOpenModal }: PatternPreviewProp
     setIsPanning(false);
   }, []);
 
+  // 패턴 크기에 따른 초기 줌 레벨 계산 함수
+  const calculateInitialZoom = useCallback((form: PatternFormState): number => {
+    const rSizeX = Number(form.channels.R.size.x);
+    const rSizeY = Number(form.channels.R.size.y);
+    const gSizeX = Number(form.channels.G.size.x);
+    const gSizeY = Number(form.channels.G.size.y);
+    const bSizeX = Number(form.channels.B.size.x);
+    const bSizeY = Number(form.channels.B.size.y);
+
+    const rCountX = Number(form.channels.R.count.x);
+    const rCountY = Number(form.channels.R.count.y);
+    const gCountX = Number(form.channels.G.count.x);
+    const gCountY = Number(form.channels.G.count.y);
+    const bCountX = Number(form.channels.B.count.x);
+    const bCountY = Number(form.channels.B.count.y);
+
+    const hasR = Number.isFinite(rSizeX) && rSizeX > 0 && 
+                 Number.isFinite(rSizeY) && rSizeY > 0 &&
+                 Number.isFinite(rCountX) && rCountX > 0 &&
+                 Number.isFinite(rCountY) && rCountY > 0;
+    const hasG = Number.isFinite(gSizeX) && gSizeX > 0 && 
+                 Number.isFinite(gSizeY) && gSizeY > 0 &&
+                 Number.isFinite(gCountX) && gCountX > 0 &&
+                 Number.isFinite(gCountY) && gCountY > 0;
+    const hasB = Number.isFinite(bSizeX) && bSizeX > 0 && 
+                 Number.isFinite(bSizeY) && bSizeY > 0 &&
+                 Number.isFinite(bCountX) && bCountX > 0 &&
+                 Number.isFinite(bCountY) && bCountY > 0;
+
+    if (!hasR && !hasG && !hasB) return 50; // 기본값
+
+    const gridCols = Math.max(
+      hasR ? rCountX : 0,
+      hasG ? gCountX : 0,
+      hasB ? bCountX : 0
+    );
+    const gridRows = Math.max(
+      hasR ? rCountY : 0,
+      hasG ? gCountY : 0,
+      hasB ? bCountY : 0
+    );
+
+    // 패턴 개수에 따른 줌 레벨 계산 (최대값 기준)
+    const maxPatternSize = Math.max(gridCols, gridRows);
+    
+    if (maxPatternSize <= 10) {
+      // 10x10 이하: 80%
+      return 0.8;
+    } else if (maxPatternSize <= 50) {
+      // 50x50 이하: 600%
+      return 6;
+    } else if (maxPatternSize <= 100) {
+      // 100x100 이하: 1000%
+      return 10;
+    } else if (maxPatternSize <= 200) {
+      // 200x200 이하: 2000%
+      return 20;
+    } else if (maxPatternSize <= 300) {
+      // 300x300 이하: 3000%
+      return 30;
+    } else {
+      // 400x400 이상: 5000%
+      return 50;
+    }
+  }, []);
+
   // 확대/축소 리셋
   const handleResetZoom = useCallback(() => {
-    setZoom(50);
+    const targetZoom = calculateInitialZoom(form);
+    setZoom(targetZoom);
     setPanX(0);
     setPanY(0);
-  }, []);
+  }, [form, calculateInitialZoom]);
 
   // 패턴 크기에 따른 초기 줌 자동 조정
   useEffect(() => {
@@ -417,29 +484,7 @@ export default function PatternPreview({ form, onOpenModal }: PatternPreviewProp
     if (sizeChanged) {
       prevPatternSizeRef.current = { cols: gridCols, rows: gridRows };
       
-      // 패턴 개수에 따른 줌 레벨 계산 (최대값 기준)
-      const maxPatternSize = Math.max(gridCols, gridRows);
-      let targetZoom: number;
-      
-      if (maxPatternSize <= 10) {
-        // 10x10 이하: 100%
-        targetZoom = 0.8;
-      } else if (maxPatternSize <= 50) {
-        // 50x50 이하: 600%
-        targetZoom = 6;
-      } else if (maxPatternSize <= 100) {
-        // 100x100 이하: 1000%
-        targetZoom = 10;
-      } else if (maxPatternSize <= 200) {
-        // 200x200 이하: 2000%
-        targetZoom = 20;
-      } else if (maxPatternSize <= 300) {
-        // 300x300 이하: 3000%
-        targetZoom = 30;
-      } else {
-        // 400x400 이상: 5000%
-        targetZoom = 50;
-      }
+      const targetZoom = calculateInitialZoom(form);
       
       setZoom(targetZoom);
       setPanX(0);
@@ -457,7 +502,8 @@ export default function PatternPreview({ form, onOpenModal }: PatternPreviewProp
     form.channels.B.size.x,
     form.channels.B.size.y,
     form.channels.B.count.x,
-    form.channels.B.count.y
+    form.channels.B.count.y,
+    calculateInitialZoom
   ]);
 
   // 미리보기 캔버스 렌더러

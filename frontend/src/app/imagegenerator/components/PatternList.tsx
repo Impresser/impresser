@@ -7,6 +7,8 @@ import CommonPagination from '@/components/ui/CommonPagination';
 import { getBmpList, getBmpDetail } from '@/service/imageGenerator';
 import { BmpListItem, BmpDetailResult } from '@/types/imageGenerator';
 import CommonTableFrame from '@/components/ui/CommonTableFrame';
+import PatternPreview from './PatternPreview';
+import { PatternFormState } from '@/store/imageGeneratorStore';
 
 // CSV 내보내기 함수
 const exportToCSV = (data: BmpDetailResult) => {
@@ -65,6 +67,42 @@ const CsvIcon = () => (
     className="inline-block"
   />
 );
+
+// BmpDetailResult를 PatternFormState로 변환하는 함수
+const convertDetailToFormState = (detail: BmpDetailResult): PatternFormState => {
+  return {
+    imageSize: {
+      w: detail.bmpWidth,
+      h: detail.bmpHeight,
+    },
+    gapRG: {
+      x: detail.rgGapX,
+      y: detail.rgGapY,
+    },
+    gapGB: {
+      x: detail.gbGapX,
+      y: detail.gbGapY,
+    },
+    channels: {
+      R: {
+        count: { x: detail.redCountX, y: detail.redCountY },
+        size: { x: detail.redSizeX, y: detail.redSizeY },
+        spacing: { x: detail.redGapX, y: detail.redGapY },
+      },
+      G: {
+        count: { x: detail.greenCountX, y: detail.greenCountY },
+        size: { x: detail.greenSizeX, y: detail.greenSizeY },
+        spacing: { x: detail.greenGapX, y: detail.greenGapY },
+      },
+      B: {
+        count: { x: detail.blueCountX, y: detail.blueCountY },
+        size: { x: detail.blueSizeX, y: detail.blueSizeY },
+        spacing: { x: detail.blueGapX, y: detail.blueGapY },
+      },
+    },
+    rgb: { r: 255, g: 255, b: 255 },
+  };
+};
 
 export default function PatternTable() {
   const [bmpList, setBmpList] = useState<BmpListItem[]>([]);
@@ -326,93 +364,102 @@ export default function PatternTable() {
                         {isExpanded && (
                           <tr>
                             <td colSpan={9} className="p-0 bg-gray-50">
-                              <div className="p-6 space-y-4">
+                              <div className="p-6">
                                 {isLoadingDetail ? (
                                   <div className="text-center py-8 text-gray-500">로딩 중...</div>
                                 ) : detailData ? (
-                                  <>
-                                    
-                                    <CommonContainerBox className="p-4">
-                                      <div className="flex items-center justify-between mb-3">
-                                        <h3 className="text-lg font-semibold text-gray-800">패턴 파라미터</h3>
-                                        <button
-                                          onClick={() => exportToCSV(detailData)}
-                                          className="text-blue-600 hover:underline text-medium cursor-pointer flex items-center"
-                                        >
-                                          <CsvIcon />
-                                          내보내기
-                                        </button>
+                                  <CommonContainerBox className="p-4">
+                                    <div className="flex items-center justify-between mb-3">
+                                      <h3 className="text-lg font-semibold text-gray-800">패턴 파라미터</h3>
+                                      <button
+                                        onClick={() => exportToCSV(detailData)}
+                                        className="text-blue-600 hover:underline text-medium cursor-pointer flex items-center"
+                                      >
+                                        <CsvIcon />
+                                        내보내기
+                                      </button>
+                                    </div>
+                                    <div className="grid grid-cols-1 lg:grid-cols-[2fr_3fr] gap-6">
+                                      {/* 왼쪽: 미리보기 */}
+                                      <div className="flex flex-col">
+                                        <div className="flex-1">
+                                          <PatternPreview form={convertDetailToFormState(detailData)} />
+                                        </div>
                                       </div>
-                                      <div className="overflow-x-auto">
-                                        <table className="w-full text-sm border-collapse">
-                                          <thead>
-                                            <tr className="border-b border-gray-200">
-                                              <th className="text-left py-2 px-0 font-semibold text-gray-700"></th>
-                                              <th className="text-center py-2 px-3 font-semibold text-gray-700">이미지 크기</th>
-                                              <th className="text-center py-2 px-3 font-semibold text-gray-700">R-G 간격</th>
-                                              <th className="text-center py-2 px-3 font-semibold text-gray-700">G-B 간격</th>
-                                            </tr>
-                                          </thead>
-                                          <tbody>
-                                            <tr className="border-b border-gray-100">
-                                              <td className="py-2 px-0 font-semibold text-gray-700"></td>
-                                              <td className="py-2 px-3 text-center text-gray-700">
-                                                W {detailData.bmpWidth} × H {detailData.bmpHeight}
-                                              </td>
-                                              <td className="py-2 px-3 text-center text-gray-600">
-                                                X {detailData.rgGapX} × Y {detailData.rgGapY}
-                                              </td>
-                                              <td className="py-2 px-3 text-center text-gray-600">
-                                                X {detailData.gbGapX} × Y {detailData.gbGapY}
-                                              </td>
-                                            </tr>
-                                            <tr className="border-b border-gray-200">
-                                              <th className="text-center py-2 px-0 font-semibold text-gray-700">채널</th>
-                                              <th className="text-center py-2 px-0 font-semibold text-gray-700">크기</th>
-                                              <th className="text-center py-2 px-0 font-semibold text-gray-700">개수</th>
-                                              <th className="text-center py-2 px-0 font-semibold text-gray-700">간격</th>
-                                            </tr>
-                                            <tr className="border-b border-gray-100">
-                                              <td className="py-2 px-0 text-center font-semibold text-gray-700">R</td>
-                                              <td className="py-2 px-0 text-center text-gray-600">
-                                                X {detailData.redSizeX} × Y {detailData.redSizeY}
-                                              </td>
-                                              <td className="py-2 px-0 text-center text-gray-600">
-                                                X {detailData.redCountX} × Y {detailData.redCountY}
-                                              </td>
-                                              <td className="py-2 px-0 text-center text-gray-600">
-                                                X {detailData.redGapX} × Y {detailData.redGapY}
-                                              </td>
-                                            </tr>
-                                            <tr className="border-b border-gray-100">
-                                              <td className="py-2 px-0 text-center font-semibold text-gray-700">G</td>
-                                              <td className="py-2 px-0 text-center text-gray-600">
-                                                X {detailData.greenSizeX} × Y {detailData.greenSizeY}
-                                              </td>
-                                              <td className="py-2 px-0 text-center text-gray-600">
-                                                X {detailData.greenCountX} × Y {detailData.greenCountY}
-                                              </td>
-                                              <td className="py-2 px-0 text-center text-gray-600">
-                                                X {detailData.greenGapX} × Y {detailData.greenGapY}
-                                              </td>
-                                            </tr>
-                                            <tr className="border-b border-gray-100">
-                                              <td className="py-2 px-0 text-center font-semibold text-gray-700">B</td>
-                                              <td className="py-2 px-0 text-center text-gray-600">
-                                                X {detailData.blueSizeX} × Y {detailData.blueSizeY}
-                                              </td>
-                                              <td className="py-2 px-0 text-center text-gray-600">
-                                                X {detailData.blueCountX} × Y {detailData.blueCountY}
-                                              </td>
-                                              <td className="py-2 px-0 text-center text-gray-600">
-                                                X {detailData.blueGapX} × Y {detailData.blueGapY}
-                                              </td>
-                                            </tr>
-                                          </tbody>
-                                        </table>
+                                      
+                                      {/* 오른쪽: 파라미터 테이블 */}
+                                      <div className="flex flex-col">
+                                        <div className="overflow-x-auto">
+                                          <table className="w-full text-sm border-collapse">
+                                            <thead>
+                                              <tr className="border-b border-gray-200">
+                                                <th className="text-left py-2 px-0 font-semibold text-gray-700"></th>
+                                                <th className="text-center py-2 px-3 font-semibold text-gray-700">이미지 크기</th>
+                                                <th className="text-center py-2 px-3 font-semibold text-gray-700">R-G 간격</th>
+                                                <th className="text-center py-2 px-3 font-semibold text-gray-700">G-B 간격</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              <tr className="border-b border-gray-100">
+                                                <td className="py-2 px-0 font-semibold text-gray-700"></td>
+                                                <td className="py-2 px-3 text-center text-gray-700">
+                                                  W {detailData.bmpWidth} × H {detailData.bmpHeight}
+                                                </td>
+                                                <td className="py-2 px-3 text-center text-gray-600">
+                                                  X {detailData.rgGapX} × Y {detailData.rgGapY}
+                                                </td>
+                                                <td className="py-2 px-3 text-center text-gray-600">
+                                                  X {detailData.gbGapX} × Y {detailData.gbGapY}
+                                                </td>
+                                              </tr>
+                                              <tr className="border-b border-gray-200">
+                                                <th className="text-center py-2 px-0 font-semibold text-gray-700">채널</th>
+                                                <th className="text-center py-2 px-0 font-semibold text-gray-700">크기</th>
+                                                <th className="text-center py-2 px-0 font-semibold text-gray-700">개수</th>
+                                                <th className="text-center py-2 px-0 font-semibold text-gray-700">간격</th>
+                                              </tr>
+                                              <tr className="border-b border-gray-100">
+                                                <td className="py-2 px-0 text-center font-semibold text-gray-700">R</td>
+                                                <td className="py-2 px-0 text-center text-gray-600">
+                                                  X {detailData.redSizeX} × Y {detailData.redSizeY}
+                                                </td>
+                                                <td className="py-2 px-0 text-center text-gray-600">
+                                                  X {detailData.redCountX} × Y {detailData.redCountY}
+                                                </td>
+                                                <td className="py-2 px-0 text-center text-gray-600">
+                                                  X {detailData.redGapX} × Y {detailData.redGapY}
+                                                </td>
+                                              </tr>
+                                              <tr className="border-b border-gray-100">
+                                                <td className="py-2 px-0 text-center font-semibold text-gray-700">G</td>
+                                                <td className="py-2 px-0 text-center text-gray-600">
+                                                  X {detailData.greenSizeX} × Y {detailData.greenSizeY}
+                                                </td>
+                                                <td className="py-2 px-0 text-center text-gray-600">
+                                                  X {detailData.greenCountX} × Y {detailData.greenCountY}
+                                                </td>
+                                                <td className="py-2 px-0 text-center text-gray-600">
+                                                  X {detailData.greenGapX} × Y {detailData.greenGapY}
+                                                </td>
+                                              </tr>
+                                              <tr className="border-b border-gray-100">
+                                                <td className="py-2 px-0 text-center font-semibold text-gray-700">B</td>
+                                                <td className="py-2 px-0 text-center text-gray-600">
+                                                  X {detailData.blueSizeX} × Y {detailData.blueSizeY}
+                                                </td>
+                                                <td className="py-2 px-0 text-center text-gray-600">
+                                                  X {detailData.blueCountX} × Y {detailData.blueCountY}
+                                                </td>
+                                                <td className="py-2 px-0 text-center text-gray-600">
+                                                  X {detailData.blueGapX} × Y {detailData.blueGapY}
+                                                </td>
+                                              </tr>
+                                            </tbody>
+                                          </table>
+                                        </div>
                                       </div>
-                                    </CommonContainerBox>
-                                  </>
+                                    </div>
+                                  </CommonContainerBox>
                                 ) : (
                                   <div className="text-center py-8 text-gray-500">상세 정보를 불러올 수 없습니다.</div>
                                 )}
@@ -552,6 +599,8 @@ export default function PatternTable() {
                               </div>
                             </div>
                           </CommonContainerBox>
+                          
+                          {/* 모바일: 패턴 파라미터 */}
                           <CommonContainerBox className="p-4">
                             <div className="flex items-center justify-between mb-3">
                               <h3 className="text-lg font-semibold text-gray-800">패턴 파라미터</h3>
@@ -563,73 +612,83 @@ export default function PatternTable() {
                                 내보내기
                               </button>
                             </div>
-                            <div className="overflow-x-auto">
-                              <table className="w-full text-sm border-collapse">
-                                <thead>
-                                  <tr className="border-b border-gray-200">
-                                    <th className="text-left py-2 px-0 font-semibold text-gray-700"></th>
-                                    <th className="text-center py-2 px-3 font-semibold text-gray-700">이미지 크기</th>
-                                    <th className="text-center py-2 px-3 font-semibold text-gray-700">R-G 간격</th>
-                                    <th className="text-center py-2 px-3 font-semibold text-gray-700">G-B 간격</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  <tr className="border-b border-gray-100">
-                                    <td className="py-2 px-0 font-semibold text-gray-700"></td>
-                                    <td className="py-2 px-3 text-center text-gray-700">
-                                      W: {detailData.bmpWidth} × H: {detailData.bmpHeight}
-                                    </td>
-                                    <td className="py-2 px-3 text-center text-gray-600">
-                                      X: {detailData.rgGapX} × Y: {detailData.rgGapY}
-                                    </td>
-                                    <td className="py-2 px-3 text-center text-gray-600">
-                                      X: {detailData.gbGapX} × Y: {detailData.gbGapY}
-                                    </td>
-                                  </tr>
-                                  <tr className="border-b border-gray-200">
-                                    <th className="text-left py-2 px-0 font-semibold text-gray-700">채널</th>
-                                    <th className="text-center py-2 px-0 font-semibold text-gray-700">크기</th>
-                                    <th className="text-center py-2 px-0 font-semibold text-gray-700">개수</th>
-                                    <th className="text-center py-2 px-0 font-semibold text-gray-700">간격</th>
-                                  </tr>
-                                  <tr className="border-b border-gray-100">
-                                    <td className="py-2 px-0 font-semibold text-gray-700">R</td>
-                                    <td className="py-2 px-0 text-center text-gray-600">
-                                      X: {detailData.redSizeX} × Y: {detailData.redSizeY}
-                                    </td>
-                                    <td className="py-2 px-0 text-center text-gray-600">
-                                      X: {detailData.redCountX} × Y: {detailData.redCountY}
-                                    </td>
-                                    <td className="py-2 px-0 text-center text-gray-600">
-                                      X: {detailData.redGapX} × Y: {detailData.redGapY}
-                                    </td>
-                                  </tr>
-                                  <tr className="border-b border-gray-100">
-                                    <td className="py-2 px-0 font-semibold text-gray-700">G</td>
-                                    <td className="py-2 px-0 text-center text-gray-600">
-                                      X: {detailData.greenSizeX} × Y: {detailData.greenSizeY}
-                                    </td>
-                                    <td className="py-2 px-0 text-center text-gray-600">
-                                      X: {detailData.greenCountX} × Y: {detailData.greenCountY}
-                                    </td>
-                                    <td className="py-2 px-0 text-center text-gray-600">
-                                      X: {detailData.greenGapX} × Y: {detailData.greenGapY}
-                                    </td>
-                                  </tr>
-                                  <tr className="border-b border-gray-100">
-                                    <td className="py-2 px-0 font-semibold text-gray-700">B</td>
-                                    <td className="py-2 px-0 text-center text-gray-600">
-                                      X: {detailData.blueSizeX} × Y: {detailData.blueSizeY}
-                                    </td>
-                                    <td className="py-2 px-0 text-center text-gray-600">
-                                      X: {detailData.blueCountX} × Y: {detailData.blueCountY}
-                                    </td>
-                                    <td className="py-2 px-0 text-center text-gray-600">
-                                      X: {detailData.blueGapX} × Y: {detailData.blueGapY}
-                                    </td>
-                                  </tr>
-                                </tbody>
-                              </table>
+                            <div className="space-y-4">
+                              {/* 미리보기 */}
+                              <div>
+                                <div className="h-[300px]">
+                                  <PatternPreview form={convertDetailToFormState(detailData)} />
+                                </div>
+                              </div>
+                              
+                              {/* 파라미터 테이블 */}
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm border-collapse">
+                                  <thead>
+                                    <tr className="border-b border-gray-200">
+                                      <th className="text-left py-2 px-0 font-semibold text-gray-700"></th>
+                                      <th className="text-center py-2 px-3 font-semibold text-gray-700">이미지 크기</th>
+                                      <th className="text-center py-2 px-3 font-semibold text-gray-700">R-G 간격</th>
+                                      <th className="text-center py-2 px-3 font-semibold text-gray-700">G-B 간격</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    <tr className="border-b border-gray-100">
+                                      <td className="py-2 px-0 font-semibold text-gray-700"></td>
+                                      <td className="py-2 px-3 text-center text-gray-700">
+                                        W: {detailData.bmpWidth} × H: {detailData.bmpHeight}
+                                      </td>
+                                      <td className="py-2 px-3 text-center text-gray-600">
+                                        X: {detailData.rgGapX} × Y: {detailData.rgGapY}
+                                      </td>
+                                      <td className="py-2 px-3 text-center text-gray-600">
+                                        X: {detailData.gbGapX} × Y: {detailData.gbGapY}
+                                      </td>
+                                    </tr>
+                                    <tr className="border-b border-gray-200">
+                                      <th className="text-left py-2 px-0 font-semibold text-gray-700">채널</th>
+                                      <th className="text-center py-2 px-0 font-semibold text-gray-700">크기</th>
+                                      <th className="text-center py-2 px-0 font-semibold text-gray-700">개수</th>
+                                      <th className="text-center py-2 px-0 font-semibold text-gray-700">간격</th>
+                                    </tr>
+                                    <tr className="border-b border-gray-100">
+                                      <td className="py-2 px-0 font-semibold text-gray-700">R</td>
+                                      <td className="py-2 px-0 text-center text-gray-600">
+                                        X: {detailData.redSizeX} × Y: {detailData.redSizeY}
+                                      </td>
+                                      <td className="py-2 px-0 text-center text-gray-600">
+                                        X: {detailData.redCountX} × Y: {detailData.redCountY}
+                                      </td>
+                                      <td className="py-2 px-0 text-center text-gray-600">
+                                        X: {detailData.redGapX} × Y: {detailData.redGapY}
+                                      </td>
+                                    </tr>
+                                    <tr className="border-b border-gray-100">
+                                      <td className="py-2 px-0 font-semibold text-gray-700">G</td>
+                                      <td className="py-2 px-0 text-center text-gray-600">
+                                        X: {detailData.greenSizeX} × Y: {detailData.greenSizeY}
+                                      </td>
+                                      <td className="py-2 px-0 text-center text-gray-600">
+                                        X: {detailData.greenCountX} × Y: {detailData.greenCountY}
+                                      </td>
+                                      <td className="py-2 px-0 text-center text-gray-600">
+                                        X: {detailData.greenGapX} × Y: {detailData.greenGapY}
+                                      </td>
+                                    </tr>
+                                    <tr className="border-b border-gray-100">
+                                      <td className="py-2 px-0 font-semibold text-gray-700">B</td>
+                                      <td className="py-2 px-0 text-center text-gray-600">
+                                        X: {detailData.blueSizeX} × Y: {detailData.blueSizeY}
+                                      </td>
+                                      <td className="py-2 px-0 text-center text-gray-600">
+                                        X: {detailData.blueCountX} × Y: {detailData.blueCountY}
+                                      </td>
+                                      <td className="py-2 px-0 text-center text-gray-600">
+                                        X: {detailData.blueGapX} × Y: {detailData.blueGapY}
+                                      </td>
+                                    </tr>
+                                  </tbody>
+                                </table>
+                              </div>
                             </div>
                           </CommonContainerBox>
                         </>
