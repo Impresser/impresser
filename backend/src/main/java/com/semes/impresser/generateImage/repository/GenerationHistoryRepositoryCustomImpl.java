@@ -8,6 +8,7 @@ import com.semes.impresser.generateImage.entity.GenerationStatus;
 import com.semes.impresser.generateImage.entity.QGenerationHistory;
 import com.semes.impresser.user.entity.QUser;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -53,5 +54,38 @@ public class GenerationHistoryRepositoryCustomImpl implements GenerationHistoryR
 
         return new PageImpl<>(generationHistories, pageable,
             totalElements == null ? 0 : totalElements);
+    }
+
+    @Override
+    public Page<AllGenerationHistoryResponse> getMyGenerationHistories(UUID userUuid, Pageable pageable) {
+
+        List<AllGenerationHistoryResponse> content = queryFactory
+            .select(Projections.constructor(AllGenerationHistoryResponse.class,
+                generationHistory.uuid,
+                generationHistory.bmpKey,
+                generationHistory.user.userName,
+                generationHistory.bmpHeight,
+                generationHistory.bmpWidth,
+                generationHistory.requestedAt,
+                generationHistory.completedAt,
+                new CaseBuilder()
+                    .when(generationHistory.status.eq(GenerationStatus.COMPLETED))
+                    .then(true)
+                    .otherwise(false)
+            ))
+            .from(generationHistory)
+            .where(generationHistory.user.uuid.eq(userUuid))
+            .orderBy(generationHistory.completedAt.desc())
+            .offset(pageable.getOffset())
+            .limit(pageable.getPageSize())
+            .fetch();
+
+        Long total = queryFactory
+            .select(generationHistory.count())
+            .from(generationHistory)
+            .where(generationHistory.user.uuid.eq(userUuid))
+            .fetchOne();
+
+        return new PageImpl<>(content, pageable, total == null ? 0 : total);
     }
 }

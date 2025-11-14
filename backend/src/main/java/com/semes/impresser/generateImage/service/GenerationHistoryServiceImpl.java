@@ -132,6 +132,34 @@ public class GenerationHistoryServiceImpl implements GenerationHistoryService {
     }
 
     @Override
+    public PageResponse<AllGenerationHistoryResponse> getMyGenerationHistories(
+        Integer page, Integer size
+    ) {
+        UUID userUuid = SecurityUtil.getCurrentUserUuid()
+            .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_TOKEN));
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        Page<AllGenerationHistoryResponse> result =
+            generationHistoryRepository.getMyGenerationHistories(userUuid, pageable);
+
+        Long totalElements = result.getTotalElements();
+        Integer totalPages = result.getTotalPages();
+
+        PaginationResponse pagination = new PaginationResponse(
+            page,
+            size,
+            totalPages,
+            totalElements,
+            page == 0,
+            page == totalPages - 1,
+            page < totalPages - 1
+        );
+
+        return new PageResponse<>(result.getContent(), pagination);
+    }
+
+    @Override
     public void processGenerationCompletion(UUID generationUuid, CompleteBmpGernerationRequest completeBmpGernerationRequest) {
         GenerationHistory history = generationHistoryRepository.findByUuid(generationUuid)
             .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));

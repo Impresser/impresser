@@ -35,10 +35,10 @@ public class DashboardController {
         return BaseResponse.onSuccess(pageResponse);
     }
 
-    @GetMapping("/convert/{compressionTypeUuid}")
+    @GetMapping("/convert")
     @Operation(summary = "알고리즘별 성능 순위 목록 조회")
     public BaseResponse<PageResponse<ConvertHistoryListResponse>> getConvertHistories(
-        @PathVariable UUID compressionTypeUuid,
+        @RequestParam(required = false) UUID compressionTypeUuid,
         @RequestParam(defaultValue = "0") @Min(0) Integer page,
         @RequestParam(defaultValue = "5") @Min(1) Integer size
     ) {

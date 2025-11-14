@@ -63,6 +63,18 @@ public class ConvertImageController {
         return BaseResponse.onSuccess(convertHistoryItemResponse);
     }
 
+    @GetMapping("/histories/me")
+    @Operation(summary = "내 압축 변환 내역(완료) 목록 조회")
+    public BaseResponse<PageResponse<ConvertHistoryItemResponse>> getMyCompletedHistories(
+        @RequestParam(defaultValue = "0") @Min(0) int page,
+        @RequestParam(defaultValue = "5") @Min(1) int size
+    ) {
+        PageResponse<ConvertHistoryItemResponse> convertHistoryItemResponse =
+            convertImageService.getMyCompletedHistoryPage(page, size);
+
+        return BaseResponse.onSuccess(convertHistoryItemResponse);
+    }
+
     @GetMapping("/histories/{convertHistoryUuid}")
     @Operation(summary = "압축 변환 내역(완료) 상세 조회")
     public BaseResponse<ConvertHistoryDetailResponse> getCompletedHistoryDetail(

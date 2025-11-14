@@ -20,6 +20,8 @@ public interface ConvertImageService {
 
     PageResponse<ConvertHistoryItemResponse> getCompletedHistoryPage(int page, int size);
 
+    PageResponse<ConvertHistoryItemResponse> getMyCompletedHistoryPage(int page, int size);
+
     ConvertHistoryDetailResponse getCompletedHistoryDetail(UUID convertHistoryUuid);
 
     CreateConvertResponse createConvert(CreateConvertRequest creatConvertRequest);

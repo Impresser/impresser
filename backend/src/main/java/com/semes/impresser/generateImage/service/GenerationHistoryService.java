@@ -17,5 +17,7 @@ public interface GenerationHistoryService {
 
     PageResponse<AllGenerationHistoryResponse> getAllGenerationHistories(Integer page, Integer size);
 
+    PageResponse<AllGenerationHistoryResponse> getMyGenerationHistories(Integer page, Integer size);
+
     void processGenerationCompletion(UUID generationUuid, CompleteBmpGernerationRequest completeBmpGernerationRequest);
 }

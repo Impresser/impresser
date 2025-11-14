@@ -33,8 +33,6 @@ public class ExternalApiClient {
     }
 
     public GenerateImageApiResponse requestGenerate(GenerateImageApiRequest generateImageRequest) {
-
-        System.out.println(generateImageRequest);
         GenerateImageApiResponse response = rest.post()
             .uri("/generate")
             .contentType(MediaType.APPLICATION_JSON)
