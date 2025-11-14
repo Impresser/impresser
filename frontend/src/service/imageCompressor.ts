@@ -6,7 +6,10 @@ import {
   CompressionTypeItem,
   GetCompressionTypeVersionsParams,
   CompressionTypeVersionItem,
-  ConvertHistoryDetailItem
+  ConvertHistoryDetailItem,
+  CreateConvertJobRequest,
+  CreateConvertRequest,
+  CreateConvertResponse
 } from "@/types/imageCompressor";
 import { fetchWithAuth } from "@/utils/fetchWithAuth";
 
@@ -122,6 +125,64 @@ export async function getConvertHistoryDetail(
   }
 
   const data: ApiResponse<ConvertHistoryDetailItem> = await response.json();
+  return data;
+}
+
+/**
+ * 이미지 변환 대기열 등록 API 호출
+ * @param request 변환 요청 데이터
+ * @returns API 응답 데이터
+ */
+export async function createConvertJobs(
+  request: CreateConvertJobRequest
+): Promise<ApiResponse<{}>> {
+  const url = `${API_BASE_URL}/convert/jobs`;
+
+  const response = await fetchWithAuth(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `이미지 변환 대기열 등록 실패: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const data: ApiResponse<{}> = await response.json();
+  return data;
+}
+
+/**
+ * 단일 이미지 변환 요청 API 호출
+ * @param request 변환 요청 데이터
+ * @returns 변환 요청 응답 데이터
+ */
+export async function createConvert(
+  request: CreateConvertRequest
+): Promise<ApiResponse<CreateConvertResponse>> {
+  const url = `${API_BASE_URL}/convert`;
+
+  const response = await fetchWithAuth(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(request),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `이미지 변환 요청 실패: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const data: ApiResponse<CreateConvertResponse> = await response.json();
   return data;
 }
 

@@ -10,6 +10,7 @@ import { FileInfo } from '@/types/imageCompressor';
 import CompressionQueue from './components/CompressionQueue';
 import CompressionHistory from './components/CompressionHistory';
 import { useAuthStore } from '@/store/authStore';
+import { createConvert, createConvertJobs } from '@/service/imageCompressor';
 
 export default function ImageCompressorPage() {
   const userName = useAuthStore((state) => state.user?.userName ?? '사용자');
@@ -18,6 +19,7 @@ export default function ImageCompressorPage() {
   const [algorithm, setAlgorithm] = useState('lzw');
   const [version, setVersion] = useState('1.0');
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [isStartingCompression, setIsStartingCompression] = useState(false);
   const idCounterRef = useRef(0);
   const queueSectionRef = useRef<HTMLDivElement | null>(null);
 
@@ -131,43 +133,78 @@ export default function ImageCompressorPage() {
     });
   };
 
-  const handleAddToQueue = () => {
-    if (selectedFiles.length === 0) {
+  const handleAddToQueue = async (fileInfos: Array<{
+    fileName: string;
+    imageUrl: string;
+    compressionTypeUuid: string;
+    bmpVolume: number;
+    bmpWidth: number;
+    bmpHeight: number;
+    algorithm: string;
+    version: string;
+    processingMethod: string;
+  }>) => {
+    if (fileInfos.length === 0) {
       alert('파일을 먼저 선택해주세요.');
       return;
     }
 
-    const baseTime = Date.now();
-    const newItems: QueueItem[] = selectedFiles.map((file, index) => {
-      idCounterRef.current += 1;
-      return {
-        id: `${baseTime}-${idCounterRef.current}-${index}`,
-        fileName: file.name,
-        processingMethod: processingMethod.toUpperCase(),
-        algorithm: algorithm,
-        version: version,
-        fileSize: file.size,
-        status: '대기' as const,
-        assignedUser: userName,
-        startTime: null,
-        elapsedTime: 0,
-        estimatedTime: 0,
-        progress: 0,
-      };
-    });
+    try {
+      // API 호출
+      const response = await createConvertJobs({
+        createConvertRequests: fileInfos.map(fileInfo => ({
+          bmpUrl: fileInfo.imageUrl,
+          compressionTypeUuid: fileInfo.compressionTypeUuid,
+          bmpVolume: fileInfo.bmpVolume,
+          bmpWidth: fileInfo.bmpWidth,
+          bmpHeight: fileInfo.bmpHeight,
+        })),
+      });
 
-    setQueue((prev) => [...prev, ...newItems]);
-    
-    // 선택된 파일 초기화
-    setSelectedFiles([]);
-
-    // 대기열 섹션으로 스크롤 이동 (중앙 정렬)
-    // 렌더링 완료 후 스크롤을 보장하기 위해 다음 틱에 실행
-    requestAnimationFrame(() => {
-      if (queueSectionRef.current) {
-        queueSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (!response.isSuccess) {
+        throw new Error(response.message || '대기열 등록에 실패했습니다.');
       }
-    });
+
+      // 성공 시 로컬 대기열에 추가
+      const baseTime = Date.now();
+      const newItems: QueueItem[] = fileInfos.map((fileInfo, index) => {
+        idCounterRef.current += 1;
+        return {
+          id: `${baseTime}-${idCounterRef.current}-${index}`,
+          fileName: fileInfo.fileName,
+          processingMethod: fileInfo.processingMethod.toUpperCase(),
+          algorithm: fileInfo.algorithm,
+          version: fileInfo.version,
+          fileSize: fileInfo.bmpVolume,
+          status: '대기' as const,
+          assignedUser: userName,
+          startTime: null,
+          elapsedTime: 0,
+          estimatedTime: 0,
+          progress: 0,
+          bmpUrl: fileInfo.imageUrl,
+          compressionTypeUuid: fileInfo.compressionTypeUuid,
+          bmpWidth: fileInfo.bmpWidth,
+          bmpHeight: fileInfo.bmpHeight,
+        };
+      });
+
+      setQueue((prev) => [...prev, ...newItems]);
+      
+      // 선택된 파일 초기화
+      setSelectedFiles([]);
+
+      // 대기열 섹션으로 스크롤 이동 (중앙 정렬)
+      // 렌더링 완료 후 스크롤을 보장하기 위해 다음 틱에 실행
+      requestAnimationFrame(() => {
+        if (queueSectionRef.current) {
+          queueSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    } catch (error) {
+      console.error('대기열 등록 실패:', error);
+      alert(error instanceof Error ? error.message : '대기열 등록에 실패했습니다.');
+    }
   };
 
   const handleFileRemove = (index: number) => {
@@ -183,43 +220,70 @@ export default function ImageCompressorPage() {
     });
   };
 
-  const handleStartCompression = () => {
-    // 대기 상태인 첫 번째 항목을 진행 상태로 변경
-    setQueue((prev) => {
-      const updated = [...prev];
-      const waitingIndex = updated.findIndex(item => item.status === '대기');
-      if (waitingIndex !== -1) {
-        updated[waitingIndex] = {
-          ...updated[waitingIndex],
-          status: '진행',
-          startTime: new Date(),
-          estimatedTime: 10, // 예상 시간 10초로 설정 (임시)
-        };
-      }
-      return updated;
-    });
-  };
+  const handleStartCompression = async () => {
+    if (isStartingCompression) {
+      return;
+    }
 
-  const handleUpdateQueueItem = (id: string, field: 'algorithm' | 'version' | 'processingMethod', value: string) => {
-    setQueue((prev) => {
-      return prev.map((item) => {
-        if (item.id === id && item.status === '대기') {
-          return {
-            ...item,
-            [field]: value,
+    const processingExists = queue.some(item => item.status === '진행');
+    if (processingExists) {
+      alert('이미 진행 중인 작업이 있습니다.');
+      return;
+    }
+
+    const waitingIndex = queue.findIndex(item => item.status === '대기');
+    if (waitingIndex === -1) {
+      alert('대기 중인 작업이 없습니다.');
+      return;
+    }
+
+    const targetItem = queue[waitingIndex];
+    if (!targetItem.bmpUrl || !targetItem.compressionTypeUuid) {
+      alert('필수 변환 정보가 없습니다. 다시 대기열에 추가해주세요.');
+      return;
+    }
+
+    setIsStartingCompression(true);
+    try {
+      const response = await createConvert({
+        bmpUrl: targetItem.bmpUrl,
+        compressionTypeUuid: targetItem.compressionTypeUuid,
+        bmpVolume: targetItem.fileSize,
+        bmpWidth: targetItem.bmpWidth ?? 0,
+        bmpHeight: targetItem.bmpHeight ?? 0,
+      });
+
+      if (!response.isSuccess || !response.result) {
+        throw new Error(response.message || '압축 요청에 실패했습니다.');
+      }
+
+      const convertHistoryUuid = response.result.convertHistoryUuid;
+
+      setQueue((prev) => {
+        const updated = [...prev];
+        if (updated[waitingIndex]) {
+          updated[waitingIndex] = {
+            ...updated[waitingIndex],
+            status: '진행',
+            startTime: new Date(),
+            estimatedTime: 10,
+            convertHistoryUuid,
           };
         }
-        return item;
+        return updated;
       });
-    });
+    } catch (error) {
+      console.error('압축 요청 실패:', error);
+      alert(error instanceof Error ? error.message : '압축 요청에 실패했습니다.');
+    } finally {
+      setIsStartingCompression(false);
+    }
   };
 
   // 경과시간 업데이트 및 완료 처리를 위한 useEffect
   useEffect(() => {
     const interval = setInterval(() => {
       setQueue((prev) => {
-        let hasCompleted = false;
-        
         const updated = prev.map((item) => {
           if (item.status === '진행' && item.startTime) {
             const elapsed = Math.floor((Date.now() - item.startTime.getTime()) / 1000);
@@ -229,8 +293,6 @@ export default function ImageCompressorPage() {
             
             // 진행률이 100%에 도달하면 완료 처리
             if (progress >= 100) {
-              hasCompleted = true;
-              
               // 큐에서 제거 (null로 표시하고 나중에 필터링)
               return null as any;
             }
@@ -243,25 +305,6 @@ export default function ImageCompressorPage() {
           }
           return item;
         }).filter((item): item is QueueItem => item !== null);
-
-        // 완료된 아이템들은 API를 통해 조회되므로 여기서는 처리하지 않음
-        // 필요시 CompressionHistory 컴포넌트에서 API를 다시 호출하도록 함
-
-        // 완료된 항목이 있고, 진행 중인 항목이 없으면 다음 대기 항목 자동 시작
-        if (hasCompleted) {
-          const hasProcessing = updated.some(item => item.status === '진행');
-          if (!hasProcessing) {
-            const waitingIndex = updated.findIndex(item => item.status === '대기');
-            if (waitingIndex !== -1) {
-              updated[waitingIndex] = {
-                ...updated[waitingIndex],
-                status: '진행',
-                startTime: new Date(),
-                estimatedTime: 10, // 예상 시간 10초로 설정 (임시)
-              };
-            }
-          }
-        }
 
         return updated;
       });
@@ -304,7 +347,7 @@ export default function ImageCompressorPage() {
               <CompressionQueue
                 queue={queue}
                 onStartCompression={handleStartCompression}
-                onUpdateQueueItem={handleUpdateQueueItem}
+                isStarting={isStartingCompression}
               />
             </div>
 

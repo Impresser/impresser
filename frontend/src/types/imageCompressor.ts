@@ -94,3 +94,22 @@ export interface FileInfo {
   preview: string;
 }
 
+// 이미지 변환 대기열 등록 요청 항목
+export interface CreateConvertRequest {
+  bmpUrl: string;
+  compressionTypeUuid: string;
+  bmpVolume: number;
+  bmpWidth: number;
+  bmpHeight: number;
+}
+
+// 이미지 변환 대기열 등록 요청
+export interface CreateConvertJobRequest {
+  createConvertRequests: CreateConvertRequest[];
+}
+
+// 이미지 변환 요청 응답
+export interface CreateConvertResponse {
+  convertHistoryUuid: string;
+}
+
