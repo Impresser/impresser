@@ -6,7 +6,8 @@ import {
   batchPresignedUrls,
   completeBatchMultipartUpload,
   uploadPartsInBatch,
-  getPartCount 
+  getPartCount,
+  abortMultipartUpload
 } from "@/service/imageUpload";
 import { UploadItem, PresignedUrlItem, UploadedPart } from "@/types/imageUpload";
 
@@ -50,6 +51,7 @@ type ImageUploadStore = {
   ) => void;
   removeUploadingFile: (fileName: string) => void;
   clearUploadingFiles: () => void;
+  abortUpload: (fileName: string) => Promise<boolean>;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 };
@@ -196,7 +198,19 @@ export const useImageUploadStore = create<ImageUploadStore>((set, get) => ({
       const result = await uploadPartsInBatch({
         file,
         presignedUrls: presignedUrlsWithPartNumber,
+        fileName,
+        checkAborted: () => {
+          // 파일이 store에서 제거되었는지 확인 (중단 여부)
+          const currentState = get();
+          return !currentState.uploadingFiles.some((f) => f.fileName === fileName);
+        },
         onProgress: (info) => {
+          // 중단 확인
+          const currentState = get();
+          if (!currentState.uploadingFiles.some((f) => f.fileName === fileName)) {
+            return; // 중단된 경우 진행률 업데이트 중단
+          }
+
           // Map을 객체로 변환하여 저장
           const partProgressObj: Record<number, number> = {};
           info.partProgress.forEach((value, key) => {
@@ -222,6 +236,15 @@ export const useImageUploadStore = create<ImageUploadStore>((set, get) => ({
           eTag: part.eTag,
         });
       });
+
+      // 파일이 중단되었는지 확인
+      const currentState = get();
+      const isAborted = !currentState.uploadingFiles.some((f) => f.fileName === fileName);
+      
+      if (isAborted) {
+        // 중단된 경우 정상 종료 (에러로 처리하지 않음)
+        return false;
+      }
 
       // 실패한 파트가 있으면 에러 처리
       if (result.failedParts.length > 0) {
@@ -390,6 +413,30 @@ export const useImageUploadStore = create<ImageUploadStore>((set, get) => ({
   // 모든 업로딩 파일 제거
   clearUploadingFiles: () => {
     set({ uploadingFiles: [] });
+  },
+
+  // 업로드 중단
+  abortUpload: async (fileName: string) => {
+    const state = get();
+    const uploadingFile = state.uploadingFiles.find((f) => f.fileName === fileName);
+    
+    if (!uploadingFile || !uploadingFile.objectName || !uploadingFile.uploadId) {
+      console.warn(`${fileName}: 업로드 중단할 정보가 없습니다.`);
+      // 정보가 없어도 파일은 제거
+      get().removeUploadingFile(fileName);
+      return false;
+    }
+
+    try {
+      await abortMultipartUpload(uploadingFile.objectName, uploadingFile.uploadId);
+      get().removeUploadingFile(fileName);
+      return true;
+    } catch (error) {
+      console.error(`${fileName}: 업로드 중단 실패:`, error);
+      // 에러가 발생해도 파일은 제거
+      get().removeUploadingFile(fileName);
+      return false;
+    }
   },
 
   // 로딩 상태 설정

@@ -111,6 +111,7 @@ export default function CompressionSettings({
     completeBatchUpload,
     addUploadingFile,
     updateUploadingFile,
+    abortUpload,
   } = useImageUploadStore();
 
   const handleFileDragOver = (e: React.DragEvent) => {
@@ -182,6 +183,16 @@ export default function CompressionSettings({
         // 4. 파일 파트 병렬 업로드
         const uploadSuccess = await uploadFileParts(file, file.name, 10, 3);
         if (!uploadSuccess) {
+          // 업로드가 중단되었는지 확인
+          const { uploadingFiles: currentFiles } = useImageUploadStore.getState();
+          const isAborted = !currentFiles.some((f) => f.fileName === file.name);
+          
+          if (isAborted) {
+            // 중단된 경우 정상 종료 (에러로 처리하지 않음)
+            console.log(`${file.name} 업로드가 중단되었습니다.`);
+            return;
+          }
+          
           throw new Error('파일 업로드 실패');
         }
 
@@ -736,7 +747,7 @@ export default function CompressionSettings({
                                 <div className="space-y-2">
                                   {file.uploadStatus === 'uploading' ? (
                                     <div className="flex items-center justify-between gap-2">
-                                      <div className={`text-xs font-medium ${getStatusColor()} flex-1`}>
+                                      <div className={`text-xs font-medium ${getStatusColor()}`}>
                                         {getStatusText()}
                                       </div>
                                       {file.startTime && (
@@ -834,7 +845,6 @@ export default function CompressionSettings({
                                                       {/* 진행 중인 파트 */}
                                                       {inProgressPartNumbers.length > 0 && (
                                                         <div>
-                                                          <div className="text-[10px] text-gray-500 mb-1">진행 중인 파트:</div>
                                                           <div className="space-y-1">
                                                             {inProgressPartNumbers.map((partNum) => {
                                                               const partProg = file.partProgress?.[partNum] || 0;
@@ -877,15 +887,23 @@ export default function CompressionSettings({
                               </td>
                               <td className="py-3 px-3 text-center">
                                 <button
-                                  onClick={(e) => {
+                                  onClick={async (e) => {
                                     e.stopPropagation();
+                                    // 업로드 중이면 중단 처리
+                                    if (file.uploadStatus === 'uploading') {
+                                      await abortUpload(file.name);
+                                    }
                                     // File 객체도 제거
                                     fileMapRef.current.delete(file.name);
                                     onFileRemove(index);
                                   }}
-                                  className="px-3 py-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors text-xs"
+                                  className={`px-3 py-1 text-white rounded-full transition-colors text-xs ${
+                                    file.uploadStatus === 'uploading'
+                                      ? 'bg-orange-600 hover:bg-orange-700'
+                                      : 'bg-red-600 hover:bg-red-700'
+                                  }`}
                                 >
-                                  제거
+                                  {file.uploadStatus === 'uploading' ? '중단' : '제거'}
                                 </button>
                               </td>
                             </tr>
@@ -991,17 +1009,25 @@ export default function CompressionSettings({
                               </p>
                             )}
                           </div>
-                          {/* 제거 버튼 */}
+                          {/* 제거/중단 버튼 */}
                           <button
-                            onClick={(e) => {
+                            onClick={async (e) => {
                               e.stopPropagation();
+                              // 업로드 중이면 중단 처리
+                              if (file.uploadStatus === 'uploading') {
+                                await abortUpload(file.name);
+                              }
                               // File 객체도 제거
                               fileMapRef.current.delete(file.name);
                               onFileRemove(index);
                             }}
-                            className="absolute top-2 right-2 px-2 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors text-xs shadow-md"
+                            className={`absolute top-2 right-2 px-2 py-1 text-white rounded-md transition-colors text-xs shadow-md ${
+                              file.uploadStatus === 'uploading'
+                                ? 'bg-orange-600 hover:bg-orange-700'
+                                : 'bg-red-600 hover:bg-red-700'
+                            }`}
                           >
-                            제거
+                            {file.uploadStatus === 'uploading' ? '중단' : '제거'}
                           </button>
                         </div>
                       );
@@ -1438,13 +1464,22 @@ function FileRow({
       </td>
       <td className="py-3 px-3 text-center">
         <button
-          onClick={(e) => {
+          onClick={async (e) => {
             e.stopPropagation();
+            // 업로드 중이면 중단 처리
+            if (file.uploadStatus === 'uploading') {
+              const { abortUpload } = useImageUploadStore.getState();
+              await abortUpload(file.name);
+            }
             onRemove();
           }}
-          className="px-3 py-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors text-xs"
+          className={`px-3 py-1 text-white rounded-full transition-colors text-xs ${
+            file.uploadStatus === 'uploading'
+              ? 'bg-orange-600 hover:bg-orange-700'
+              : 'bg-red-600 hover:bg-red-700'
+          }`}
         >
-          제거
+          {file.uploadStatus === 'uploading' ? '중단' : '제거'}
         </button>
       </td>
     </tr>
