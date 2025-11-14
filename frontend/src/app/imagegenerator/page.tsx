@@ -17,6 +17,7 @@ export default function PatternGeneratorPage() {
   const addJob = useImageGeneratorStore((s) => s.addJob);
   const updateJobProgress = useImageGeneratorStore((s) => s.updateJobProgress);
   const markJobDone = useImageGeneratorStore((s) => s.markJobDone);
+  const resetForm = useImageGeneratorStore((s) => s.resetForm);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
   const [sseControllers, setSseControllers] = useState<Map<string, AbortController>>(new Map());
@@ -41,6 +42,30 @@ export default function PatternGeneratorPage() {
     };
   }, [sseControllers]);
 
+  // 폼에 내용이 있는지 확인하는 함수
+  const hasFormContent = (): boolean => {
+    // 이미지 크기 확인
+    if (form.imageSize.w !== "" || form.imageSize.h !== "") return true;
+    
+    // 간격 확인
+    if (form.gapRG.x !== "" || form.gapRG.y !== "") return true;
+    if (form.gapGB.x !== "" || form.gapGB.y !== "") return true;
+    
+    // 채널별 확인 (R, G, B)
+    for (const color of ['R', 'G', 'B'] as const) {
+      const channel = form.channels[color];
+      if (
+        channel.size.x !== "" || channel.size.y !== "" ||
+        channel.count.x !== "" || channel.count.y !== "" ||
+        channel.spacing.x !== "" || channel.spacing.y !== ""
+      ) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
   // 유효성 검사 함수
   const validateForm = (): { isValid: boolean; message?: string } => {
     // 1. 이미지 크기 필수 검사
@@ -64,6 +89,11 @@ export default function PatternGeneratorPage() {
     }
 
     return { isValid: true };
+  };
+
+  const handleReset = () => {
+    resetForm();
+    setMessage(null);
   };
 
   const handleGenerate = async () => {
@@ -210,11 +240,16 @@ export default function PatternGeneratorPage() {
           </div>
 
           {/* 하단 정보 및 버튼 - 반응형 정렬 */}
-          <div className="flex flex-row justify-end items-center gap-2 md:gap-4">
-            <Button variant="blue" onClick={handleGenerate} disabled={isLoading}>
-              {isLoading ? '생성 중...' : '생성하기'}
-            </Button>
-          </div>
+          {hasFormContent() && (
+            <div className="flex flex-row justify-end items-center gap-2">
+              <Button variant="gray" onClick={handleReset} disabled={isLoading}>
+                초기화
+              </Button>
+              <Button variant="blue" onClick={handleGenerate} disabled={isLoading}>
+                {isLoading ? '생성 중...' : '생성하기'}
+              </Button>
+            </div>
+          )}
 
           {/* 하단: 목록 테이블 */}
           <PatternList />
