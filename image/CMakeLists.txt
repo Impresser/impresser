@@ -61,6 +61,14 @@ endif()
 
 include_directories(${ZLIB_INCLUDE_DIR})
 
+# -----------------------------------------------------------------------------
+# RabbitMQ C 라이브러리 및 SimpleAmqpClient 경로 설정
+# -----------------------------------------------------------------------------
+set(RABBITMQ_C_DIR "${CMAKE_SOURCE_DIR}/libs/rabbitmq-c")
+set(SIMPLE_AMQP_CLIENT_DIR "${CMAKE_SOURCE_DIR}/libs/SimpleAmqpClient")
+
+find_library(RABBITMQ_LIB rabbitmq PATHS /usr/local/lib REQUIRED)
+find_library(SIMPLE_AMQP_CLIENT_LIB SimpleAmqpClient PATHS /usr/local/lib REQUIRED)
 
 # -----------------------------------------------------------------------------
 # include 경로
@@ -79,6 +87,7 @@ set(SRC_MUST
   "${CMAKE_SOURCE_DIR}/src/bmp_loader.cpp"
   "${CMAKE_SOURCE_DIR}/src/encoder_factory.cpp"
   "${CMAKE_SOURCE_DIR}/src/encoder_nvtiff.cpp"
+  "${CMAKE_SOURCE_DIR}/src/convert_worker.cpp"
 )
 
 set(SRC_OPTIONAL
@@ -114,6 +123,8 @@ target_link_libraries(image_core PRIVATE
   ${NVML_LIBRARY}
   ${TIFF_LIBRARIES}
   ${ZLIB_LIBRARY}
+  ${RABBITMQ_LIB}
+  ${SIMPLE_AMQP_CLIENT_LIB}
 )
 
 add_executable(image "${CMAKE_SOURCE_DIR}/src/main_server.cpp")
