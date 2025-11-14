@@ -102,10 +102,8 @@ public:
         const std::string& outPath,
         const TiffOptions& opt) override
     {
-        nvTiffEncodeCtx_t* ctx = nullptr;
-        unsigned long long* stripSize_d = nullptr;
-        unsigned long long* stripOffs_d = nullptr;
-        unsigned char* stripData_d = nullptr;
+        nvtiffEncoder_t           encoder = nullptr;
+        nvtiffEncodeParams_t      params = nullptr;
 
         uint8_t* d_img = nullptr;
         bool pinned = false;
@@ -116,10 +114,8 @@ public:
         NvmlSampler sampler;
 
         auto cleanup = [&]() {
-            if (ctx) { nvTiffEncodeCtxDestroy(ctx); ctx = nullptr; }
-            if (stripData_d) { cudaFree(stripData_d); stripData_d = nullptr; }
-            if (stripSize_d) { cudaFree(stripSize_d); stripSize_d = nullptr; }
-            if (stripOffs_d) { cudaFree(stripOffs_d); stripOffs_d = nullptr; }
+            if (params) { nvtiffEncodeParamsDestroy(params, stream); params = nullptr; }
+            if (encoder) { nvtiffEncoderDestroy(encoder, stream);     encoder = nullptr; }
 
             if (d_img) { cudaFree(d_img); d_img = nullptr; }
 
@@ -143,7 +139,7 @@ public:
 
             // LZW만 사용 가능
             if (opt.compression != Compression::LZW)
-                throw std::runtime_error("nvTIFF v0.5 LL path supports only LZW.");
+                throw std::runtime_error("nvTIFF path supports only LZW.");
 
             // 1) CUDA 디바이스 준비 + 스트림
             int devCount = 0;
@@ -156,7 +152,6 @@ public:
 
             // 2) H2D 업로드 (pinned + async)
             ck(cudaMalloc(&d_img, expected), "cudaMalloc(d_img)");
-
             if (!rgb.empty()) {
                 if (cudaHostRegister((void*)rgb.data(), rgb.size(), cudaHostRegisterPortable) == cudaSuccess)
                     pinned = true;
@@ -176,7 +171,6 @@ public:
             const unsigned int width = (unsigned int)info.width;
             const unsigned int height = (unsigned int)info.height;
             const unsigned int pixelSize = 3;  // RGB24
-            const unsigned long long bytesPerRow = (unsigned long long)width * pixelSize;
 
             unsigned int rowsPerStrip = opt.rowsPerStrip.has_value() && opt.rowsPerStrip.value() > 0
                 ? (unsigned int)opt.rowsPerStrip.value()
@@ -190,133 +184,78 @@ public:
             bool encoded = false;
             std::string lastErr;
 
-            std::vector<unsigned long long> stripSize_h;
-            std::vector<unsigned long long> stripOffs_h;
-            std::vector<unsigned char>      stripData_h;
-
-            unsigned char* images_d[1];
-
             for (int attempt = 0; attempt < kMaxAttempts && !encoded; ++attempt) {
-                const unsigned int stripsPerImageMax = (height + rowsPerStrip - 1) / rowsPerStrip;
-                const unsigned long long stripAllocSize = (unsigned long long)rowsPerStrip * bytesPerRow;
-                const unsigned long long totalStrips = (unsigned long long)stripsPerImageMax * 1ull;
-                const unsigned long long totalAllocSize = stripAllocSize * totalStrips;
-
-                LOGI("[nvTIFF] attempt=" << (attempt + 1)
-                    << " rowsPerStrip=" << rowsPerStrip
-                    << " stripsPerImageMax=" << stripsPerImageMax
-                    << " stripAllocSize=" << stripAllocSize
-                    << " totalAllocSize=" << totalAllocSize);
-
                 // 이전 자원 해제
-                if (ctx) { nvTiffEncodeCtxDestroy(ctx); ctx = nullptr; }
-                if (stripData_d) { cudaFree(stripData_d); stripData_d = nullptr; }
-                if (stripSize_d) { cudaFree(stripSize_d); stripSize_d = nullptr; }
-                if (stripOffs_d) { cudaFree(stripOffs_d); stripOffs_d = nullptr; }
+                if (params) { nvtiffEncodeParamsDestroy(params, stream); params = nullptr; }
+                if (encoder) { nvtiffEncoderDestroy(encoder, stream);     encoder = nullptr; }
 
-                // 컨텍스트 & 버퍼 할당
-                ctx = nvTiffEncodeCtxCreate(/*device*/0, /*nImages*/1, stripsPerImageMax, /*flags*/0);
-                if (!ctx) {
-                    lastErr = "nvTiffEncodeCtxCreate returned null";
-                    goto FAIL_AND_REDUCE;
+                // 컨텍스트 & 파라미터 생성
+                auto st = nvtiffEncoderCreate(&encoder, nullptr, nullptr, stream);
+                bool failed = false;
+
+                if (st != NVTIFF_STATUS_SUCCESS) {
+                    lastErr = "nvtiffEncoderCreate failed";
+                    failed = true;
                 }
-                ck(cudaMalloc(&stripSize_d, sizeof(unsigned long long) * totalStrips), "cudaMalloc(stripSize_d)");
-                ck(cudaMalloc(&stripOffs_d, sizeof(unsigned long long) * totalStrips), "cudaMalloc(stripOffs_d)");
-                ck(cudaMalloc(&stripData_d, totalAllocSize), "cudaMalloc(stripData_d)");
 
-                // 입력
-                images_d[0] = d_img;
-
-                // 인코딩(LZW)
-                {
-                    int rc = nvTiffEncode(
-                        ctx,
-                        /*nrow*/          height,
-                        /*ncol*/          width,
-                        /*pixelSize*/     pixelSize,
-                        /*rowsPerStrip*/  rowsPerStrip,
-                        /*nImages*/       1,
-                        /*images_d*/      images_d,
-                        /*stripAllocSize*/stripAllocSize,
-                        /*stripSize_d*/   stripSize_d,
-                        /*stripOffs_d*/   stripOffs_d,
-                        /*stripData_d*/   stripData_d,
-                        /*stream*/        stream
-                    );
-                    if (rc != NVTIFF_ENCODE_SUCCESS) {
-                        lastErr = std::string("nvTiffEncode failed rc=") + std::to_string(rc);
-                        LOGW(lastErr);
-                        goto FAIL_AND_REDUCE;
+                if (!failed) {
+                    st = nvtiffEncodeParamsCreate(&params);
+                    if (st != NVTIFF_STATUS_SUCCESS) {
+                        lastErr = "nvtiffEncodeParamsCreate failed";
+                        failed = true;
                     }
                 }
 
-                {
-                    int rc = nvTiffEncodeFinalize(ctx, stream);
-                    if (rc != NVTIFF_ENCODE_SUCCESS) {
-                        lastErr = std::string("nvTiffEncodeFinalize failed rc=") + std::to_string(rc);
-                        LOGW(lastErr);
-                        goto FAIL_AND_REDUCE;
-                    }
+                nvtiffImageInfo_t img{};
+                nvtiffImageGeometry_t geom{};
+                unsigned char* images_d[1] = { d_img };
+
+                if (!failed) {
+                    img.image_width = width;
+                    img.image_height = height;
+                    img.samples_per_pixel = 3;
+                    img.bits_per_sample[0] = 8;
+                    img.bits_per_sample[1] = 8;
+                    img.bits_per_sample[2] = 8;
+                    img.photometric_int = NVTIFF_PHOTOMETRIC_RGB;
+                    img.compression = NVTIFF_COMPRESSION_LZW;
+
+                    st = nvtiffEncodeParamsSetImageInfo(params, &img);
+                    if (st != NVTIFF_STATUS_SUCCESS) { lastErr = "nvtiffEncodeParamsSetImageInfo failed"; failed = true; }
+                }
+
+                if (!failed) {
+                    geom.strile_height = rowsPerStrip;
+                    st = nvtiffEncodeParamsSetImageGeometry(params, &geom);
+                    if (st != NVTIFF_STATUS_SUCCESS) { lastErr = "nvtiffEncodeParamsSetImageGeometry failed"; failed = true; }
+                }
+
+                if (!failed) {
+                    st = nvtiffEncodeParamsSetInputs(params, images_d, 1);
+                    if (st != NVTIFF_STATUS_SUCCESS) { lastErr = "nvtiffEncodeParamsSetInputs failed"; failed = true; }
+                }
+
+                if (!failed) {
+                    st = nvtiffEncode(encoder, &params, 1, stream);
+                    if (st != NVTIFF_STATUS_SUCCESS) { lastErr = "nvtiffEncode failed"; failed = true; }
+                }
+
+                if (!failed) {
+                    st = nvtiffEncodeFinalize(encoder, &params, 1, stream);
+                    if (st != NVTIFF_STATUS_SUCCESS) { lastErr = "nvtiffEncodeFinalize failed"; failed = true; }
                     ck(cudaStreamSynchronize(stream), "sync after finalize");
                 }
 
-                // strip 메타 D2H
-                {
-                    const unsigned int stripsActual = (height + rowsPerStrip - 1) / rowsPerStrip;
-                    const unsigned long long totalStrips = (unsigned long long)stripsActual;
-
-                    stripSize_h.resize(totalStrips);
-                    stripOffs_h.resize(totalStrips);
-                    ck(cudaMemcpy(stripSize_h.data(), stripSize_d,
-                        sizeof(unsigned long long) * totalStrips,
-                        cudaMemcpyDeviceToHost), "D2H stripSize");
-                    ck(cudaMemcpy(stripOffs_h.data(), stripOffs_d,
-                        sizeof(unsigned long long) * totalStrips,
-                        cudaMemcpyDeviceToHost), "D2H stripOffs");
-
-                    // 실제 사용 바이트(offs+size 최대값)
-                    unsigned long long usedBytes = 0ull;
-                    for (unsigned int i = 0; i < stripsActual; ++i)
-                        usedBytes = std::max(usedBytes, stripOffs_h[i] + stripSize_h[i]);
-
-                    stripData_h.resize((size_t)usedBytes);
-                    ck(cudaMemcpy(stripData_h.data(), stripData_d, usedBytes, cudaMemcpyDeviceToHost),
-                        "D2H stripData");
-                    LOGI("[nvTIFF] usedBytes=" << usedBytes);
+                if (!failed) {
+                    st = nvtiffWriteTiffFile(encoder, &params, 1, outPath.c_str(), stream);
+                    if (st != NVTIFF_STATUS_SUCCESS) { lastErr = "nvtiffWriteTiffFile failed"; failed = true; }
                 }
 
-                // 파일 쓰기
-                {
-                    unsigned short bitsPerSample[3] = { 8,8,8 };
-                    unsigned short sampleFormat = NVTIFF_SAMPLEFORMAT_UINT;
-
-                    int wr = nvTiffWriteFile(
-                        outPath.c_str(),
-                        VER_REG_TIFF,
-                        /*nImages*/      1,
-                        /*nrow*/         height,
-                        /*ncol*/         width,
-                        /*rowsPerStrip*/ rowsPerStrip,
-                        /*samples*/      3,
-                        bitsPerSample,
-                        NVTIFF_PHOTOMETRIC_RGB,
-                        NVTIFF_PLANARCONFIG_CONTIG,
-                        stripSize_h.data(),
-                        stripOffs_h.data(),
-                        stripData_h.data(),
-                        sampleFormat
-                    );
-                    if (wr != NVTIFF_WRITE_SUCCESS) {
-                        lastErr = std::string("nvTiffWriteFile failed rc=") + std::to_string(wr);
-                        LOGW(lastErr);
-                        goto FAIL_AND_REDUCE;
-                    }
+                if (!failed) {
+                    encoded = true;
+                    break;
                 }
 
-                encoded = true;
-                break;
-
-            FAIL_AND_REDUCE:
                 if (attempt < kMaxAttempts - 1) {
                     unsigned int next = std::max(1u, rowsPerStrip / 2);
                     LOGW(std::string("[nvTIFF] retry with smaller rowsPerStrip: ")
