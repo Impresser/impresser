@@ -9,9 +9,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libnvidia-ml-dev \
  && rm -rf /var/lib/apt/lists/*
 
-COPY nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb /tmp/
-RUN dpkg -i /tmp/nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb \
- && cp /var/nvtiff-local-repo-ubuntu2404-0.5.1/nvtiff-local-*-keyring.gpg /usr/share/keyrings/ \
+COPY nvtiff-local-repo-ubuntu2404-0.6.0_0.6.0-1_amd64.deb /tmp/
+RUN dpkg -i /tmp/nvtiff-local-repo-ubuntu2404-0.6.0_0.6.0-1_amd64.deb \
+ && cp /var/nvtiff-local-repo-ubuntu2404-0.6.0/nvtiff-local-*-keyring.gpg /usr/share/keyrings/ \
  && apt-get update \
  && apt-get install -y --no-install-recommends nvtiff \
  && update-alternatives --set nvtiff /usr/lib/x86_64-linux-gnu/libnvtiff/12/libnvtiff.so.0 \
@@ -38,9 +38,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-COPY nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb /tmp/
-RUN dpkg -i /tmp/nvtiff-local-repo-ubuntu2404-0.5.1_0.5.1-1_amd64.deb \
- && cp /var/nvtiff-local-repo-ubuntu2404-0.5.1/nvtiff-local-*-keyring.gpg /usr/share/keyrings/ \
+COPY nvtiff-local-repo-ubuntu2404-0.6.0_0.6.0-1_amd64.deb /tmp/
+RUN dpkg -i /tmp/nvtiff-local-repo-ubuntu2404-0.6.0_0.6.0-1_amd64.deb \
+ && cp /var/nvtiff-local-repo-ubuntu2404-0.6.0/nvtiff-local-*-keyring.gpg /usr/share/keyrings/ \
  && apt-get update \
  && apt-get install -y --no-install-recommends nvtiff \
  && update-alternatives --set nvtiff /usr/lib/x86_64-linux-gnu/libnvtiff/12/libnvtiff.so.0 \
