@@ -18,8 +18,22 @@
 #include <string>
 #include <system_error>
 #include <vector>
+#include <thread>
+#include <mutex>
+#include <atomic>
 
 namespace {
+    
+    struct CurlGlobalGuard {
+        CurlGlobalGuard() {
+            curl_global_init(CURL_GLOBAL_DEFAULT);
+        }
+        ~CurlGlobalGuard() {
+            curl_global_cleanup();
+        }
+    };
+
+    static CurlGlobalGuard g_curl_guard;
 
     // 간단 URL 검증
     static bool is_http_url(const std::string& u) {
@@ -209,12 +223,68 @@ namespace {
         if (!ok) LOGE("[http] parallel download failed");
         return ok;
     }
+
+    static size_t read_mem_cb(char* ptr, size_t size, size_t nmemb, void* userdata) {
+        auto* p = reinterpret_cast<std::pair<const char*, size_t>*>(userdata);
+        size_t len = std::min(size * nmemb, p->second);
+        std::memcpy(ptr, p->first, len);
+        p->first += len;
+        p->second -= len;
+        return len;
+    }
+
+    static size_t write_str_cb(char* ptr, size_t size, size_t nmemb, void* userdata) {
+        auto* s = reinterpret_cast<std::string*>(userdata);
+        s->append(ptr, size * nmemb);
+        return size * nmemb;
+    }
+
+    static size_t header_collect_cb(char* buffer, size_t size, size_t nitems, void* userdata) {
+        const size_t total = size * nitems;
+        auto* hdrs = reinterpret_cast<std::vector<std::pair<std::string, std::string>>*>(userdata);
+        std::string line(buffer, total);
+        auto pos = line.find(':');
+        if (pos != std::string::npos) {
+            std::string key = line.substr(0, pos);
+            std::string val = line.substr(pos + 1);
+            hdrs->emplace_back(std::move(key), std::move(val));
+        }
+        return total;
+    }
+
+    // header "ETag" 추출 보조
+    static inline std::string to_lower(std::string s) {
+        std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return std::tolower(c); });
+        return s;
+    }
+
+    static inline std::string trim(std::string s) {
+        while (!s.empty() && (s.back() == '\r' || s.back() == '\n' || s.back() == ' ' || s.back() == '\t')) s.pop_back();
+        size_t i = 0; while (i < s.size() && (s[i] == ' ' || s[i] == '\t')) ++i;
+        return s.substr(i);
+    }
+
+    static inline std::string unquote(std::string s) {
+        s = trim(s);
+        if (s.size() >= 2 && ((s.front() == '"' && s.back() == '"') || (s.front() == '\'' && s.back() == '\''))) {
+            return s.substr(1, s.size() - 2);
+        }
+        return s;
+    }
+    static bool find_header_value(const std::vector<std::pair<std::string, std::string>>& hdrs,
+        const std::string& key, std::string& out) {
+        const std::string lk = to_lower(key);
+        for (auto& kv : hdrs) {
+            if (to_lower(kv.first) == lk) { out = trim(kv.second); return true; }
+        }
+        return false;
+    }
 }
 
 class LibcurlMultiIO final : public conv::IHttpIO {
 public:
-    LibcurlMultiIO() { curl_global_init(CURL_GLOBAL_DEFAULT); }
-    ~LibcurlMultiIO() override { curl_global_cleanup(); }
+    LibcurlMultiIO() = default;
+    ~LibcurlMultiIO() override = default;
 
     bool downloadToFile(const std::string& url, const std::string& localPath) override {
         if (!is_http_url(url)) { LOGE("Bad URL: " << url); return false; }
@@ -341,6 +411,227 @@ public:
             LOGI("Saved: " << to);
             return true;
         }
+    }
+
+    bool uploadFromFileParallel(const std::string& filePath, const std::string& presignedUrl, int threadCount = 4) {
+        std::ifstream in(filePath, std::ios::binary);
+        if (!in) return false;
+
+        in.seekg(0, std::ios::end);
+        size_t total = in.tellg();
+        in.seekg(0, std::ios::beg);
+
+        const size_t partSize = 10 * 1024 * 1024; 
+        const int parts = (int)((total + partSize - 1) / partSize);
+
+        std::vector<std::thread> threads;
+        std::atomic<int> success{ 0 };
+        std::mutex m_mtx;
+
+        for (int i = 0; i < parts; ++i) {
+            threads.emplace_back([&, i] {
+                size_t offset = (size_t)i * partSize;
+                size_t size = std::min(partSize, total - offset);
+                std::vector<char> buf(size);
+                {
+                    std::unique_lock<std::mutex> lk(m_mtx);
+                    in.seekg(offset);
+                    in.read(buf.data(), size);
+                }
+
+                int code = 0;
+                std::string resp;
+                if (this->putBinary(presignedUrl, buf, size, &code, &resp) && code == 200)
+                    success++;
+                });
+        }
+        for (auto& th : threads) th.join();
+        return success == parts;
+    }
+
+    bool putBinary(const std::string& url, const std::vector<char>& data, size_t size, int* httpCode, std::string* resp) {
+        LOGI("[GPU BMP] putBinary begin url=" << redacted(url) << " size=" << size);
+        CURL* eh = curl_easy_init();
+        if (!eh) return false;
+
+        struct curl_slist* hdrs = nullptr;
+        hdrs = curl_slist_append(hdrs, "Expect:");
+        hdrs = curl_slist_append(hdrs, "Content-Type: application/octet-stream");
+
+        set_common_http_opts(eh);
+        curl_easy_setopt(eh, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(eh, CURLOPT_HTTPHEADER, hdrs);
+        curl_easy_setopt(eh, CURLOPT_UPLOAD, 1L);
+        auto readFn = +[](char* ptr, size_t s, size_t n, void* ud) -> size_t {
+            auto* p = reinterpret_cast<std::pair<const char*, size_t>*>(ud);
+            size_t len = std::min(s * n, p->second);
+            std::memcpy(ptr, p->first, len);
+            p->first += len;
+            p->second -= len;
+            return len;
+            };
+        curl_easy_setopt(eh, CURLOPT_READFUNCTION, readFn);
+
+        std::pair<const char*, size_t> ctx{ data.data(), size };
+        curl_easy_setopt(eh, CURLOPT_READDATA, &ctx);
+        curl_easy_setopt(eh, CURLOPT_INFILESIZE_LARGE, (curl_off_t)size);
+
+        std::string out;
+        curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION,
+            +[](char* ptr, size_t s, size_t n, void* ud)->size_t {
+                auto* buf = reinterpret_cast<std::string*>(ud);
+                buf->append(ptr, s * n);
+                return s * n;
+            });
+        curl_easy_setopt(eh, CURLOPT_WRITEDATA, &out);
+
+        CURLcode rc = curl_easy_perform(eh);
+        long http = 0; curl_easy_getinfo(eh, CURLINFO_HTTP_CODE, &http);
+
+        curl_slist_free_all(hdrs);
+        curl_easy_cleanup(eh);
+
+        if (httpCode) *httpCode = (int)http;
+        if (resp) *resp = std::move(out);
+
+        LOGI("[GPU BMP] putBinary done rc=" << rc << " http=" << http
+            << " respBytes=" << (resp ? resp->size() : 0));
+        if (!(rc == CURLE_OK && http == 200)) {
+            LOGW("[GPU BMP] putBinary fail rc=" << rc << " http=" << http
+                << " body=" << (resp ? *resp : std::string()));
+        }
+        return (rc == CURLE_OK && http == 200);
+    }
+
+    bool putBinaryWithRespHeaders(const std::string& url,
+        const char* data,
+        size_t size,
+        int* httpCode,
+        std::string* resp,
+        std::vector<std::pair<std::string, std::string>>* respHeaders) override {
+        CURL* eh = curl_easy_init();
+        if (!eh) return false;
+
+        struct curl_slist* hdrs = nullptr;
+        hdrs = curl_slist_append(hdrs, "Expect:");
+        hdrs = curl_slist_append(hdrs, "Content-Type: application/octet-stream");
+
+        set_common_http_opts(eh);
+        curl_easy_setopt(eh, CURLOPT_URL, url.c_str());
+        curl_easy_setopt(eh, CURLOPT_HTTPHEADER, hdrs);
+        curl_easy_setopt(eh, CURLOPT_UPLOAD, 1L);
+
+        std::pair<const char*, size_t> ctx{ data, size };
+        curl_easy_setopt(eh, CURLOPT_READFUNCTION, read_mem_cb);
+        curl_easy_setopt(eh, CURLOPT_READDATA, &ctx);
+        curl_easy_setopt(eh, CURLOPT_INFILESIZE_LARGE, (curl_off_t)size);
+
+        std::string out;
+        curl_easy_setopt(eh, CURLOPT_WRITEFUNCTION, write_str_cb);
+        curl_easy_setopt(eh, CURLOPT_WRITEDATA, &out);
+
+        std::vector<std::pair<std::string, std::string>> headers;
+        curl_easy_setopt(eh, CURLOPT_HEADERFUNCTION, header_collect_cb);
+        curl_easy_setopt(eh, CURLOPT_HEADERDATA, &headers);
+
+        CURLcode rc = curl_easy_perform(eh);
+        long http = 0; curl_easy_getinfo(eh, CURLINFO_HTTP_CODE, &http);
+
+        curl_slist_free_all(hdrs);
+        curl_easy_cleanup(eh);
+
+        if (httpCode) *httpCode = (int)http;
+        if (resp)     *resp = std::move(out);
+        if (respHeaders) *respHeaders = std::move(headers);
+
+        return (rc == CURLE_OK && (http == 200 || http == 201 || http == 204));
+    }
+
+    bool uploadFileWithMultipartUrls(
+        const std::string& filePath,
+        const std::vector<std::string>& partUploadUrls,
+        std::vector<std::pair<int, std::string>>& outParts
+    ) {
+        std::ifstream in(filePath, std::ios::binary);
+        if (!in) return false;
+
+        in.seekg(0, std::ios::end);
+        const size_t total = (size_t)in.tellg();
+        in.seekg(0, std::ios::beg);
+
+        const int parts = (int)partUploadUrls.size();
+        if (parts <= 0) return false;
+
+        const size_t base = total / parts;
+        const size_t rem = total % parts;
+
+        outParts.clear();
+        outParts.resize(parts);
+
+        const int THREADS = std::min(parts, 8);
+        std::atomic<int> nextPart{ 0 };
+        std::atomic<bool> failed{ false };
+
+        std::mutex in_mtx;
+        std::mutex out_mtx;
+
+        auto worker = [&]() {
+            while (true) {
+                if (failed.load()) return;
+
+                int i = nextPart.fetch_add(1);
+                if (i >= parts) return;
+
+                size_t size = base + (i == parts - 1 ? rem : 0);
+                if (size == 0) continue;
+
+                std::vector<char> buf(size);
+                {
+                    std::lock_guard<std::mutex> lk(in_mtx);
+                    in.seekg((size_t)i * base);
+                    in.read(buf.data(), size);
+                }
+
+                int http = 0;
+                std::string resp;
+                std::vector<std::pair<std::string, std::string>> hdrs;
+
+                bool ok = this->putBinaryWithRespHeaders(
+                    partUploadUrls[i],
+                    buf.data(),
+                    size,
+                    &http,
+                    &resp,
+                    &hdrs
+                );
+
+                if (!ok || !(http == 200 || http == 201 || http == 204)) {
+                    failed.store(true);
+                    return;
+                }
+
+                std::string etag;
+                for (auto& kv : hdrs) {
+                    if (strcasecmp(kv.first.c_str(), "ETag") == 0) {
+                        etag = kv.second;
+                    }
+                }
+                etag = unquote(trim(etag));
+
+                {
+                    std::lock_guard<std::mutex> lk(out_mtx);
+                    outParts[i] = { i + 1, etag };
+                }
+            }
+            };
+
+        std::vector<std::thread> ths;
+        for (int t = 0; t < THREADS; ++t)
+            ths.emplace_back(worker);
+
+        for (auto& th : ths) th.join();
+
+        return !failed.load();
     }
 
     bool postJson(const std::string& url,
