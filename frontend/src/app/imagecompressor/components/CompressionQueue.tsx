@@ -173,18 +173,6 @@ export default function CompressionQueue({
           }
         />
       </CommonContainerBox>
-      {/* 압축 버튼 (우측 정렬) */}
-      {queue.length > 0 && (
-        <div className="flex justify-end mt-4">
-          <Button 
-            onClick={onStartCompression} 
-            variant={(!hasWaitingItem || isCompressionInProgress || isStarting) ? "gray" : "blue"}
-            disabled={!hasWaitingItem || isCompressionInProgress || isStarting}
-          >
-            압축
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

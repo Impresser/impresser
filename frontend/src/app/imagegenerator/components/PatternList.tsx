@@ -68,6 +68,24 @@ const CsvIcon = () => (
   />
 );
 
+// 파일 크기 포맷팅 함수 (KB 단위로 들어옴)
+const formatFileSize = (kb: number) => {
+  if (kb === 0) return '0.00 KB';
+  const k = 1024; // 1024 단위로 계산 (1 MB = 1024 KB, 1 GB = 1024 MB)
+  const sizes = ['KB', 'MB', 'GB'];
+  // KB 단위로 들어오므로
+  // 0 ~ 1023 KB → KB
+  // 1024 ~ 1048575 KB → MB (1024로 나눔)
+  // 1048576 KB 이상 → GB (1024^2로 나눔)
+  if (kb < k) {
+    return (Math.floor(kb * 100) / 100).toFixed(2) + ' ' + sizes[0];
+  } else if (kb < k * k) {
+    return (Math.floor((kb / k) * 100) / 100).toFixed(2) + ' ' + sizes[1];
+  } else {
+    return (Math.floor((kb / (k * k)) * 100) / 100).toFixed(2) + ' ' + sizes[2];
+  }
+};
+
 // BmpDetailResult를 PatternFormState로 변환하는 함수
 const convertDetailToFormState = (detail: BmpDetailResult): PatternFormState => {
   return {
@@ -297,6 +315,7 @@ export default function PatternTable() {
                   <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">No.</th>
                   <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">생성일시</th>
                   <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">이미지 크기</th>
+                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
                   <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">상태</th>
                   <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">담당자</th>
                   <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">시작시각</th>
@@ -336,6 +355,7 @@ export default function PatternTable() {
                           <td className="py-2 px-3 text-center text-gray-600">{getJobNumber(idx)}</td>
                           <td className="py-2 px-3 text-center text-gray-800">{formatKST(item.requestedAt)}</td>
                           <td className="py-2 px-3 text-center text-gray-800">{item.bmpWidth}×{item.bmpHeight}</td>
+                          <td className="py-2 px-3 text-center text-gray-800">{formatFileSize(item.bmpVolume)}</td>
                           <td className="py-2 px-3 text-center">
                             <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${
                               status === '진행' 
@@ -381,7 +401,7 @@ export default function PatternTable() {
                         </tr>
                         {isExpanded && (
                           <tr>
-                            <td colSpan={9} className="p-0 bg-gray-50">
+                            <td colSpan={10} className="p-0 bg-gray-50">
                               <div className="p-6">
                                 {isLoadingDetail ? (
                                   <div className="text-center py-8 text-gray-500">로딩 중...</div>

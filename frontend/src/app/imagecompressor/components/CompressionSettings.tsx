@@ -549,7 +549,6 @@ export default function CompressionSettings({
                     <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 whitespace-nowrap">처리방식</th>
                     <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">크기</th>
                     <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
-                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">포맷</th>
                     <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">업로드 상태</th>
                     <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
                   </tr>
@@ -600,9 +599,68 @@ export default function CompressionSettings({
           </div>
         </CommonContainerBox>
       ) : (
-        // 파일이 0개 또는 1개일 때: 기존 레이아웃 (왼쪽 파일 목록, 오른쪽 압축 방법)
-        <div className="grid grid-cols-[3fr_1fr] gap-6">
-        {/* 왼쪽: 파일 선택 영역 */}
+        // 파일이 0개 또는 1개일 때: 기존 레이아웃 (왼쪽 압축 방법, 오른쪽 파일 선택)
+        <div className="grid grid-cols-[1fr_3fr] gap-6">
+        {/* 왼쪽: 압축 방법 선택 영역 */}
+        {!hideMethodSection && (
+          <CommonContainerBox>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">압축방법</h3>
+
+              {/* 알고리즘, 버전, 처리방식 세로 배치 */}
+              <div className="space-y-4">
+                {/* 알고리즘 */}
+                <CommonDropdown
+                  label="알고리즘"
+                  options={algorithmOptions}
+                  value={algorithm}
+                  onChange={onAlgorithmChange}
+                  placeholder={loadingAlgorithms ? "로딩 중..." : algorithmOptions.length === 0 ? "알고리즘 없음" : "알고리즘 선택"}
+                  disabled={loadingAlgorithms || algorithmOptions.length === 0}
+                />
+
+                {/* 버전 */}
+                <CommonDropdown
+                  label="버전"
+                  options={versionOptions}
+                  value={version}
+                  onChange={onVersionChange}
+                  placeholder={loadingVersions ? "로딩 중..." : versionOptions.length === 0 ? "알고리즘을 먼저 선택하세요" : "버전 선택"}
+                  disabled={loadingVersions || versionOptions.length === 0}
+                />
+
+                {/* 처리방식 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    처리방식
+                  </label>
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <RadioButton
+                        name="processingMethod"
+                        value="cpu"
+                        label="CPU"
+                        checked={processingMethod === 'cpu'}
+                        onChange={onProcessingMethodChange}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <RadioButton
+                        name="processingMethod"
+                        value="gpu"
+                        label="GPU"
+                        checked={processingMethod === 'gpu'}
+                        onChange={onProcessingMethodChange}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CommonContainerBox>
+        )}
+
+        {/* 오른쪽: 파일 선택 영역 */}
         <CommonContainerBox>
           <div>
             <div className="flex justify-between items-center mb-4">
@@ -659,7 +717,6 @@ export default function CompressionSettings({
                           <th className="text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
                           <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">크기</th>
                           <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
-                          <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">포맷</th>
                           <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">업로드 상태</th>
                           <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
                         </tr>
@@ -742,7 +799,6 @@ export default function CompressionSettings({
                                 {file.dimensions.height.toLocaleString()}
                               </td>
                               <td className="py-3 px-3 text-center">{formatFileSize(file.size)}</td>
-                              <td className="py-3 px-3 text-center">{file.format}</td>
                               <td className="py-3 px-3 text-center">
                                 <div className="space-y-2">
                                   {file.uploadStatus === 'uploading' ? (
@@ -1001,7 +1057,6 @@ export default function CompressionSettings({
                                 크기: {file.dimensions.width.toLocaleString()} × {file.dimensions.height.toLocaleString()}
                               </span>
                               <span>용량: {formatFileSize(file.size)}</span>
-                              <span>포맷:{file.format}</span>
                             </div>
                             {file.uploadError && (
                               <p className="text-medium text-red-600 mt-1 truncate" title={file.uploadError}>
@@ -1071,65 +1126,6 @@ export default function CompressionSettings({
             )}
           </div>
         </CommonContainerBox>
-
-        {/* 오른쪽: 압축 방법 선택 영역 */}
-        {!hideMethodSection && (
-          <CommonContainerBox>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">압축방법</h3>
-
-              {/* 알고리즘, 버전, 처리방식 세로 배치 */}
-              <div className="space-y-4">
-                {/* 알고리즘 */}
-                <CommonDropdown
-                  label="알고리즘"
-                  options={algorithmOptions}
-                  value={algorithm}
-                  onChange={onAlgorithmChange}
-                  placeholder={loadingAlgorithms ? "로딩 중..." : algorithmOptions.length === 0 ? "알고리즘 없음" : "알고리즘 선택"}
-                  disabled={loadingAlgorithms || algorithmOptions.length === 0}
-                />
-
-                {/* 버전 */}
-                <CommonDropdown
-                  label="버전"
-                  options={versionOptions}
-                  value={version}
-                  onChange={onVersionChange}
-                  placeholder={loadingVersions ? "로딩 중..." : versionOptions.length === 0 ? "알고리즘을 먼저 선택하세요" : "버전 선택"}
-                  disabled={loadingVersions || versionOptions.length === 0}
-                />
-
-                {/* 처리방식 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    처리방식
-                  </label>
-                  <div className="flex gap-4">
-                    <div className="flex-1">
-                      <RadioButton
-                        name="processingMethod"
-                        value="cpu"
-                        label="CPU"
-                        checked={processingMethod === 'cpu'}
-                        onChange={onProcessingMethodChange}
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <RadioButton
-                        name="processingMethod"
-                        value="gpu"
-                        label="GPU"
-                        checked={processingMethod === 'gpu'}
-                        onChange={onProcessingMethodChange}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CommonContainerBox>
-        )}
       </div>
       )}
       {!hideAddButton && selectedFiles.length > 0 && (
@@ -1235,7 +1231,7 @@ export default function CompressionSettings({
             }} 
             variant="blue"
           >
-            대기열 추가
+            압축
           </Button>
         </div>
       )}
@@ -1377,7 +1373,11 @@ function FileRow({
 
   return (
     <tr className="border-b border-gray-100 text-sm text-gray-900 hover:bg-gray-50">
-      <td className="py-3 px-3">{file.name}</td>
+      <td className="py-3 px-3 max-w-[200px]">
+        <div className="truncate" title={file.name}>
+          {file.name}
+        </div>
+      </td>
       <td className="py-3 px-3 overflow-visible">
         <CommonDropdown
           options={algorithmOptions.map(opt => ({ value: opt.value, label: opt.label }))}
@@ -1428,12 +1428,11 @@ function FileRow({
         {file.dimensions.width.toLocaleString()} × {file.dimensions.height.toLocaleString()}
       </td>
       <td className="py-3 px-3 text-center">{formatFileSize(file.size)}</td>
-      <td className="py-3 px-3 text-center">{file.format}</td>
-      <td className="py-3 px-3">
+      <td className="py-3 px-3 text-center">
         <div className="space-y-2">
           {file.uploadStatus === 'uploading' ? (
-            <div className="flex items-center justify-between gap-2">
-              <div className={`text-xs font-medium ${getStatusColor()} flex-1`}>
+            <div className="flex justify-between gap-2">
+              <div className={`text-xs font-medium ${getStatusColor()} `}>
                 {getStatusText()}
               </div>
               {file.startTime && (

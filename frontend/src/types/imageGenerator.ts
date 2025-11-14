@@ -40,6 +40,7 @@ export interface BmpListItem {
   userName: string;
   bmpHeight: number;
   bmpWidth: number;
+  bmpVolume: number;
   requestedAt: string;
   completedAt: string;
   isGenerated: boolean;
