@@ -17,6 +17,11 @@ export interface QueueItem {
   elapsedTime: number; // 초 단위
   estimatedTime: number; // 초 단위
   progress: number; // 0-100
+  bmpUrl?: string;
+  compressionTypeUuid?: string;
+  bmpWidth?: number;
+  bmpHeight?: number;
+  convertHistoryUuid?: string;
 }
 
 export interface HistoryItem {

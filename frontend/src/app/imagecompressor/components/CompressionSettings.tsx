@@ -21,7 +21,17 @@ interface CompressionSettingsProps {
   onProcessingMethodChange: (value: string) => void;
   onAlgorithmChange: (value: string) => void;
   onVersionChange: (value: string) => void;
-  onAddToQueue: () => void;
+  onAddToQueue: (fileInfos: Array<{
+    fileName: string;
+    imageUrl: string;
+    compressionTypeUuid: string;
+    bmpVolume: number;
+    bmpWidth: number;
+    bmpHeight: number;
+    algorithm: string;
+    version: string;
+    processingMethod: string;
+  }>) => void;
   hideTitle?: boolean;
   hideAddButton?: boolean;
   hideMethodSection?: boolean;
@@ -46,6 +56,14 @@ interface FileWithUpload extends FileInfo {
   uploadSpeed?: number; // 업로드 속도 (bytes/sec)
   partCount?: number; // 파트 개수
   startTime?: number; // 업로드 시작 시간 (timestamp)
+}
+
+// 파일별 압축 설정
+interface FileCompressionSettings {
+  algorithm: string;
+  version: string;
+  processingMethod: string;
+  algorithmUuid?: string; // 알고리즘 UUID (버전 조회용)
 }
 
 export default function CompressionSettings({
@@ -76,6 +94,14 @@ export default function CompressionSettings({
   const fileMapRef = useRef<Map<string, File>>(new Map()); // File 객체 저장용
   const [expandedPartProgress, setExpandedPartProgress] = useState<Set<string>>(new Set()); // 파트 진행률 펼치기 상태
   const [, setTick] = useState(0); // 진행 시간 업데이트를 위한 tick
+  
+  // 파일별 압축 설정 관리 (파일명을 키로 사용)
+  const [fileSettings, setFileSettings] = useState<Record<string, FileCompressionSettings>>({});
+  
+  // 처리방식별 알고리즘 옵션 캐시
+  const [algorithmOptionsCache, setAlgorithmOptionsCache] = useState<Record<string, { value: string; label: string; uuid: string }[]>>({});
+  // 알고리즘별 버전 옵션 캐시
+  const [versionOptionsCache, setVersionOptionsCache] = useState<Record<string, { value: string; label: string }[]>>({});
   
   const {
     uploadingFiles,
@@ -377,11 +403,194 @@ export default function CompressionSettings({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [algorithm, algorithmOptions, hideMethodSection]); // algorithm 변경 시 실행
 
+  // 파일이 추가/제거될 때 설정 초기화
+  useEffect(() => {
+    if (selectedFiles.length < 2) return; // 2개 미만일 때는 설정 관리 불필요
+    
+    setFileSettings(prev => {
+      const newSettings = { ...prev };
+      const currentFileNames = new Set(selectedFiles.map(f => f.name));
+      
+      // 제거된 파일의 설정 삭제
+      Object.keys(newSettings).forEach(fileName => {
+        if (!currentFileNames.has(fileName)) {
+          delete newSettings[fileName];
+        }
+      });
+      
+      // 새로 추가된 파일의 설정 초기화
+      selectedFiles.forEach(file => {
+        if (!newSettings[file.name]) {
+          newSettings[file.name] = {
+            algorithm: algorithm || '',
+            version: version || '',
+            processingMethod: processingMethod || 'cpu',
+          };
+        }
+      });
+      
+      return newSettings;
+    });
+  }, [selectedFiles, algorithm, version, processingMethod]);
+
+  // 처리방식별 알고리즘 옵션 가져오기
+  const getAlgorithmOptions = async (processingUnit: string) => {
+    const cacheKey = processingUnit.toUpperCase();
+    
+    if (algorithmOptionsCache[cacheKey]) {
+      return algorithmOptionsCache[cacheKey];
+    }
+    
+    try {
+      const response = await getCompressionTypes({
+        processingUnit: cacheKey,
+      });
+      
+      if (response.isSuccess && response.result) {
+        const options = response.result.map((item: CompressionTypeItem) => ({
+          value: item.type,
+          label: item.type,
+          uuid: item.compressionTypeUuid,
+        }));
+        
+        setAlgorithmOptionsCache(prev => ({
+          ...prev,
+          [cacheKey]: options,
+        }));
+        
+        return options;
+      }
+    } catch (error) {
+      console.error('알고리즘 조회 실패:', error);
+    }
+    
+    return [];
+  };
+
+  // 알고리즘별 버전 옵션 가져오기
+  const getVersionOptions = async (compressionTypeUuid: string) => {
+    if (versionOptionsCache[compressionTypeUuid]) {
+      return versionOptionsCache[compressionTypeUuid];
+    }
+    
+    try {
+      const response = await getCompressionTypeVersions({
+        compressionTypeUuid,
+      });
+      
+      if (response.isSuccess && response.result) {
+        const options = response.result.map((item: CompressionTypeVersionItem) => ({
+          value: item.version.toString(),
+          label: `Version ${item.version}`,
+        }));
+        
+        setVersionOptionsCache(prev => ({
+          ...prev,
+          [compressionTypeUuid]: options,
+        }));
+        
+        return options;
+      }
+    } catch (error) {
+      console.error('버전 조회 실패:', error);
+    }
+    
+    return [];
+  };
+
+  // 파일이 2개 이상일 때 테이블 형식으로 표시
+  const isMultiFileMode = selectedFiles.length >= 2;
+
   return (
     <div>
       {!hideTitle && <h1 className="text-xl font-bold text-gray-900 mb-4">압축이미지</h1>}
 
-      <div className="grid grid-cols-[3fr_1fr] gap-6">
+      {isMultiFileMode ? (
+        // 파일이 2개 이상일 때: 테이블 형식
+        <CommonContainerBox>
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">파일선택</h3>
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                variant="blue"
+                className="px-4 py-2"
+              >
+                추가 업로드
+              </Button>
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".bmp"
+              multiple
+              onChange={handleFileInputChange}
+              className="hidden"
+            />
+            <CommonTableFrame
+              className="overflow-visible"
+              header={
+                <thead className="bg-gray-50">
+                  <tr className="text-gray-700">
+                    <th className="text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">알고리즘</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">버전</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 whitespace-nowrap">처리방식</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">크기</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">포맷</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">업로드 상태</th>
+                    <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
+                  </tr>
+                </thead>
+              }
+              body={
+                <tbody>
+                  {filesWithUpload.map((file, index) => {
+                    const fileSetting = fileSettings[file.name] || {
+                      algorithm: algorithm || '',
+                      version: version || '',
+                      processingMethod: processingMethod || 'cpu',
+                    };
+
+                    return (
+                      <FileRow
+                        key={index}
+                        file={file}
+                        index={index}
+                        fileSetting={fileSetting}
+                        onSettingChange={(field, value, algorithmUuid?) => {
+                          setFileSettings(prev => ({
+                            ...prev,
+                            [file.name]: {
+                              ...prev[file.name],
+                              [field]: value,
+                              ...(algorithmUuid && { algorithmUuid }),
+                            },
+                          }));
+                        }}
+                        onRemove={() => {
+                          fileMapRef.current.delete(file.name);
+                          onFileRemove(index);
+                        }}
+                        getAlgorithmOptions={getAlgorithmOptions}
+                        getVersionOptions={getVersionOptions}
+                        algorithmOptionsCache={algorithmOptionsCache}
+                        versionOptionsCache={versionOptionsCache}
+                        formatFileSize={formatFileSize}
+                        expandedPartProgress={expandedPartProgress}
+                        setExpandedPartProgress={setExpandedPartProgress}
+                      />
+                    );
+                  })}
+                </tbody>
+              }
+            />
+          </div>
+        </CommonContainerBox>
+      ) : (
+        // 파일이 0개 또는 1개일 때: 기존 레이아웃 (왼쪽 파일 목록, 오른쪽 압축 방법)
+        <div className="grid grid-cols-[3fr_1fr] gap-6">
         {/* 왼쪽: 파일 선택 영역 */}
         <CommonContainerBox>
           <div>
@@ -692,7 +901,7 @@ export default function CompressionSettings({
                         switch (file.uploadStatus) {
                           case 'completed':
                             return (
-                              <span className="absolute top-2 left-2 px-2 py-1 bg-green-500 text-white text-medium rounded-md shadow-md">
+                              <span className="absolute top-2 left-2 px-2 py-1 bg-green-500 text-white text-xs rounded-md shadow-md">
                                 완료
                               </span>
                             );
@@ -896,17 +1105,349 @@ export default function CompressionSettings({
           </CommonContainerBox>
         )}
       </div>
+      )}
       {!hideAddButton && selectedFiles.length > 0 && (
-          <div className="flex justify-end mt-4">
-            <Button 
-              onClick={onAddToQueue} 
-              variant="blue"
-            >
-              대기열 추가
-            </Button>
-          </div>
-          )}
+        <div className="flex justify-end mt-4">
+          <Button 
+            onClick={async () => {
+              const { uploadingFiles: uploadFiles } = useImageUploadStore.getState();
+              const fileInfos: Array<{
+                fileName: string;
+                imageUrl: string;
+                compressionTypeUuid: string;
+                bmpVolume: number;
+                bmpWidth: number;
+                bmpHeight: number;
+                algorithm: string;
+                version: string;
+                processingMethod: string;
+              }> = [];
+
+              // 각 파일에 대한 정보 수집
+              const isMultiFile = selectedFiles.length >= 2;
+              
+              for (const file of selectedFiles) {
+                // 업로드 완료된 파일인지 확인
+                const uploadingFile = uploadFiles.find(uf => uf.fileName === file.name);
+                if (!uploadingFile || uploadingFile.status !== 'completed' || !uploadingFile.imageUrl) {
+                  alert(`${file.name} 파일이 아직 업로드되지 않았습니다. 업로드가 완료될 때까지 기다려주세요.`);
+                  return;
+                }
+
+                // 파일별 설정 가져오기
+                const fileSetting = isMultiFile 
+                  ? (fileSettings[file.name] || {
+                      algorithm: algorithm || '',
+                      version: version || '',
+                      processingMethod: processingMethod || 'cpu',
+                      algorithmUuid: undefined,
+                    })
+                  : {
+                      algorithm: algorithm || '',
+                      version: version || '',
+                      processingMethod: processingMethod || 'cpu',
+                      algorithmUuid: undefined,
+                    };
+
+                // 알고리즘 UUID 가져오기
+                let compressionTypeUuid: string | undefined = fileSetting.algorithmUuid;
+                
+                if (!compressionTypeUuid) {
+                  // 알고리즘 옵션에서 UUID 찾기
+                  const cacheKey = fileSetting.processingMethod.toUpperCase();
+                  let algorithmOptions = algorithmOptionsCache[cacheKey];
+                  
+                  if (!algorithmOptions) {
+                    algorithmOptions = await getAlgorithmOptions(fileSetting.processingMethod);
+                  }
+                  
+                  const selectedAlgorithm = algorithmOptions.find(opt => opt.value === fileSetting.algorithm);
+                  if (!selectedAlgorithm) {
+                    alert(`${file.name} 파일의 알고리즘 정보를 찾을 수 없습니다.`);
+                    return;
+                  }
+                  
+                  compressionTypeUuid = selectedAlgorithm.uuid;
+                }
+
+                // 버전 조회 API를 통해 정확한 compressionTypeUuid 확인
+                // (버전별로 다른 UUID를 사용할 수 있으므로)
+                try {
+                  const versionResponse = await getCompressionTypeVersions({
+                    compressionTypeUuid: compressionTypeUuid,
+                  });
+                  
+                  if (versionResponse.isSuccess && versionResponse.result) {
+                    const selectedVersion = versionResponse.result.find(
+                      item => item.version.toString() === fileSetting.version
+                    );
+                    
+                    if (selectedVersion) {
+                      // 버전 조회 API 응답의 compressionTypeUuid 사용
+                      compressionTypeUuid = selectedVersion.compressionTypeUuid;
+                    }
+                  }
+                } catch (error) {
+                  console.warn(`${file.name} 파일의 버전 정보 조회 실패, 알고리즘 UUID 사용:`, error);
+                  // 버전 조회 실패 시 알고리즘 UUID 사용
+                }
+                
+                fileInfos.push({
+                  fileName: file.name,
+                  imageUrl: uploadingFile.imageUrl,
+                  compressionTypeUuid: compressionTypeUuid,
+                  bmpVolume: file.size,
+                  bmpWidth: file.dimensions.width,
+                  bmpHeight: file.dimensions.height,
+                  algorithm: fileSetting.algorithm,
+                  version: fileSetting.version,
+                  processingMethod: fileSetting.processingMethod,
+                });
+              }
+
+              onAddToQueue(fileInfos);
+            }} 
+            variant="blue"
+          >
+            대기열 추가
+          </Button>
+        </div>
+      )}
     </div>
+  );
+}
+
+// 파일 행 컴포넌트 (2개 이상일 때 사용)
+interface FileRowProps {
+  file: FileWithUpload;
+  index: number;
+  fileSetting: FileCompressionSettings;
+  onSettingChange: (field: 'algorithm' | 'version' | 'processingMethod', value: string, algorithmUuid?: string) => void;
+  onRemove: () => void;
+  getAlgorithmOptions: (processingUnit: string) => Promise<{ value: string; label: string; uuid: string }[]>;
+  getVersionOptions: (compressionTypeUuid: string) => Promise<{ value: string; label: string }[]>;
+  algorithmOptionsCache: Record<string, { value: string; label: string; uuid: string }[]>;
+  versionOptionsCache: Record<string, { value: string; label: string }[]>;
+  formatFileSize: (bytes: number) => string;
+  expandedPartProgress: Set<string>;
+  setExpandedPartProgress: React.Dispatch<React.SetStateAction<Set<string>>>;
+}
+
+function FileRow({
+  file,
+  fileSetting,
+  onSettingChange,
+  onRemove,
+  getAlgorithmOptions,
+  getVersionOptions,
+  algorithmOptionsCache,
+  versionOptionsCache,
+  formatFileSize,
+  expandedPartProgress,
+  setExpandedPartProgress,
+}: FileRowProps) {
+  const [algorithmOptions, setAlgorithmOptions] = useState<{ value: string; label: string; uuid: string }[]>([]);
+  const [versionOptions, setVersionOptions] = useState<{ value: string; label: string }[]>([]);
+  const [loadingAlgorithms, setLoadingAlgorithms] = useState(false);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+
+  // 처리방식별 알고리즘 옵션 로드
+  useEffect(() => {
+    const loadAlgorithms = async () => {
+      const cacheKey = fileSetting.processingMethod.toUpperCase();
+      const cached = algorithmOptionsCache[cacheKey];
+      
+      if (cached) {
+        setAlgorithmOptions(cached);
+      } else {
+        setLoadingAlgorithms(true);
+        const opts = await getAlgorithmOptions(fileSetting.processingMethod);
+        setAlgorithmOptions(opts);
+        setLoadingAlgorithms(false);
+      }
+    };
+
+    loadAlgorithms();
+  }, [fileSetting.processingMethod, algorithmOptionsCache, getAlgorithmOptions]);
+
+  // 알고리즘별 버전 옵션 로드
+  useEffect(() => {
+    const loadVersions = async () => {
+      if (!fileSetting.algorithm || algorithmOptions.length === 0) {
+        setVersionOptions([]);
+        return;
+      }
+
+      const selectedAlgorithm = algorithmOptions.find(opt => opt.value === fileSetting.algorithm);
+      if (!selectedAlgorithm) {
+        setVersionOptions([]);
+        return;
+      }
+
+      const cached = versionOptionsCache[selectedAlgorithm.uuid];
+      if (cached) {
+        setVersionOptions(cached);
+      } else {
+        setLoadingVersions(true);
+        const opts = await getVersionOptions(selectedAlgorithm.uuid);
+        setVersionOptions(opts);
+        setLoadingVersions(false);
+      }
+    };
+
+    loadVersions();
+  }, [fileSetting.algorithm, algorithmOptions, versionOptionsCache, getVersionOptions]);
+
+  const getStatusColor = () => {
+    switch (file.uploadStatus) {
+      case 'completed':
+        return 'text-green-600';
+      case 'uploading':
+        return 'text-blue-600';
+      case 'error':
+        return 'text-red-600';
+      default:
+        return 'text-gray-500';
+    }
+  };
+
+  const formatTime = (seconds: number): string => {
+    if (seconds < 60) return `${seconds}초`;
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return secs > 0 ? `${mins}분 ${secs}초` : `${mins}분`;
+  };
+
+  const formatSpeed = (bytesPerSec: number): string => {
+    if (bytesPerSec < 1024) return `${bytesPerSec.toFixed(0)} B/s`;
+    if (bytesPerSec < 1024 * 1024) return `${(bytesPerSec / 1024).toFixed(1)} KB/s`;
+    return `${(bytesPerSec / (1024 * 1024)).toFixed(1)} MB/s`;
+  };
+
+  const getElapsedTime = (): number => {
+    if (!file.startTime) return 0;
+    return Math.floor((Date.now() - file.startTime) / 1000);
+  };
+
+  const getStatusText = () => {
+    switch (file.uploadStatus) {
+      case 'completed':
+        return '완료';
+      case 'uploading':
+        const progressText = `업로드 중 (${file.uploadProgress}%)`;
+        const timeText = file.estimatedTimeRemaining !== undefined && file.estimatedTimeRemaining > 0
+          ? ` • 약 ${formatTime(file.estimatedTimeRemaining)} 남음`
+          : '';
+        const speedText = file.uploadSpeed !== undefined && file.uploadSpeed > 0
+          ? ` • ${formatSpeed(file.uploadSpeed)}`
+          : '';
+        return progressText + timeText + speedText;
+      case 'error':
+        return `실패: ${file.uploadError || '알 수 없는 오류'}`;
+      default:
+        return '대기 중';
+    }
+  };
+
+  return (
+    <tr className="border-b border-gray-100 text-sm text-gray-900 hover:bg-gray-50">
+      <td className="py-3 px-3">{file.name}</td>
+      <td className="py-3 px-3 overflow-visible">
+        <CommonDropdown
+          options={algorithmOptions.map(opt => ({ value: opt.value, label: opt.label }))}
+          value={fileSetting.algorithm}
+          onChange={(value) => {
+            // 알고리즘 변경 시 UUID도 함께 전달
+            const selected = algorithmOptions.find(opt => opt.value === value);
+            onSettingChange('algorithm', value, selected?.uuid);
+          }}
+          className="w-full max-w-[200px]"
+          size="sm"
+          placeholder={loadingAlgorithms ? "로딩 중..." : "알고리즘 선택"}
+          disabled={loadingAlgorithms || algorithmOptions.length === 0}
+        />
+      </td>
+      <td className="py-3 px-3 text-center overflow-visible">
+        <div className="flex justify-center">
+          <CommonDropdown
+            options={versionOptions}
+            value={fileSetting.version}
+            onChange={(value) => onSettingChange('version', value)}
+            className="w-[100px]"
+            size="sm"
+            placeholder={loadingVersions ? "로딩 중..." : "버전 선택"}
+            disabled={loadingVersions || versionOptions.length === 0}
+          />
+        </div>
+      </td>
+      <td className="py-3 px-3 text-center">
+        <div className="flex gap-2 justify-center">
+          <RadioButton
+            name={`processingMethod-${file.name}`}
+            value="cpu"
+            label="CPU"
+            checked={fileSetting.processingMethod.toUpperCase() === 'CPU'}
+            onChange={(value) => onSettingChange('processingMethod', value.toUpperCase())}
+          />
+          <RadioButton
+            name={`processingMethod-${file.name}`}
+            value="gpu"
+            label="GPU"
+            checked={fileSetting.processingMethod.toUpperCase() === 'GPU'}
+            onChange={(value) => onSettingChange('processingMethod', value.toUpperCase())}
+          />
+        </div>
+      </td>
+      <td className="py-3 px-3 text-center">
+        {file.dimensions.width.toLocaleString()} × {file.dimensions.height.toLocaleString()}
+      </td>
+      <td className="py-3 px-3 text-center">{formatFileSize(file.size)}</td>
+      <td className="py-3 px-3 text-center">{file.format}</td>
+      <td className="py-3 px-3 text-center">
+        <div className="space-y-2">
+          {file.uploadStatus === 'uploading' ? (
+            <div className="flex items-center justify-between gap-2">
+              <div className={`text-xs font-medium ${getStatusColor()} flex-1`}>
+                {getStatusText()}
+              </div>
+              {file.startTime && (
+                <div className="text-xs text-gray-500">
+                  경과: {formatTime(getElapsedTime())}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div 
+              className={`${file.uploadStatus === 'completed' ? 'text-medium' : 'text-xs'} font-medium ${file.uploadStatus === 'completed' ? '' : getStatusColor()}`}
+              style={file.uploadStatus === 'completed' ? { color: '#0059ff' } : undefined}
+            >
+              {getStatusText()}
+            </div>
+          )}
+          {file.uploadStatus === 'uploading' && (
+            <div className="space-y-1.5">
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${file.uploadProgress || 0}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </td>
+      <td className="py-3 px-3 text-center">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="px-3 py-1 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors text-xs"
+        >
+          제거
+        </button>
+      </td>
+    </tr>
   );
 }
 

@@ -432,8 +432,7 @@ export default function CompressionHistory({
               }
             />
             {/* 페이지네이션 */}
-            {pagination && pagination.totalPages > 1 && (
-              <CommonPagination
+            {pagination && pagination.totalPages > 1 && (              <CommonPagination
                 currentPage={page + 1}
                 totalPages={pagination.totalPages}
                 onChange={(newPage) => setPage(newPage - 1)}

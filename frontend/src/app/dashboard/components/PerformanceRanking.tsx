@@ -37,7 +37,7 @@ function PrettyNumber({ value, unit }: { value: number | null | undefined; unit:
   if (value == null || isNaN(value)) {
     return <span>-</span>;
   }
-  return <span>{value.toLocaleString(undefined, { maximumFractionDigits: 1 })}{unit}</span>;
+  return <span>{value.toLocaleString(undefined, { maximumFractionDigits: 2 })}{unit}</span>;
 }
 
 const formatTime = (seconds: number): string => {
@@ -298,7 +298,7 @@ export default function EquipmentUsage() {
             전체 압축 성능 순위
             {filteredAlgorithms.length > 0 && (
               <span className="text-red-500 text-sm font-medium">
-                (평균 {overallAvg.toFixed(1)} MB/s)
+                (평균 {overallAvg.toFixed(2)} MB/s)
               </span>
             )}
           </div>
