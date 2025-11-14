@@ -4,7 +4,7 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import CommonPagination from '@/components/ui/CommonPagination';
-import { getBmpList, getBmpDetail } from '@/service/imageGenerator';
+import { getBmpList, getBmpDetail, getBmpMeList } from '@/service/imageGenerator';
 import { BmpListItem, BmpDetailResult } from '@/types/imageGenerator';
 import CommonTableFrame from '@/components/ui/CommonTableFrame';
 import PatternPreview from './PatternPreview';
@@ -114,12 +114,16 @@ export default function PatternTable() {
   const [expandedUuid, setExpandedUuid] = useState<string | null>(null);
   const [detailDataMap, setDetailDataMap] = useState<Record<string, BmpDetailResult>>({});
   const [loadingUuids, setLoadingUuids] = useState<Set<string>>(new Set());
+  const [showMyWorkOnly, setShowMyWorkOnly] = useState(false);
 
   // API에서 목록 조회
   const fetchBmpList = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await getBmpList({ page, size: pageSize });
+      // 내 작업만 보기가 체크되어 있으면 /bmp/me API 호출, 아니면 /bmp API 호출
+      const response = showMyWorkOnly 
+        ? await getBmpMeList({ page, size: pageSize })
+        : await getBmpList({ page, size: pageSize });
       if (response.isSuccess && response.result) {
         // 생성일시 기준 내림차순 정렬 (최신이 위로)
         const sortedList = [...response.result.content].sort((a, b) => {
@@ -136,7 +140,7 @@ export default function PatternTable() {
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize]);
+  }, [page, pageSize, showMyWorkOnly]);
 
   useEffect(() => {
     fetchBmpList();
@@ -267,7 +271,21 @@ export default function PatternTable() {
 
   return (
     <div className="mt-8">
-      <h2 className="text-xl font-semibold text-gray-800 mb-3">목록</h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-xl font-semibold text-gray-800">목록</h2>
+        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={showMyWorkOnly}
+            onChange={(e) => {
+              setShowMyWorkOnly(e.target.checked);
+              setPage(0); // 체크박스 변경 시 첫 페이지로 이동
+            }}
+            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          />
+          <span>내 작업만 보기</span>
+        </label>
+      </div>
 
       <CommonContainerBox className="p-6">
         {/* 데스크톱: 표 */}

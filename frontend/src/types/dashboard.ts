@@ -53,6 +53,7 @@ export interface JobDetailRow {
 
 // 상세 조회 API 응답 타입
 export interface ConvertDetailItem {
+  convertHistoryUuid: string;
   tiffUrl: string | null;
   compressionType: string;
   processingUnit: string;
@@ -61,7 +62,6 @@ export interface ConvertDetailItem {
   userName: string;
   avgSpeed: number;
   elapsedTime: number;
-  convertHistoryUuid?: string; // 작업 상세 조회용 UUID
 }
 
 export interface GetConvertDetailResult {

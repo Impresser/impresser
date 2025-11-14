@@ -29,7 +29,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      <div className="fixed top-19 right-4 z-[9999] flex flex-col gap-2 pointer-events-none">
+      <div className="fixed top-19 right-4 z-9999 flex flex-col gap-2 pointer-events-none">
         {toasts.map((toast) => (
           <ToastItem
             key={toast.id}
@@ -66,10 +66,9 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
   return (
     <div
       className={`
-        bg-[#B8E994]
+        bg-[#ffffff]
         text-gray-800
         px-4 py-3
-        rounded-lg
         shadow-lg
         min-w-[300px]
         max-w-[500px]
@@ -78,7 +77,7 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
         transform
         ${isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'}
         flex items-center justify-between gap-3
-        border border-[#78E08F]
+        border-2 border-[#78E08F]
       `}
     >
       <span className="flex-1 text-sm font-medium">{toast.message}</span>
@@ -91,7 +90,7 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
           text-gray-600
           hover:text-gray-800
           transition-colors
-          flex-shrink-0
+          shrink-0
           p-1
           rounded
           hover:bg-white/30

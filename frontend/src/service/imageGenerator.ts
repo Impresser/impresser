@@ -243,6 +243,39 @@ export async function getBmpList(
 }
 
 /**
+ * 내 이미지 생성 내역 목록 조회 API 호출
+ * @param params 페이지네이션 파라미터
+ * @returns 내 이미지 생성 내역 목록 조회 응답 데이터
+ */
+export async function getBmpMeList(
+  params?: { page?: number; size?: number }
+): Promise<ApiResponse<GetBmpListResult>> {
+  const queryParams = new URLSearchParams();
+  if (params?.page !== undefined) {
+    queryParams.append("page", String(params.page));
+  }
+  if (params?.size !== undefined) {
+    queryParams.append("size", String(params.size));
+  }
+
+  const url = `${API_BASE_URL}/bmp/me${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+
+  const response = await fetchWithAuth(url, {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `내 작업 목록 조회 실패: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const data: ApiResponse<GetBmpListResult> = await response.json();
+  return data;
+}
+
+/**
  * BMP 상세 조회 API 호출
  * @param generationUuid 생성 UUID
  * @returns BMP 상세 조회 응답 데이터

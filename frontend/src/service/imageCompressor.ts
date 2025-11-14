@@ -50,6 +50,40 @@ export async function getConvertHistories(
 }
 
 /**
+ * 내 압축 변환 내역(완료) 목록 조회 API 호출
+ * @param params 조회 파라미터 (page, size)
+ * @returns 내 압축 내역 목록 조회 응답 데이터
+ */
+export async function getConvertHistoriesMe(
+  params?: GetConvertHistoriesParams
+): Promise<ApiResponse<GetConvertHistoriesResponse>> {
+  // Query 파라미터 구성
+  const queryParams = new URLSearchParams();
+  if (params?.page !== undefined) {
+    queryParams.append("page", params.page.toString());
+  }
+  if (params?.size !== undefined) {
+    queryParams.append("size", params.size.toString());
+  }
+
+  const url = `${API_BASE_URL}/convert/histories/me${queryParams.toString() ? `?${queryParams.toString()}` : ""}`;
+
+  const response = await fetchWithAuth(url, {
+    method: "GET",
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `내 압축 내역 조회 실패: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const data: ApiResponse<GetConvertHistoriesResponse> = await response.json();
+  return data;
+}
+
+/**
  * 압축 방식(알고리즘) 조회 API 호출
  * @param params 조회 파라미터 (processingUnit: 'cpu' 또는 'gpu')
  * @returns 압축 알고리즘 목록 응답 데이터
@@ -158,7 +192,7 @@ export async function createConvertJobs(
 }
 
 /**
- * 단일 이미지 변환 요청 API 호출
+ * 이미지 변환 요청 API 호출
  * @param request 변환 요청 데이터
  * @returns 변환 요청 응답 데이터
  */
