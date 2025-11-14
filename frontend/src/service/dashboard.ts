@@ -23,14 +23,17 @@ export async function getDashboardConvertRanks(
 }
 
 export async function getDashboardConvertDetail(
-  compressionTypeUuid: string,
+  compressionTypeUuid?: string,
   params?: { page?: number; size?: number }
 ): Promise<ApiResponse<GetConvertDetailResult>> {
   const queryParams = new URLSearchParams();
+  if (compressionTypeUuid) {
+    queryParams.append("compressionTypeUuid", compressionTypeUuid);
+  }
   if (params?.page !== undefined) queryParams.append("page", String(params.page));
   if (params?.size !== undefined) queryParams.append("size", String(params.size));
 
-  const url = `${API_BASE_URL}/dashboard/convert/${compressionTypeUuid}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  const url = `${API_BASE_URL}/dashboard/convert${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
 
   const response = await fetchWithAuth(url, { method: "GET" });
   if (!response.ok) {

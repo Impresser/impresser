@@ -1429,7 +1429,7 @@ function FileRow({
       </td>
       <td className="py-3 px-3 text-center">{formatFileSize(file.size)}</td>
       <td className="py-3 px-3 text-center">{file.format}</td>
-      <td className="py-3 px-3 text-center">
+      <td className="py-3 px-3">
         <div className="space-y-2">
           {file.uploadStatus === 'uploading' ? (
             <div className="flex items-center justify-between gap-2">
