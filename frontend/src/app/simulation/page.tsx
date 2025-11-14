@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Sidebar from '@/components/layout/sidebar';
 import Navbar from '@/components/layout/navbar';
 import AuthGuard from '@/components/auth/AuthGuard';
@@ -9,10 +9,11 @@ import SelectedGoalList, { SelectedGoal } from './components/SelectedGoalList';
 import ConfirmedGoalTable from './components/ConfirmedGoalTable';
 import MotherGlassLayoutPreview from './components/MotherGlassLayoutPreview';
 import OverallProductionSummary from './components/OverallProductionSummary';
-import PrintSimulationPlan from './components/PrintSimulationPlan';
+import PrintSimulationPlan, { type PrintSimulationPlanEntry } from './components/PrintSimulationPlan';
 import InkConsumptionSummary from './components/InkConsumptionSummary';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import MotherGlassInfoList from './components/MotherGlassInfoList';
+import BmpImportModal from './components/BmpImportModal';
 import { products } from './data/productionProducts';
 import { motherGlasses } from './data/motherGlasses';
 import { getInkjetPrinters, type GetInkjetPrintersResponse, type InkjetPrinter } from '@/service/inkjet';
@@ -29,6 +30,7 @@ import {
   createInitialGenerationStats,
   resolveGenerationLabel,
 } from './utils/motherGlassAvailability';
+import type { BmpDetailResult } from '@/types/imageGenerator';
 
 export default function SimulationPage() {
   const [selectedGoals, setSelectedGoals] = useState<SelectedGoal[]>([]);
@@ -47,6 +49,17 @@ export default function SimulationPage() {
       return acc;
     }, {} as Record<GenerationLabel, InkjetPrinter[]>);
   });
+  const [assignmentSelections, setAssignmentSelections] = useState<Record<string, BmpDetailResult>>({});
+  const [isBmpModalOpen, setIsBmpModalOpen] = useState<boolean>(false);
+  const [activeAssignment, setActiveAssignment] = useState<{
+    assignmentId: string;
+    motherGlassName: string;
+    printerName: string;
+    modelName: string;
+    assignedSheets: number;
+  } | null>(null);
+  const [activeAssignmentDetail, setActiveAssignmentDetail] = useState<BmpDetailResult | null>(null);
+  const [isPrintPlanConfirmed, setIsPrintPlanConfirmed] = useState<boolean>(false);
 
   const productMap = useMemo(() => {
     return new Map(products.map((product) => [product.id, product]));
@@ -243,6 +256,7 @@ export default function SimulationPage() {
       const assignments = printersForGeneration.map((printer, index) => {
         if (available === 0) {
           return {
+            assignmentId: `${entry.motherGlassName}-index-${index}`,
             printerUuid: printer.inkjetUuid,
             printerName: printer.printerName,
             modelName: printer.modelName,
@@ -252,7 +266,9 @@ export default function SimulationPage() {
         const base = Math.floor(sheetCount / available);
         const remainder = sheetCount % available;
         const assignedSheets = sheetCount === 0 ? 0 : base + (index < remainder ? 1 : 0);
+        const assignmentId = `${entry.motherGlassName}-${printer.inkjetUuid ?? `index-${index}`}`;
         return {
+          assignmentId,
           printerUuid: printer.inkjetUuid,
           printerName: printer.printerName,
           modelName: printer.modelName,
@@ -266,6 +282,110 @@ export default function SimulationPage() {
       };
     });
   }, [overallGenerationSummary, generationStats, operationalPrinters]);
+
+  const requiredAssignmentIds = useMemo(() => {
+    return printSimulationPlan.flatMap((entry) =>
+      entry.assignments
+        .filter((assignment) => assignment.assignedSheets > 0)
+        .map((assignment) => assignment.assignmentId),
+    );
+  }, [printSimulationPlan]);
+
+  const requiredAssignmentsKey = useMemo(() => requiredAssignmentIds.join('|'), [requiredAssignmentIds]);
+  const previousAssignmentsKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (previousAssignmentsKeyRef.current === requiredAssignmentsKey) {
+      return;
+    }
+    previousAssignmentsKeyRef.current = requiredAssignmentsKey;
+    setAssignmentSelections((prev) => {
+      const requiredSet = new Set(requiredAssignmentIds);
+      const filteredEntries = Object.entries(prev).filter(([id]) => requiredSet.has(id));
+      if (filteredEntries.length === Object.keys(prev).length) {
+        return prev;
+      }
+      return filteredEntries.reduce<Record<string, BmpDetailResult>>((acc, [id, detail]) => {
+        acc[id] = detail;
+        return acc;
+      }, {});
+    });
+    setIsPrintPlanConfirmed(false);
+  }, [requiredAssignmentIds, requiredAssignmentsKey]);
+
+  const handleRequestImport = useCallback(
+    ({
+      motherGlassName,
+      assignment,
+    }: {
+      motherGlassName: string;
+      assignment: PrintSimulationPlanEntry['assignments'][number];
+    }) => {
+      if (assignment.assignedSheets === 0) {
+        return;
+      }
+      const existingDetail = assignmentSelections[assignment.assignmentId] ?? null;
+      setActiveAssignmentDetail(existingDetail);
+      setActiveAssignment({
+        assignmentId: assignment.assignmentId,
+        motherGlassName,
+        printerName: assignment.printerName,
+        modelName: assignment.modelName,
+        assignedSheets: assignment.assignedSheets,
+      });
+      setIsBmpModalOpen(true);
+    },
+    [assignmentSelections],
+  );
+
+  const handleApplyBmpSelection = useCallback(
+    (detail: BmpDetailResult) => {
+      if (!activeAssignment) {
+        return;
+      }
+      setAssignmentSelections((prev) => ({
+        ...prev,
+        [activeAssignment.assignmentId]: detail,
+      }));
+      setIsBmpModalOpen(false);
+      setActiveAssignment(null);
+      setActiveAssignmentDetail(null);
+      setIsPrintPlanConfirmed(false);
+    },
+    [activeAssignment],
+  );
+
+  const handleClearAssignment = useCallback((assignmentId: string) => {
+    setAssignmentSelections((prev) => {
+      if (!(assignmentId in prev)) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[assignmentId];
+      return next;
+    });
+    setIsPrintPlanConfirmed(false);
+  }, []);
+
+  const handleCloseBmpModal = useCallback(() => {
+    setIsBmpModalOpen(false);
+    setActiveAssignment(null);
+    setActiveAssignmentDetail(null);
+  }, []);
+
+  const isConfirmDisabled = useMemo(() => {
+    if (requiredAssignmentIds.length === 0) {
+      return true;
+    }
+    return requiredAssignmentIds.some((id) => !assignmentSelections[id]);
+  }, [assignmentSelections, requiredAssignmentIds]);
+
+  const handleConfirmAssignments = useCallback(() => {
+    if (isConfirmDisabled) {
+      return;
+    }
+    setIsPrintPlanConfirmed(true);
+  }, [isConfirmDisabled]);
 
   const runOptimization = useCallback((goals: SelectedGoal[]) => {
     if (goals.length === 0) {
@@ -295,11 +415,13 @@ export default function SimulationPage() {
       return;
     }
     setIsSimulationRunning(true);
-    try {
-      runOptimization(confirmedGoals);
-    } finally {
-      setIsSimulationRunning(false);
-    }
+    setTimeout(() => {
+      try {
+        runOptimization(confirmedGoals);
+      } finally {
+        setIsSimulationRunning(false);
+      }
+    }, 0);
   }, [confirmedGoals, printersLoading, runOptimization]);
 
   return (
@@ -338,8 +460,6 @@ export default function SimulationPage() {
                 <h2 className="text-xl font-semibold text-gray-900">생산 계획 설계</h2>
               </div>
 
-              <ConfirmedGoalTable goals={confirmedGoals} />
-
               <MotherGlassInfoList
                 motherGlasses={motherGlasses}
                 generationStats={generationStats}
@@ -350,6 +470,10 @@ export default function SimulationPage() {
                 isCalculating={isSimulationRunning}
                 calculateDisabled={confirmedGoals.length === 0 || Boolean(printersError) || printersLoading}
               />
+
+              {optimizationResult ? (
+                <OverallProductionSummary summary={overallGenerationSummary} />
+              ) : null}
 
               <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
                 모든 원장 조합을 고려하여 최적 면취 효율을 계산합니다. 목표 수량을 확정하면 최적 배치가 자동 산출됩니다.
@@ -369,9 +493,22 @@ export default function SimulationPage() {
 
                   <div className="space-y-4 pt-4">
                     <h2 className="text-xl font-semibold text-gray-900">생산 시뮬레이션</h2>
-                    <OverallProductionSummary summary={overallGenerationSummary} />
-                    <PrintSimulationPlan plan={printSimulationPlan} />
-                    <InkConsumptionSummary plan={printSimulationPlan} />
+                    <PrintSimulationPlan
+                      plan={printSimulationPlan}
+                      selectedAssignments={assignmentSelections}
+                      onRequestImport={handleRequestImport}
+                      onClearSelection={handleClearAssignment}
+                      onConfirm={handleConfirmAssignments}
+                      isConfirmDisabled={isConfirmDisabled}
+                      isConfirmed={isPrintPlanConfirmed}
+                    />
+                    {isPrintPlanConfirmed ? (
+                      <InkConsumptionSummary plan={printSimulationPlan} selectedAssignments={assignmentSelections} />
+                    ) : (
+                      <CommonContainerBox className="px-4 py-4 text-sm text-gray-600">
+                        설비별 이미지 매칭을 모두 완료하고 &quot;설비 매칭 확인&quot; 버튼을 누르면 잉크 소모량과 예상 시간이 계산됩니다.
+                      </CommonContainerBox>
+                    )}
                   </div>
                 </div>
               ) : hasAttemptedSimulation ? (
@@ -389,6 +526,22 @@ export default function SimulationPage() {
           </main>
         </div>
     </div>
+    <BmpImportModal
+      isOpen={isBmpModalOpen}
+      onClose={handleCloseBmpModal}
+      onSelect={handleApplyBmpSelection}
+      preselectedDetail={activeAssignmentDetail}
+      targetInfo={
+        activeAssignment
+          ? {
+              motherGlassName: activeAssignment.motherGlassName,
+              printerName: activeAssignment.printerName,
+              modelName: activeAssignment.modelName,
+              assignedSheets: activeAssignment.assignedSheets,
+            }
+          : null
+      }
+    />
     </AuthGuard>
   );
 }

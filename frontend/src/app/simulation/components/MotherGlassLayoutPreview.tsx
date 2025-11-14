@@ -140,6 +140,7 @@ export default function MotherGlassLayoutPreview({ layoutResult, overallSummary 
           <div>
             <div className="mt-2 grid gap-4 lg:grid-cols-2">
               {uniqueSheetsForVisualization.map((sheet, index) => {
+                const groupedSheet = groupedSheets[index];
                 const placements = sheet.placements;
 
                 let offsetXPercent = 0;
@@ -165,11 +166,16 @@ export default function MotherGlassLayoutPreview({ layoutResult, overallSummary 
 
                 return (
                   <div key={`sheet-${sheet.sheetIndex}`} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                    <div className="mb-3 flex items-center justify-between text-sm">
-                      <span className="font-semibold text-gray-900">배치 유형 #{index + 1}</span>
-                      <span className="text-sm text-gray-500">
-                        실제 사용: {groupedSheets[index].sheetIndices.length.toLocaleString()}장
-                      </span>
+                    <div className="mb-3 grid gap-2 text-sm sm:grid-cols-[auto_auto] sm:items-center sm:justify-between">
+                      <span className="font-semibold text-base text-gray-900 sm:col-auto">배치 유형 #{index + 1}</span>
+                      <div className="flex flex-wrap items-center gap-2 text-sm text-gray-500 sm:justify-end">
+                        <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600 sm:text-sm">
+                          사용 효율 {groupedSheet.areaUsedPercent.toFixed(1)}%
+                        </span>
+                        <span className="text-gray-600 sm:text-sm">
+                          실제 사용 {groupedSheet.sheetIndices.length.toLocaleString()}장
+                        </span>
+                      </div>
                     </div>
                     <div
                       className="relative overflow-hidden rounded-lg border border-dashed border-gray-300 bg-gray-50"
