@@ -590,6 +590,14 @@ export default function CompressionSettings({
                         formatFileSize={formatFileSize}
                         expandedPartProgress={expandedPartProgress}
                         setExpandedPartProgress={setExpandedPartProgress}
+                        isDraggable={selectedFiles.length > 1}
+                        draggedIndex={draggedIndex}
+                        dragOverIndex={dragOverIndex}
+                        onDragStart={() => handleDragStart(index)}
+                        onDragOver={(e) => handleDragOver(e, index)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={(e) => handleDrop(e, index)}
+                        onDragEnd={handleDragEnd}
                       />
                     );
                   })}
@@ -1253,10 +1261,20 @@ interface FileRowProps {
   formatFileSize: (bytes: number) => string;
   expandedPartProgress: Set<string>;
   setExpandedPartProgress: React.Dispatch<React.SetStateAction<Set<string>>>;
+  // 드래그 앤 드롭 props
+  isDraggable?: boolean;
+  draggedIndex: number | null;
+  dragOverIndex: number | null;
+  onDragStart: () => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDragLeave: () => void;
+  onDrop: (e: React.DragEvent) => void;
+  onDragEnd: () => void;
 }
 
 function FileRow({
   file,
+  index,
   fileSetting,
   onSettingChange,
   onRemove,
@@ -1267,6 +1285,14 @@ function FileRow({
   formatFileSize,
   expandedPartProgress,
   setExpandedPartProgress,
+  isDraggable = false,
+  draggedIndex,
+  dragOverIndex,
+  onDragStart,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onDragEnd,
 }: FileRowProps) {
   const [algorithmOptions, setAlgorithmOptions] = useState<{ value: string; label: string; uuid: string }[]>([]);
   const [versionOptions, setVersionOptions] = useState<{ value: string; label: string }[]>([]);
@@ -1372,7 +1398,21 @@ function FileRow({
   };
 
   return (
-    <tr className="border-b border-gray-100 text-sm text-gray-900 hover:bg-gray-50">
+    <tr
+      draggable={isDraggable}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
+      className={`border-b border-gray-100 text-sm text-gray-900 hover:bg-gray-50 ${
+        isDraggable ? 'cursor-move' : ''
+      } ${
+        draggedIndex === index ? 'opacity-50' : ''
+      } ${
+        dragOverIndex === index ? 'bg-blue-50 border-blue-300' : ''
+      }`}
+    >
       <td className="py-3 px-3 max-w-[200px]">
         <div className="truncate" title={file.name}>
           {file.name}

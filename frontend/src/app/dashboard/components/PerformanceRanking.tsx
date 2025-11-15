@@ -222,30 +222,11 @@ export default function EquipmentUsage() {
   const currentPageData = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     const end = start + itemsPerPage;
-    const pageData = filteredAlgorithms.slice(start, end).map(item => ({
+    return filteredAlgorithms.slice(start, end).map(item => ({
       ...item,
       displayValue: item.avgSpeedMBps,
-      isAverage: false,
     }));
-    
-    // 평균 값을 그래프 맨 위에 추가 (GPU 필터일 때는 제외)
-    if (filteredAlgorithms.length > 0 && overallAvg > 0 && modeFilter !== "GPU") {
-      return [
-        {
-          key: '평균',
-          label: '평균',
-          version: '',
-          mode: '' as const,
-          avgSpeedMBps: overallAvg,
-          displayValue: overallAvg,
-          originalItem: null,
-          isAverage: true, // 평균 바 구분용
-        },
-        ...pageData,
-      ];
-    }
-    return pageData;
-  }, [currentPage, filteredAlgorithms, overallAvg, modeFilter]);
+  }, [currentPage, filteredAlgorithms]);
   const range1 = maxSpeed * 0.5; // 낮음
   const range2 = maxSpeed * 0.8; // 보통
 
@@ -414,6 +395,10 @@ export default function EquipmentUsage() {
               />
             </div>
           </div>
+          <div className="text-sm text-red-600">
+            <span className="font-medium">평균: </span>
+            <span className="text-red-600">{overallAvg > 0 ? overallAvg.toFixed(2) : '-'} MB/s</span>
+          </div>
         </div>
           <div className="w-full flex-1 min-w-0 min-h-0">
             {!mounted ? null : loading ? (
@@ -439,10 +424,6 @@ export default function EquipmentUsage() {
                     tickFormatter={(value, index) => {
                       const item = currentPageData[index];
                       if (item) {
-                        // 평균바는 version과 mode 없이 표시
-                        if (item.isAverage) {
-                          return item.label;
-                        }
                         // 알고리즘, 버전, 방식을 한 세트로 표시
                         return `${item.label} v${item.version} ${item.mode}`;
                       }
@@ -474,14 +455,8 @@ export default function EquipmentUsage() {
                     name="평균속도(MB/s)" 
                     radius={[0, 8, 8, 0]} 
                     barSize={14}
-                  >
-                    {currentPageData.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        fill={entry.isAverage ? '#ef4444' : 'url(#bulletBarGradient)'} 
-                      />
-                    ))}
-                  </Bar>
+                    fill="url(#bulletBarGradient)"
+                  />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -506,9 +481,9 @@ export default function EquipmentUsage() {
               <tbody>
                 {loading ? (
                   <tr><td colSpan={5} className="py-6 text-center text-gray-500 text-sm">불러오는 중…</td></tr>
-                ) : currentPageData.filter(a => a.key !== '평균').length === 0 ? (
+                ) : currentPageData.length === 0 ? (
                   <tr><td colSpan={5} className="py-6 text-center text-gray-500 text-sm">데이터가 없습니다</td></tr>
-                ) : currentPageData.filter(a => a.key !== '평균').map((a, idx) => {
+                ) : currentPageData.map((a, idx) => {
                   const globalIndex = (currentPage - 1) * itemsPerPage + idx;
                   const isActive = selectedIndex === globalIndex;
                   return (

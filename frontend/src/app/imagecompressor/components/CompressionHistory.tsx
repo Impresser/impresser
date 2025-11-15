@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import CommonTableFrame from '@/components/ui/CommonTableFrame';
 import { HistoryItem } from '@/components/ui/CommonTable';
@@ -9,6 +9,7 @@ import { useImageCompressorStore } from '@/store/imageCompressorStore';
 import { ConvertHistoryItem, ConvertHistoryDetailItem } from '@/types/imageCompressor';
 import { getConvertHistoryDetail } from '@/service/imageCompressor';
 import { RadialBarChart, RadialBar, PolarAngleAxis } from 'recharts';
+import { useAuthStore } from '@/store/authStore';
 
 interface CompressionHistoryProps {
   onDownload?: (item: HistoryItem) => void;
@@ -142,7 +143,8 @@ function RadialGauge({ percent, size = 120, color = "#5A73FF" }: { percent: numb
 export default function CompressionHistory({
   onDownload,
 }: CompressionHistoryProps) {
-  const { histories, loading, error, fetchHistories, fetchMyHistories, pagination } = useImageCompressorStore();
+  const user = useAuthStore((state) => state.user);
+  const { histories, loading, error, fetchHistories } = useImageCompressorStore();
   const [page, setPage] = useState(0);
   const [size] = useState(10);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
@@ -150,18 +152,44 @@ export default function CompressionHistory({
   const [loadingDetails, setLoadingDetails] = useState<Set<string>>(new Set());
   const [showMyWorkOnly, setShowMyWorkOnly] = useState(false);
 
-  // 컴포넌트 마운트 시 및 페이지 변경 시, 체크박스 상태 변경 시 데이터 로드
+  // 컴포넌트 마운트 시 전체 데이터 로드 (큰 사이즈로 요청)
   useEffect(() => {
-    if (showMyWorkOnly) {
-      fetchMyHistories({ page, size });
-    } else {
-      fetchHistories({ page, size });
-    }
+    fetchHistories({ page: 0, size: 10000 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, size, showMyWorkOnly]);
+  }, []);
+
+  // employeeNo로 필터링된 목록
+  const filteredHistories = useMemo(() => {
+    if (!showMyWorkOnly || !user?.employeeNo) {
+      return histories;
+    }
+    return histories.filter(item => item.employeeNo === user.employeeNo);
+  }, [histories, showMyWorkOnly, user?.employeeNo]);
+
+  // 페이지네이션된 목록
+  const paginatedHistories = useMemo(() => {
+    const start = page * size;
+    const end = start + size;
+    return filteredHistories.slice(start, end);
+  }, [filteredHistories, page, size]);
+
+  // 필터링된 데이터 기준 페이지네이션 정보
+  const filteredPagination = useMemo(() => {
+    const totalElements = filteredHistories.length;
+    const totalPages = Math.ceil(totalElements / size);
+    return {
+      page,
+      size,
+      totalPages,
+      totalElements,
+      first: page === 0,
+      last: page >= totalPages - 1,
+      hasNext: page < totalPages - 1,
+    };
+  }, [filteredHistories.length, page, size]);
 
   // API 응답을 HistoryItem으로 변환
-  const historyItems: HistoryItem[] = histories.map(convertToHistoryItem);
+  const historyItems: HistoryItem[] = paginatedHistories.map(convertToHistoryItem);
 
   // 다운로드 핸들러
   const handleDownload = (item: HistoryItem) => {
@@ -286,11 +314,11 @@ export default function CompressionHistory({
                       const detail = detailData[item.id];
                       const isLoadingDetail = loadingDetails.has(item.id);
                       // 최신순 정렬이므로 역순으로 번호 계산
-                      const rowNumber = pagination?.totalElements 
-                        ? pagination.totalElements - (page * size + index)
+                      const rowNumber = filteredPagination.totalElements 
+                        ? filteredPagination.totalElements - (page * size + index)
                         : page * size + index + 1;
                       // 원본 데이터에서 tiffVolume 가져오기
-                      const originalItem = histories[index];
+                      const originalItem = paginatedHistories[index];
                       
                       return (
                         <React.Fragment key={item.id}>
@@ -426,10 +454,10 @@ export default function CompressionHistory({
               }
             />
             {/* 페이지네이션 */}            
-            {pagination && pagination.totalPages > 1 && (              
+            {filteredPagination.totalPages > 1 && (              
               <CommonPagination
                 currentPage={page + 1}
-                totalPages={pagination.totalPages}
+                totalPages={filteredPagination.totalPages}
                 onChange={(newPage) => setPage(newPage - 1)}
               />
             )}
@@ -439,5 +467,3 @@ export default function CompressionHistory({
     </div>
   );
 }
-
-            {/* 페이지네이션 */}
