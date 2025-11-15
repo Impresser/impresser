@@ -52,4 +52,9 @@ public interface FilePresignedService {
 
     List<CreateTiffUploadResponse> createTiffUploadBatch(List<TiffUploadItemRequest> fileNames,
         String contentType);
+
+    /**
+     * ========= 삭제 =========
+     */
+    void deleteByKey(String key);
 }

@@ -137,4 +137,12 @@ public class S3Controller {
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(BaseResponse.onSuccess(response));
     }
+
+    @DeleteMapping("/key")
+    @Operation(summary = "S3 객체 삭제 (key 기반)")
+    public ResponseEntity<BaseResponse<Void>> deleteByKey(@RequestParam String key) {
+        filePresignedService.deleteByKey(key);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT)
+            .body(BaseResponse.onSuccess());
+    }
 }
