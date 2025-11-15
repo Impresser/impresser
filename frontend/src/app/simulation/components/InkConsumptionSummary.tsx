@@ -184,9 +184,10 @@ export default function InkConsumptionSummary({ plan, selectedAssignments }: Ink
   );
 
   return (
-    <CommonContainerBox className="px-4 py-4 space-y-4">
-      <div>
-        <h3 className="text-lg font-semibold text-gray-900">잉크 소모량 및 예상 시간 계산</h3>
+    <div id="ink-consumption-summary">
+      <CommonContainerBox className="px-4 py-4 space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900">잉크 소모량 및 예상 시간 계산</h3>
         <p className="mt-1 text-sm text-gray-500">
           이미지 픽셀 수와 인쇄 수량을 반영해 색상별 잉크 사용량을 계산합니다. 10,000px당 1ml 기준으로 환산합니다.
         </p>
@@ -342,6 +343,7 @@ export default function InkConsumptionSummary({ plan, selectedAssignments }: Ink
           })()}
         </div>
       )}
-    </CommonContainerBox>
+      </CommonContainerBox>
+    </div>
   );
 }

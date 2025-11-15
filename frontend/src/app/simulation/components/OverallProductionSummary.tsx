@@ -19,9 +19,10 @@ export default function OverallProductionSummary({ summary }: OverallProductionS
   }
 
   return (
-    <CommonContainerBox className="px-4 py-4">
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">전체 배치 요약</h3>
+    <div id="overall-production-summary">
+      <CommonContainerBox className="px-4 py-4">
+        <div className="mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">전체 배치 요약</h3>
         <p className="mt-1 text-sm text-gray-500">
           최적화 결과를 기반으로 세대별 사용 면적과 사용 장수를 집계한 요약입니다.
         </p>
@@ -48,6 +49,7 @@ export default function OverallProductionSummary({ summary }: OverallProductionS
           ))}
         </div>
       </div>
-    </CommonContainerBox>
+      </CommonContainerBox>
+    </div>
   );
 }
