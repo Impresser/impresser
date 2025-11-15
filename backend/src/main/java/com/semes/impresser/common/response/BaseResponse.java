@@ -20,6 +20,12 @@ public class BaseResponse<T> {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Map<String, String> details;
 
+    private BaseResponse() {
+        this.isSuccess = true;
+        this.code = "SUCCESS";
+        this.message = "요청에 성공하였습니다.";
+    }
+
     private BaseResponse(T result) {
         this.isSuccess = true;
         this.code = "SUCCESS";
@@ -38,6 +44,10 @@ public class BaseResponse<T> {
         this.code = errorCode.name();
         this.message = errorCode.getMessage();
         this.details = details;
+    }
+
+    public static BaseResponse<Void> onSuccess() {
+        return new BaseResponse<>();
     }
 
     public static <T> BaseResponse<T> onSuccess(T result) {

@@ -22,6 +22,16 @@ spring:
       port: ${REDIS_PORT}
       password: ${REDIS_PASSWORD}
 
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+    compress:
+      exchange: ${COMPRESS_EXCHANGE}
+    print:
+      exchange: ${PRINT_EXCHANGE}
+
   jpa:
     hibernate:
       ddl-auto: validate
@@ -47,3 +57,10 @@ s3:
   access-key: ${MINIO_ACCESS_KEY}
   secret-key: ${MINIO_SECRET_KEY}
   bucket: ${MINIO_BUCKET}
+  region: us-east-1
+
+external:
+  api:
+    base-url: ${EXTERNAL_CONVERT_BASE_URL}
+    connect-timeout-ms: ${EXTERNAL_CONVERT_CONNECT_TIMEOUT:3000}
+    read-timeout-ms: ${EXTERNAL_CONVERT_READ_TIMEOUT:5000}

@@ -11,23 +11,32 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
+    "@pixi/react": "^8.0.3",
     "next": "16.0.0",
+    "p-limit": "^7.2.0",
     "papaparse": "^5.5.3",
+    "pixi.js": "^8.14.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
+    "recharts": "^3.3.0",
+    "swiper": "^12.0.3",
+    "three": "^0.181.0",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
+    "@types/p-limit": "^2.2.0",
     "@types/papaparse": "^5.3.16",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.181.0",
     "eslint": "^9",
     "eslint-config-next": "16.0.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "prettier": "^3.6.2",
+    "sass": "^1.93.3",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

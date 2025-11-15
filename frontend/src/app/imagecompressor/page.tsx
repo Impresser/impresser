@@ -1,142 +1,320 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from '@/components/layout/sidebar';
 import Navbar from '@/components/layout/navbar';
+import CommonTable, { QueueItem } from '@/components/ui/CommonTable';
+import AuthGuard from '@/components/auth/AuthGuard';
+import CompressionSettings from './components/CompressionSettings';
+import { FileInfo } from '@/types/imageCompressor';
+import CompressionQueue from './components/CompressionQueue';
+import CompressionHistory from './components/CompressionHistory';
+import { useAuthStore } from '@/store/authStore';
+import { createConvertJobs } from '@/service/imageCompressor';
 
 export default function ImageCompressorPage() {
+  const userName = useAuthStore((state) => state.user?.userName ?? '사용자');
+  const [selectedFiles, setSelectedFiles] = useState<FileInfo[]>([]);
+  const [processingMethod, setProcessingMethod] = useState('cpu');
+  const [algorithm, setAlgorithm] = useState('lzw');
+  const [version, setVersion] = useState('1.0');
+  const [queue, setQueue] = useState<QueueItem[]>([]);
+  const idCounterRef = useRef(0);
+  const queueSectionRef = useRef<HTMLDivElement | null>(null);
+
+  // BMP 파일 헤더에서 이미지 크기 추출 (처음 26바이트만 읽음)
+  const readBmpDimensions = (file: File): Promise<{ width: number; height: number }> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const arrayBuffer = e.target?.result as ArrayBuffer;
+          const view = new DataView(arrayBuffer);
+          
+          // BMP 파일 시그니처 확인 (BM)
+          const signature = String.fromCharCode(view.getUint8(0), view.getUint8(1));
+          if (signature !== 'BM') {
+            reject(new Error('유효하지 않은 BMP 파일입니다.'));
+            return;
+          }
+          
+          // BMP 헤더에서 width, height 읽기 (오프셋 18-25)
+          const width = view.getInt32(18, true); // little-endian
+          const height = view.getInt32(22, true); // little-endian
+          
+          resolve({ width: Math.abs(width), height: Math.abs(height) });
+        } catch (error) {
+          reject(error);
+        }
+      };
+      
+      reader.onerror = () => {
+        reject(new Error('파일 읽기 실패'));
+      };
+      
+      // 처음 26바이트만 읽어서 헤더 정보 추출
+      const blob = file.slice(0, 26);
+      reader.readAsArrayBuffer(blob);
+    });
+  };
+
+  // 작은 파일의 경우 미리보기 생성
+  const createPreview = (file: File): Promise<string | null> => {
+    return new Promise((resolve) => {
+      // 10MB 이상 파일은 미리보기 생성하지 않음
+      if (file.size > 10 * 1024 * 1024) {
+        resolve(null);
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          resolve(e.target?.result as string);
+        };
+        img.onerror = () => {
+          resolve(null);
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = () => {
+        resolve(null);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleFileSelect = (files: File[]) => {
+    const validFiles = files.filter(file => 
+      file.type === 'image/bmp' || file.name.toLowerCase().endsWith('.bmp')
+    );
+    
+    if (validFiles.length !== files.length) {
+      alert('BMP 파일만 업로드 가능합니다.');
+    }
+
+    if (validFiles.length === 0) return;
+
+    const filePromises = validFiles.map(async (file) => {
+      try {
+        // BMP 헤더에서 크기 정보 추출 (큰 파일도 처리 가능)
+        const dimensions = await readBmpDimensions(file);
+        
+        // 작은 파일만 미리보기 생성
+        const preview = await createPreview(file);
+        
+        return {
+          name: file.name,
+          size: file.size,
+          format: 'BMP',
+          dimensions,
+          preview: preview || '', // 미리보기가 없으면 빈 문자열
+        } as FileInfo;
+      } catch (error) {
+        console.error(`파일 ${file.name} 처리 실패:`, error);
+        // 에러가 발생해도 기본 정보는 반환
+        return {
+          name: file.name,
+          size: file.size,
+          format: 'BMP',
+          dimensions: { width: 0, height: 0 },
+          preview: '',
+        } as FileInfo;
+      }
+    });
+
+    Promise.all(filePromises).then((fileInfos) => {
+      setSelectedFiles((prev) => [...prev, ...fileInfos]);
+    }).catch((error) => {
+      console.error('파일 처리 중 오류:', error);
+      alert('일부 파일 처리에 실패했습니다.');
+    });
+  };
+
+  const handleAddToQueue = async (fileInfos: Array<{
+    fileName: string;
+    imageUrl: string;
+    compressionTypeUuid: string;
+    bmpVolume: number;
+    bmpWidth: number;
+    bmpHeight: number;
+    algorithm: string;
+    version: string;
+    processingMethod: string;
+  }>) => {
+    if (fileInfos.length === 0) {
+      alert('파일을 먼저 선택해주세요.');
+      return;
+    }
+
+    try {
+      // API 호출
+      const response = await createConvertJobs({
+        createConvertRequests: fileInfos.map(fileInfo => ({
+          bmpUrl: fileInfo.imageUrl,
+          compressionTypeUuid: fileInfo.compressionTypeUuid,
+          bmpVolume: fileInfo.bmpVolume,
+          bmpWidth: fileInfo.bmpWidth,
+          bmpHeight: fileInfo.bmpHeight,
+        })),
+      });
+
+      if (!response.isSuccess) {
+        throw new Error(response.message || '대기열 등록에 실패했습니다.');
+      }
+
+      // 성공 시 로컬 대기열에 추가
+      const baseTime = Date.now();
+      const newItems: QueueItem[] = fileInfos.map((fileInfo, index) => {
+        idCounterRef.current += 1;
+        return {
+          id: `${baseTime}-${idCounterRef.current}-${index}`,
+          fileName: fileInfo.fileName,
+          processingMethod: fileInfo.processingMethod.toUpperCase(),
+          algorithm: fileInfo.algorithm,
+          version: fileInfo.version,
+          fileSize: fileInfo.bmpVolume,
+          status: '대기' as const,
+          assignedUser: userName,
+          startTime: null,
+          elapsedTime: 0,
+          estimatedTime: 10,
+          progress: 0,
+          bmpUrl: fileInfo.imageUrl,
+          compressionTypeUuid: fileInfo.compressionTypeUuid,
+          bmpWidth: fileInfo.bmpWidth,
+          bmpHeight: fileInfo.bmpHeight,
+        };
+      });
+
+      setQueue((prev) => [...prev, ...newItems]);
+      
+      // 선택된 파일 초기화
+      setSelectedFiles([]);
+
+      // 대기열에 추가한 후 바로 압축 시작 (각 파일에 대해)
+      // createConvertJobs가 이미 압축을 시작하므로 상태만 '진행'으로 변경
+      setQueue((prev) => {
+        const updated = [...prev];
+        // 방금 추가한 항목들을 찾아서 '진행' 상태로 변경
+        newItems.forEach((newItem) => {
+          const index = updated.findIndex(item => item.id === newItem.id);
+          if (index !== -1) {
+            updated[index] = {
+              ...updated[index],
+              status: '진행' as const,
+              startTime: new Date(),
+            };
+          }
+        });
+        return updated;
+      });
+
+      // 대기열 섹션으로 스크롤 이동 (중앙 정렬)
+      // 렌더링 완료 후 스크롤을 보장하기 위해 다음 틱에 실행
+      requestAnimationFrame(() => {
+        if (queueSectionRef.current) {
+          queueSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    } catch (error) {
+      console.error('대기열 등록 실패:', error);
+      alert(error instanceof Error ? error.message : '대기열 등록에 실패했습니다.');
+    }
+  };
+
+  const handleFileRemove = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleFileReorder = (fromIndex: number, toIndex: number) => {
+    setSelectedFiles((prev) => {
+      const newFiles = [...prev];
+      const [removed] = newFiles.splice(fromIndex, 1);
+      newFiles.splice(toIndex, 0, removed);
+      return newFiles;
+    });
+  };
+
+
+  // 경과시간 업데이트 및 완료 처리를 위한 useEffect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setQueue((prev) => {
+        const updated = prev.map((item) => {
+          if (item.status === '진행' && item.startTime) {
+            const elapsed = Math.floor((Date.now() - item.startTime.getTime()) / 1000);
+            const progress = item.estimatedTime > 0 
+              ? Math.min(100, Math.floor((elapsed / item.estimatedTime) * 100))
+              : 0;
+            
+            // 진행률이 100%에 도달하면 완료 처리
+            if (progress >= 100) {
+              // 큐에서 제거 (null로 표시하고 나중에 필터링)
+              return null as any;
+            }
+            
+            return {
+              ...item,
+              elapsedTime: elapsed,
+              progress: progress,
+            };
+          }
+          return item;
+        }).filter((item): item is QueueItem => item !== null);
+
+        return updated;
+      });
+    }, 1000); // 1초마다 업데이트
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <Sidebar />
+    <AuthGuard>
+      <div className="flex h-screen bg-gray-50">
+        {/* Sidebar */}
+        <Sidebar />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         {/* Navigation Bar */}
-        <Navbar userName="홍길동" />
+        <Navbar />
         
         {/* Content */}
-        <main className="flex-1 p-6 overflow-y-auto">
-          <div className="max-w-4xl mx-auto">
-            {/* 파일 업로드 */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                파일 업로드
-              </h2>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <div className="space-y-4">
-                  <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-6 h-6 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth="2"
-                        d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-lg font-medium text-gray-900">
-                      파일을 드래그하거나 클릭하여 업로드
-                    </p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      PNG, JPG, GIF 파일 지원 (최대 10MB)
-                    </p>
-                  </div>
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                    파일 선택
-                  </button>
-                </div>
-              </div>
+        <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden">
+          <div className="w-full">
+            {/* 압축 이미지 영역 */}
+            <CompressionSettings
+              selectedFiles={selectedFiles}
+              algorithm={algorithm}
+              version={version}
+              processingMethod={processingMethod}
+              onFileSelect={handleFileSelect}
+              onFileRemove={handleFileRemove}
+              onFileReorder={handleFileReorder}
+              onProcessingMethodChange={setProcessingMethod}
+              onAlgorithmChange={setAlgorithm}
+              onVersionChange={setVersion}
+              onAddToQueue={handleAddToQueue}
+            />
+
+            {/* 압축대기열 영역 */}
+            <div ref={queueSectionRef}>
+              <CompressionQueue
+                queue={queue}
+                onStartCompression={() => {}}
+                isStarting={false}
+              />
             </div>
 
-            {/* 압축 설정 */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                압축 설정
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    품질 (1-100)
-                  </label>
-                  <input
-                    type="range"
-                    min="1"
-                    max="100"
-                    defaultValue="80"
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>최고 압축</span>
-                    <span>최고 품질</span>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    출력 형식
-                  </label>
-                  <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="png">PNG</option>
-                    <option value="jpg">JPG</option>
-                    <option value="webp">WebP</option>
-                  </select>
-                </div>
-                <div className="flex space-x-4">
-                  <button className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
-                    압축 시작
-                  </button>
-                  <button className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors">
-                    설정 초기화
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* 압축 결과 */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                압축 결과
-              </h2>
-              <div className="space-y-4">
-                {Array.from({ length: 3 }, (_, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-gray-100 rounded flex items-center justify-center">
-                        <span className="text-xs text-gray-500">IMG</span>
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-900">
-                          sample_image_{i + 1}.png
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          원본: 2.5MB → 압축: 1.2MB (52% 감소)
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex space-x-2">
-                      <button className="px-3 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200 transition-colors">
-                        다운로드
-                      </button>
-                      <button className="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200 transition-colors">
-                        삭제
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            {/* 압축내역 영역 */}
+            <CompressionHistory />
           </div>
         </main>
       </div>
     </div>
+    </AuthGuard>
   );
 }

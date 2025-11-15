@@ -1,17 +1,20 @@
 package com.semes.impresser.inkjet.entity;
 
 import com.semes.impresser.common.entity.BaseTimeEntity;
+import com.semes.impresser.inkjet.dto.request.UpdateInkjetRequest;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.SQLDelete;
 
 @Entity
 @Table(name = "inkjet_printer")
@@ -28,7 +31,7 @@ public class InkjetPrinter extends BaseTimeEntity {
     private String printerName;
 
     @Column(name = "install_date", nullable = false)
-    private LocalDateTime installDate;
+    private LocalDate installDate;
 
     @Column(name = "cpu", nullable = false)
     private String cpu;
@@ -44,10 +47,10 @@ public class InkjetPrinter extends BaseTimeEntity {
     @Column(name = "process_status", nullable = false)
     private ProcessStatus processStatus;
 
-    @Column(name = "ram", length = 5, nullable = false)
+    @Column(name = "ram", length = 20, nullable = false)
     private String ram;
 
-    @Column(name = "vram", length = 5, nullable = false)
+    @Column(name = "vram", length = 20, nullable = false)
     private String vram;
 
     @Column(name = "canvas_x", nullable = false)
@@ -55,4 +58,38 @@ public class InkjetPrinter extends BaseTimeEntity {
 
     @Column(name = "canvas_y", nullable = false)
     private Integer canvasY;
+
+    public void update(UpdateInkjetRequest request) {
+        if (request.modelName() != null) {
+            this.modelName = request.modelName();
+        }
+        if (request.printerName() != null) {
+            this.printerName = request.printerName();
+        }
+        if (request.cpu() != null) {
+            this.cpu = request.cpu();
+        }
+        if (request.gpu() != null) {
+            this.gpu = request.gpu();
+        }
+        if (request.ram() != null) {
+            this.ram = request.ram();
+        }
+        if (request.vram() != null) {
+            this.vram = request.vram();
+        }
+        if (request.canvasX() != null) {
+            this.canvasX = request.canvasX();
+        }
+        if (request.canvasY() != null) {
+            this.canvasY = request.canvasY();
+        }
+        if (request.printerStatus() != null) {
+            this.printerStatus = PrinterStatus.from(request.printerStatus());
+        }
+    }
+
+    public void deleteInkjet() {
+        this.deletedAt = LocalDateTime.now();
+    }
 }

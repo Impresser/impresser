@@ -16,7 +16,7 @@ export default function DashboardLayout({
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-sm text-gray-500">
-                마지막 업데이트: {new Date().toLocaleString('ko-KR')}
+                마지막 업데이트: {new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}
               </div>
               <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
                 새로고침

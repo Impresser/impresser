@@ -1,204 +1,569 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Sidebar from '@/components/layout/sidebar';
 import Navbar from '@/components/layout/navbar';
+import AuthGuard from '@/components/auth/AuthGuard';
+import ProductList from './components/ProductList';
+import SelectedGoalList, { SelectedGoal } from './components/SelectedGoalList';
+import ConfirmedGoalTable from './components/ConfirmedGoalTable';
+import MotherGlassLayoutPreview from './components/MotherGlassLayoutPreview';
+import OverallProductionSummary from './components/OverallProductionSummary';
+import PrintSimulationPlan, { type PrintSimulationPlanEntry } from './components/PrintSimulationPlan';
+import InkConsumptionSummary from './components/InkConsumptionSummary';
+import CommonContainerBox from '@/components/ui/CommonContainerBox';
+import MotherGlassInfoList from './components/MotherGlassInfoList';
+import BmpImportModal from './components/BmpImportModal';
+import { products } from './data/productionProducts';
+import { motherGlasses } from './data/motherGlasses';
+import { getInkjetPrinters, type GetInkjetPrintersResponse, type InkjetPrinter } from '@/service/inkjet';
+import {
+  computeOptimalMotherGlassPlan,
+  MotherGlassOptimizationResult,
+} from './utils/layoutCalculations';
+import {
+  GENERATION_CONFIG,
+  type GenerationLabel,
+  type GenerationStatsMap,
+  type PrinterStatusKey,
+  STATUS_ORDER,
+  createInitialGenerationStats,
+  resolveGenerationLabel,
+} from './utils/motherGlassAvailability';
+import type { BmpDetailResult } from '@/types/imageGenerator';
 
 export default function SimulationPage() {
+  const [selectedGoals, setSelectedGoals] = useState<SelectedGoal[]>([]);
+  const [confirmedGoals, setConfirmedGoals] = useState<SelectedGoal[]>([]);
+  const [activeProductId, setActiveProductId] = useState<string | null>(null);
+  const [optimizationResult, setOptimizationResult] = useState<MotherGlassOptimizationResult | null>(null);
+  const [generationStats, setGenerationStats] = useState<GenerationStatsMap>(() => createInitialGenerationStats());
+  const [totalAvailablePrinters, setTotalAvailablePrinters] = useState<number>(0);
+  const [printersLoading, setPrintersLoading] = useState<boolean>(false);
+  const [printersError, setPrintersError] = useState<string | null>(null);
+  const [isSimulationRunning, setIsSimulationRunning] = useState<boolean>(false);
+  const [hasAttemptedSimulation, setHasAttemptedSimulation] = useState<boolean>(false);
+  const [operationalPrinters, setOperationalPrinters] = useState<Record<GenerationLabel, InkjetPrinter[]>>(() => {
+    return GENERATION_CONFIG.reduce((acc, config) => {
+      acc[config.label as GenerationLabel] = [];
+      return acc;
+    }, {} as Record<GenerationLabel, InkjetPrinter[]>);
+  });
+  const [assignmentSelections, setAssignmentSelections] = useState<Record<string, BmpDetailResult>>({});
+  const [isBmpModalOpen, setIsBmpModalOpen] = useState<boolean>(false);
+  const [activeAssignment, setActiveAssignment] = useState<{
+    assignmentId: string;
+    motherGlassName: string;
+    printerName: string;
+    modelName: string;
+    assignedSheets: number;
+  } | null>(null);
+  const [activeAssignmentDetail, setActiveAssignmentDetail] = useState<BmpDetailResult | null>(null);
+  const [isPrintPlanConfirmed, setIsPrintPlanConfirmed] = useState<boolean>(false);
+
+  const productMap = useMemo(() => {
+    return new Map(products.map((product) => [product.id, product]));
+  }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchPrinters = async () => {
+      try {
+        setPrintersLoading(true);
+        setPrintersError(null);
+
+        const aggregatedPrinters: InkjetPrinter[] = [];
+        let page = 0;
+        const size = 100;
+
+        while (true) {
+          const response = await getInkjetPrinters({ page, size });
+
+          if (!response.isSuccess) {
+            throw new Error(response.message || '설비 목록 조회에 실패했습니다.');
+          }
+
+          const result: GetInkjetPrintersResponse = response.result;
+          aggregatedPrinters.push(...result.content);
+
+          if (result.pagination.last) {
+            break;
+          }
+
+          page += 1;
+        }
+
+        if (!isMounted) {
+          return;
+        }
+
+        const nextStats = createInitialGenerationStats();
+        const nextOperationalPrinters = GENERATION_CONFIG.reduce((acc, config) => {
+          acc[config.label as GenerationLabel] = [];
+          return acc;
+        }, {} as Record<GenerationLabel, InkjetPrinter[]>);
+
+        aggregatedPrinters.forEach((printer) => {
+          const generationLabel = resolveGenerationLabel(printer.modelName);
+          if (!generationLabel) {
+            return;
+          }
+
+          const printerStatus = printer.printerStatus as PrinterStatusKey;
+          if (!STATUS_ORDER.includes(printerStatus)) {
+            return;
+          }
+
+          const generation = nextStats[generationLabel];
+          generation.total += 1;
+          generation.byStatus[printerStatus] += 1;
+          if (printerStatus === 'OPERATIONAL') {
+            generation.available += 1;
+            nextOperationalPrinters[generationLabel].push(printer);
+          }
+        });
+
+        const totalAvailable = GENERATION_CONFIG.reduce(
+          (sum, config) => sum + nextStats[config.label].available,
+          0,
+        );
+
+        setGenerationStats(nextStats);
+        setTotalAvailablePrinters(totalAvailable);
+        setOperationalPrinters(nextOperationalPrinters);
+      } catch (error) {
+        if (isMounted) {
+          setPrintersError(
+            error instanceof Error ? error.message : '설비 정보를 가져오는 중 문제가 발생했습니다.',
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setPrintersLoading(false);
+        }
+      }
+    };
+
+    fetchPrinters();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const availableMotherGlasses = useMemo(() => {
+    return motherGlasses.filter((motherGlass) => {
+      const stats = generationStats[motherGlass.generationName as GenerationLabel];
+      return stats?.available > 0;
+    });
+  }, [generationStats]);
+
+  const handleAddGoal = useCallback(
+    (productId: string, quantity: number) => {
+      const product = productMap.get(productId);
+      if (!product) {
+        return;
+      }
+
+      setSelectedGoals((prev) => {
+        const existingIndex = prev.findIndex((goal) => goal.product.id === productId);
+        if (existingIndex !== -1) {
+          const next = [...prev];
+          next[existingIndex] = { ...next[existingIndex], quantity };
+          return next;
+        }
+        return [...prev, { product, quantity }];
+      });
+    },
+    [productMap],
+  );
+
+  const handleRemoveGoal = useCallback((productId: string) => {
+    setSelectedGoals((prev) => prev.filter((goal) => goal.product.id !== productId));
+  }, []);
+
+  const selectedGoalSummaries = useMemo(
+    () => selectedGoals.map((goal) => ({ productId: goal.product.id, quantity: goal.quantity })),
+    [selectedGoals],
+  );
+
+  const overallGenerationSummary = useMemo(() => {
+    if (!optimizationResult) {
+      return [];
+    }
+
+    const summaryMap = new Map<string, {
+      motherGlassName: string;
+      areaUsedPercentTotal: number;
+      areaRemainingPercentTotal: number;
+      sheetCount: number;
+      productCounts: Map<string, number>;
+    }>();
+
+    optimizationResult.layoutResults.forEach((result) => {
+      result.sheets.forEach((sheet) => {
+        const generationName = result.motherGlass.generationName;
+        if (!summaryMap.has(generationName)) {
+          summaryMap.set(generationName, {
+            motherGlassName: generationName,
+            areaUsedPercentTotal: 0,
+            areaRemainingPercentTotal: 0,
+            sheetCount: 0,
+            productCounts: new Map<string, number>(),
+          });
+        }
+
+        const entry = summaryMap.get(generationName)!;
+        entry.sheetCount += 1;
+
+        const sheetAreaPercent = result.motherGlass.areaMm2 > 0
+          ? (sheet.areaUsedMm2 * 100) / result.motherGlass.areaMm2
+          : 0;
+        entry.areaUsedPercentTotal += sheetAreaPercent;
+        entry.areaRemainingPercentTotal += Math.max(0, 100 - sheetAreaPercent);
+
+        sheet.placements.forEach((placement) => {
+          const key = `${placement.productName} (${placement.modelName})`;
+          entry.productCounts.set(key, (entry.productCounts.get(key) ?? 0) + 1);
+        });
+      });
+    });
+
+    return Array.from(summaryMap.values()).map((entry) => {
+      const productSummary = Array.from(entry.productCounts.entries())
+        .map(([name, count]) => `${name} × ${count}`)
+        .join('\n');
+      const averageUsedPercent = entry.sheetCount > 0 ? entry.areaUsedPercentTotal / entry.sheetCount : 0;
+      const averageRemainingPercent = entry.sheetCount > 0 ? entry.areaRemainingPercentTotal / entry.sheetCount : 0;
+
+      return {
+        motherGlassName: entry.motherGlassName,
+        productSummary: productSummary || '-',
+        averageUsedPercent,
+        averageRemainingPercent,
+        sheetCount: entry.sheetCount,
+      };
+    });
+  }, [optimizationResult]);
+
+  const printSimulationPlan = useMemo(() => {
+    return overallGenerationSummary.map((entry) => {
+      const stats = generationStats[entry.motherGlassName as GenerationLabel];
+      const printersForGeneration = operationalPrinters[entry.motherGlassName as GenerationLabel] ?? [];
+      const available = printersForGeneration.length;
+      const sheetCount = entry.sheetCount;
+      const assignments = printersForGeneration.map((printer, index) => {
+        if (available === 0) {
+          return {
+            assignmentId: `${entry.motherGlassName}-index-${index}`,
+            printerUuid: printer.inkjetUuid,
+            printerName: printer.printerName,
+            modelName: printer.modelName,
+            assignedSheets: 0,
+          };
+        }
+        const base = Math.floor(sheetCount / available);
+        const remainder = sheetCount % available;
+        const assignedSheets = sheetCount === 0 ? 0 : base + (index < remainder ? 1 : 0);
+        const assignmentId = `${entry.motherGlassName}-${printer.inkjetUuid ?? `index-${index}`}`;
+        return {
+          assignmentId,
+          printerUuid: printer.inkjetUuid,
+          printerName: printer.printerName,
+          modelName: printer.modelName,
+          assignedSheets,
+        };
+      });
+      return {
+        motherGlassName: entry.motherGlassName,
+        sheetCount,
+        assignments,
+      };
+    });
+  }, [overallGenerationSummary, generationStats, operationalPrinters]);
+
+  const requiredAssignmentIds = useMemo(() => {
+    return printSimulationPlan.flatMap((entry) =>
+      entry.assignments
+        .filter((assignment) => assignment.assignedSheets > 0)
+        .map((assignment) => assignment.assignmentId),
+    );
+  }, [printSimulationPlan]);
+
+  const requiredAssignmentsKey = useMemo(() => requiredAssignmentIds.join('|'), [requiredAssignmentIds]);
+  const previousAssignmentsKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (previousAssignmentsKeyRef.current === requiredAssignmentsKey) {
+      return;
+    }
+    previousAssignmentsKeyRef.current = requiredAssignmentsKey;
+    setAssignmentSelections((prev) => {
+      const requiredSet = new Set(requiredAssignmentIds);
+      const filteredEntries = Object.entries(prev).filter(([id]) => requiredSet.has(id));
+      if (filteredEntries.length === Object.keys(prev).length) {
+        return prev;
+      }
+      return filteredEntries.reduce<Record<string, BmpDetailResult>>((acc, [id, detail]) => {
+        acc[id] = detail;
+        return acc;
+      }, {});
+    });
+    setIsPrintPlanConfirmed(false);
+  }, [requiredAssignmentIds, requiredAssignmentsKey]);
+
+  const handleRequestImport = useCallback(
+    ({
+      motherGlassName,
+      assignment,
+    }: {
+      motherGlassName: string;
+      assignment: PrintSimulationPlanEntry['assignments'][number];
+    }) => {
+      if (assignment.assignedSheets === 0) {
+        return;
+      }
+      const existingDetail = assignmentSelections[assignment.assignmentId] ?? null;
+      setActiveAssignmentDetail(existingDetail);
+      setActiveAssignment({
+        assignmentId: assignment.assignmentId,
+        motherGlassName,
+        printerName: assignment.printerName,
+        modelName: assignment.modelName,
+        assignedSheets: assignment.assignedSheets,
+      });
+      setIsBmpModalOpen(true);
+    },
+    [assignmentSelections],
+  );
+
+  const handleApplyBmpSelection = useCallback(
+    (detail: BmpDetailResult) => {
+      if (!activeAssignment) {
+        return;
+      }
+      setAssignmentSelections((prev) => ({
+        ...prev,
+        [activeAssignment.assignmentId]: detail,
+      }));
+      setIsBmpModalOpen(false);
+      setActiveAssignment(null);
+      setActiveAssignmentDetail(null);
+      setIsPrintPlanConfirmed(false);
+    },
+    [activeAssignment],
+  );
+
+  const handleClearAssignment = useCallback((assignmentId: string) => {
+    setAssignmentSelections((prev) => {
+      if (!(assignmentId in prev)) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[assignmentId];
+      return next;
+    });
+    setIsPrintPlanConfirmed(false);
+  }, []);
+
+  const handleCloseBmpModal = useCallback(() => {
+    setIsBmpModalOpen(false);
+    setActiveAssignment(null);
+    setActiveAssignmentDetail(null);
+  }, []);
+
+  const isConfirmDisabled = useMemo(() => {
+    if (requiredAssignmentIds.length === 0) {
+      return true;
+    }
+    return requiredAssignmentIds.some((id) => !assignmentSelections[id]);
+  }, [assignmentSelections, requiredAssignmentIds]);
+
+  const handleConfirmAssignments = useCallback(() => {
+    if (isConfirmDisabled) {
+      return;
+    }
+    setIsPrintPlanConfirmed(true);
+    
+    // 잉크 소모량 섹션으로 스크롤
+    setTimeout(() => {
+      const inkConsumptionSummary = document.getElementById('ink-consumption-summary');
+      if (inkConsumptionSummary) {
+        inkConsumptionSummary.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  }, [isConfirmDisabled]);
+
+  const runOptimization = useCallback((goals: SelectedGoal[]) => {
+    if (goals.length === 0) {
+      setOptimizationResult(null);
+      setHasAttemptedSimulation(false);
+      return;
+    }
+    setHasAttemptedSimulation(true);
+    if (availableMotherGlasses.length === 0) {
+      setOptimizationResult(null);
+      return;
+    }
+    const result = computeOptimalMotherGlassPlan(availableMotherGlasses, goals);
+    setOptimizationResult(result);
+  }, [availableMotherGlasses]);
+
+  const handleConfirmGoals = useCallback(
+    (goals: SelectedGoal[]) => {
+      setConfirmedGoals(goals.map((goal) => ({ ...goal })));
+      setHasAttemptedSimulation(false);
+      
+      // 최종 생산 목표 섹션으로 스크롤
+      setTimeout(() => {
+        const confirmedGoalTable = document.getElementById('confirmed-goal-table');
+        if (confirmedGoalTable) {
+          confirmedGoalTable.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+    },
+    [],
+  );
+
+  const handleRunSimulation = useCallback(() => {
+    if (printersLoading || confirmedGoals.length === 0) {
+      return;
+    }
+    setIsSimulationRunning(true);
+    setTimeout(() => {
+      try {
+        runOptimization(confirmedGoals);
+        
+        // 배치 결과 섹션으로 스크롤
+        setTimeout(() => {
+          const overallSummary = document.getElementById('overall-production-summary');
+          if (overallSummary) {
+            overallSummary.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 200);
+      } finally {
+        setIsSimulationRunning(false);
+      }
+    }, 0);
+  }, [confirmedGoals, printersLoading, runOptimization]);
+
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <Sidebar />
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col">
-        {/* Navigation Bar */}
-        <Navbar userName="홍길동" />
-
-        {/* Content */}
-        <main className="flex-1 p-6 overflow-y-auto">
-          <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* 시뮬레이션 설정 */}
-              <div className="lg:col-span-1">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                    시뮬레이션 설정
-                  </h2>
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        패턴 선택
-                      </label>
-                      <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="">패턴을 선택하세요</option>
-                        <option value="pattern1">패턴 1</option>
-                        <option value="pattern2">패턴 2</option>
-                        <option value="pattern3">패턴 3</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        시뮬레이션 시간 (초)
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="3600"
-                        defaultValue="60"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        샘플링 레이트
-                      </label>
-                      <select className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <option value="1000">1000 Hz</option>
-                        <option value="2000">2000 Hz</option>
-                        <option value="5000">5000 Hz</option>
-                      </select>
-                    </div>
-                    <div className="flex space-x-2">
-                      <button className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
-                        시작
-                      </button>
-                      <button className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors">
-                        중지
-                      </button>
-                    </div>
-                  </div>
+    <AuthGuard>
+    <div className="flex h-screen overflow-x-hidden bg-gray-50">
+        <Sidebar />
+        <div className="flex flex-1 flex-col overflow-x-hidden">
+          <Navbar />
+          <main className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-6">
+            <div className="mx-auto w-full max-w-7xl overflow-x-hidden pb-2 space-y-6">
+              <div className="flex gap-6">
+                <div className="flex-1">
+                  <ProductList
+                    onConfirmGoal={(productId, quantity) => {
+                      handleAddGoal(productId, quantity);
+                      setActiveProductId(null);
+                    }}
+                    selectedGoals={selectedGoalSummaries}
+                    activeProductId={activeProductId}
+                    onModalClose={() => setActiveProductId(null)}
+                  />
                 </div>
-
-                {/* 진행 상황 */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    진행 상황
-                  </h3>
-                  <div className="space-y-3">
-                    <div>
-                      <div className="flex justify-between text-sm text-gray-600 mb-1">
-                        <span>시뮬레이션 진행률</span>
-                        <span>45%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full"
-                          style={{ width: '45%' }}
-                        ></div>
-                      </div>
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      <p>경과 시간: 27초</p>
-                      <p>남은 시간: 33초</p>
-                    </div>
-                  </div>
-                </div>
+                <SelectedGoalList
+                  goals={selectedGoals}
+                  onRemove={handleRemoveGoal}
+                  onEdit={(product) => setActiveProductId(product.id)}
+                  onConfirm={handleConfirmGoals}
+                  className="shrink-0"
+                  activeProductId={activeProductId}
+                />
               </div>
 
-              {/* 시뮬레이션 결과 */}
-              <div className="lg:col-span-2">
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                    시뮬레이션 결과
-                  </h2>
-                  <div className="space-y-6">
-                    {/* 그래프 영역 */}
-                    <div className="h-64 bg-gray-50 rounded-lg flex items-center justify-center border-2 border-dashed border-gray-300">
-                      <div className="text-center">
-                        <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-2">
-                          <svg
-                            className="w-8 h-8 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth="2"
-                              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                            />
-                          </svg>
-                        </div>
-                        <p className="text-gray-500">시뮬레이션 그래프</p>
-                      </div>
-                    </div>
+              <ConfirmedGoalTable goals={confirmedGoals} />
 
-                    {/* 결과 통계 */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="text-center p-4 bg-blue-50 rounded-lg">
-                        <p className="text-2xl font-bold text-blue-600">1.2</p>
-                        <p className="text-sm text-blue-800">평균 값</p>
-                      </div>
-                      <div className="text-center p-4 bg-green-50 rounded-lg">
-                        <p className="text-2xl font-bold text-green-600">0.8</p>
-                        <p className="text-sm text-green-800">최소 값</p>
-                      </div>
-                      <div className="text-center p-4 bg-red-50 rounded-lg">
-                        <p className="text-2xl font-bold text-red-600">2.1</p>
-                        <p className="text-sm text-red-800">최대 값</p>
-                      </div>
-                      <div className="text-center p-4 bg-purple-50 rounded-lg">
-                        <p className="text-2xl font-bold text-purple-600">
-                          0.3
-                        </p>
-                        <p className="text-sm text-purple-800">표준편차</p>
-                      </div>
-                    </div>
+              <div className="pt-2">
+                <h2 className="text-xl font-semibold text-gray-900">생산 계획 설계</h2>
+              </div>
 
-                    {/* 결과 테이블 */}
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                        상세 결과
-                      </h3>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b border-gray-200">
-                              <th className="text-left py-2">시간</th>
-                              <th className="text-left py-2">값</th>
-                              <th className="text-left py-2">상태</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {Array.from({ length: 5 }, (_, i) => {
-                              // 고정된 시드 값으로 일관된 결과 생성
-                              const seed = i * 0.3;
-                              const value = (1.2 + (seed % 0.8)).toFixed(2);
+              <MotherGlassInfoList
+                motherGlasses={motherGlasses}
+                generationStats={generationStats}
+                totalAvailable={totalAvailablePrinters}
+                loading={printersLoading}
+                error={printersError}
+                onCalculate={handleRunSimulation}
+                isCalculating={isSimulationRunning}
+                calculateDisabled={confirmedGoals.length === 0 || Boolean(printersError) || printersLoading}
+              />
 
-                              return (
-                                <tr
-                                  key={i}
-                                  className="border-b border-gray-100"
-                                >
-                                  <td className="py-2">{i * 10}초</td>
-                                  <td className="py-2">{value}</td>
-                                  <td className="py-2">
-                                    <span
-                                      className={`px-2 py-1 rounded text-xs ${
-                                        i % 2 === 0
-                                          ? 'bg-green-100 text-green-800'
-                                          : 'bg-yellow-100 text-yellow-800'
-                                      }`}
-                                    >
-                                      {i % 2 === 0 ? '정상' : '경고'}
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
+              {optimizationResult ? (
+                <>
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+                    총 배치 {optimizationResult.totalPlacedQuantity.toLocaleString()}개 · 미배치 {optimizationResult.totalUnplacedQuantity.toLocaleString()}개 · 사용 원장 {optimizationResult.totalMotherGlassesUsed.toLocaleString()}장 · 전체 면취 효율 {optimizationResult.overallAreaUtilizationPercent.toFixed(1)}%
+                  </div>
+                  <OverallProductionSummary summary={overallGenerationSummary} />
+                </>
+              ) : null}
+
+              {optimizationResult ? (
+                <div className="space-y-4">
+                  {optimizationResult.layoutResults.map((result, index) => (
+                    <MotherGlassLayoutPreview
+                      key={`${result.motherGlass.id}-${index}`}
+                      layoutResult={result}
+                    />
+                  ))}
+
+                  <div className="space-y-4 pt-4">
+                    <h2 className="text-xl font-semibold text-gray-900">생산 시뮬레이션</h2>
+                    <PrintSimulationPlan
+                      plan={printSimulationPlan}
+                      selectedAssignments={assignmentSelections}
+                      onRequestImport={handleRequestImport}
+                      onClearSelection={handleClearAssignment}
+                      onConfirm={handleConfirmAssignments}
+                      isConfirmDisabled={isConfirmDisabled}
+                      isConfirmed={isPrintPlanConfirmed}
+                    />
+                    {isPrintPlanConfirmed ? (
+                      <InkConsumptionSummary plan={printSimulationPlan} selectedAssignments={assignmentSelections} />
+                    ) : (
+                      <CommonContainerBox className="px-4 py-4 text-sm text-gray-600">
+                        설비별 이미지 매칭을 모두 완료하고 &quot;설비 매칭 확인&quot; 버튼을 누르면 잉크 소모량과 예상 시간이 계산됩니다.
+                      </CommonContainerBox>
+                    )}
                   </div>
                 </div>
-              </div>
+              ) : hasAttemptedSimulation ? (
+                availableMotherGlasses.length === 0 ? (
+                  <div className="rounded-lg bg-gray-100 px-4 py-3 text-sm text-gray-700">
+                    사용 가능한 설비가 없어 배치를 진행할 수 없습니다. 설비 상태를 확인하거나 설비 가동을 요청해주세요.
+                  </div>
+                ) : (
+                  <div className="rounded-lg bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
+                    배치 가능한 조합을 찾지 못했습니다. 목표 제품 수량을 조정해주세요.
+                  </div>
+                )
+              ) : null}
             </div>
-          </div>
-        </main>
-      </div>
+          </main>
+        </div>
     </div>
+    <BmpImportModal
+      isOpen={isBmpModalOpen}
+      onClose={handleCloseBmpModal}
+      onSelect={handleApplyBmpSelection}
+      preselectedDetail={activeAssignmentDetail}
+      targetInfo={
+        activeAssignment
+          ? {
+              motherGlassName: activeAssignment.motherGlassName,
+              printerName: activeAssignment.printerName,
+              modelName: activeAssignment.modelName,
+              assignedSheets: activeAssignment.assignedSheets,
+            }
+          : null
+      }
+    />
+    </AuthGuard>
   );
 }
