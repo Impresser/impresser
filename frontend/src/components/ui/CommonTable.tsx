@@ -11,7 +11,7 @@ export interface QueueItem {
   algorithm: string;
   version: string;
   fileSize: number;
-  status: '대기' | '진행';
+  status: '대기' | '진행' | '완료';
   assignedUser: string;
   startTime: Date | null;
   elapsedTime: number; // 초 단위
