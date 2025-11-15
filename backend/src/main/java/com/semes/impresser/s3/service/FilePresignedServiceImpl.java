@@ -30,6 +30,7 @@ import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
 import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadResponse;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListPartsRequest;
 import software.amazon.awssdk.services.s3.model.ListPartsResponse;
 import software.amazon.awssdk.services.s3.model.Part;
@@ -302,5 +303,13 @@ public class FilePresignedServiceImpl implements FilePresignedService {
             responses.add(response);
         }
         return responses;
+    }
+
+    @Override
+    public void deleteByKey(String key) {
+        s3Client.deleteObject(DeleteObjectRequest.builder()
+            .bucket(s3Config.getBucket())
+            .key(key)
+            .build());
     }
 }
