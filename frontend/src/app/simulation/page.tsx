@@ -385,6 +385,14 @@ export default function SimulationPage() {
       return;
     }
     setIsPrintPlanConfirmed(true);
+    
+    // 잉크 소모량 섹션으로 스크롤
+    setTimeout(() => {
+      const inkConsumptionSummary = document.getElementById('ink-consumption-summary');
+      if (inkConsumptionSummary) {
+        inkConsumptionSummary.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
   }, [isConfirmDisabled]);
 
   const runOptimization = useCallback((goals: SelectedGoal[]) => {
@@ -406,6 +414,14 @@ export default function SimulationPage() {
     (goals: SelectedGoal[]) => {
       setConfirmedGoals(goals.map((goal) => ({ ...goal })));
       setHasAttemptedSimulation(false);
+      
+      // 최종 생산 목표 섹션으로 스크롤
+      setTimeout(() => {
+        const confirmedGoalTable = document.getElementById('confirmed-goal-table');
+        if (confirmedGoalTable) {
+          confirmedGoalTable.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
     },
     [],
   );
@@ -418,6 +434,14 @@ export default function SimulationPage() {
     setTimeout(() => {
       try {
         runOptimization(confirmedGoals);
+        
+        // 배치 결과 섹션으로 스크롤
+        setTimeout(() => {
+          const overallSummary = document.getElementById('overall-production-summary');
+          if (overallSummary) {
+            overallSummary.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 200);
       } finally {
         setIsSimulationRunning(false);
       }
