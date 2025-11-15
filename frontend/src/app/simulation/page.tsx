@@ -236,10 +236,12 @@ export default function SimulationPage() {
         .join('\n');
       const averageUsedPercent = entry.sheetCount > 0 ? entry.areaUsedPercentTotal / entry.sheetCount : 0;
       const averageRemainingPercent = entry.sheetCount > 0 ? entry.areaRemainingPercentTotal / entry.sheetCount : 0;
+      const totalProductCount = Array.from(entry.productCounts.values()).reduce((sum, count) => sum + count, 0);
 
       return {
         motherGlassName: entry.motherGlassName,
         productSummary: productSummary || '-',
+        totalProductCount,
         averageUsedPercent,
         averageRemainingPercent,
         sheetCount: entry.sheetCount,
@@ -386,7 +388,7 @@ export default function SimulationPage() {
     }
     setIsPrintPlanConfirmed(true);
     
-    // 잉크 소모량 섹션으로 스크롤
+    // 잉크 사용량 섹션으로 스크롤
     setTimeout(() => {
       const inkConsumptionSummary = document.getElementById('ink-consumption-summary');
       if (inkConsumptionSummary) {
@@ -415,11 +417,11 @@ export default function SimulationPage() {
       setConfirmedGoals(goals.map((goal) => ({ ...goal })));
       setHasAttemptedSimulation(false);
       
-      // 최종 생산 목표 섹션으로 스크롤
+      // 생산 계획 설계 섹션으로 스크롤
       setTimeout(() => {
-        const confirmedGoalTable = document.getElementById('confirmed-goal-table');
-        if (confirmedGoalTable) {
-          confirmedGoalTable.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const productionPlanSection = document.getElementById('production-plan-section');
+        if (productionPlanSection) {
+          productionPlanSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }, 100);
     },
@@ -435,11 +437,11 @@ export default function SimulationPage() {
       try {
         runOptimization(confirmedGoals);
         
-        // 배치 결과 섹션으로 스크롤
+        // 설비별 배치 섹션으로 스크롤
         setTimeout(() => {
-          const overallSummary = document.getElementById('overall-production-summary');
-          if (overallSummary) {
-            overallSummary.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          const batchPlanSection = document.getElementById('batch-plan-section');
+          if (batchPlanSection) {
+            batchPlanSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
         }, 200);
       } finally {
@@ -478,11 +480,11 @@ export default function SimulationPage() {
                 />
               </div>
 
-              <ConfirmedGoalTable goals={confirmedGoals} />
-
-              <div className="pt-2">
+              <div id="production-plan-section" className="pt-2">
                 <h2 className="text-xl font-semibold text-gray-900">생산 계획 설계</h2>
               </div>
+
+              <ConfirmedGoalTable goals={confirmedGoals} />
 
               <MotherGlassInfoList
                 motherGlasses={motherGlasses}
@@ -496,41 +498,18 @@ export default function SimulationPage() {
               />
 
               {optimizationResult ? (
-                <>
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-                    총 배치 {optimizationResult.totalPlacedQuantity.toLocaleString()}개 · 미배치 {optimizationResult.totalUnplacedQuantity.toLocaleString()}개 · 사용 원장 {optimizationResult.totalMotherGlassesUsed.toLocaleString()}장 · 전체 면취 효율 {optimizationResult.overallAreaUtilizationPercent.toFixed(1)}%
+                <div id="batch-plan-section" className="space-y-4">
+                  <div className="pt-2">
+                    <h2 className="text-xl font-semibold text-gray-900">설비별 배치</h2>
                   </div>
                   <OverallProductionSummary summary={overallGenerationSummary} />
-                </>
-              ) : null}
-
-              {optimizationResult ? (
-                <div className="space-y-4">
-                  {optimizationResult.layoutResults.map((result, index) => (
-                    <MotherGlassLayoutPreview
-                      key={`${result.motherGlass.id}-${index}`}
-                      layoutResult={result}
-                    />
-                  ))}
-
-                  <div className="space-y-4 pt-4">
-                    <h2 className="text-xl font-semibold text-gray-900">생산 시뮬레이션</h2>
-                    <PrintSimulationPlan
-                      plan={printSimulationPlan}
-                      selectedAssignments={assignmentSelections}
-                      onRequestImport={handleRequestImport}
-                      onClearSelection={handleClearAssignment}
-                      onConfirm={handleConfirmAssignments}
-                      isConfirmDisabled={isConfirmDisabled}
-                      isConfirmed={isPrintPlanConfirmed}
-                    />
-                    {isPrintPlanConfirmed ? (
-                      <InkConsumptionSummary plan={printSimulationPlan} selectedAssignments={assignmentSelections} />
-                    ) : (
-                      <CommonContainerBox className="px-4 py-4 text-sm text-gray-600">
-                        설비별 이미지 매칭을 모두 완료하고 &quot;설비 매칭 확인&quot; 버튼을 누르면 잉크 소모량과 예상 시간이 계산됩니다.
-                      </CommonContainerBox>
-                    )}
+                  <div className="space-y-4">
+                    {optimizationResult.layoutResults.map((result, index) => (
+                      <MotherGlassLayoutPreview
+                        key={`${result.motherGlass.id}-${index}`}
+                        layoutResult={result}
+                      />
+                    ))}
                   </div>
                 </div>
               ) : hasAttemptedSimulation ? (
@@ -544,6 +523,26 @@ export default function SimulationPage() {
                   </div>
                 )
               ) : null}
+
+              <div className="space-y-4 pt-4">
+                <h2 className="text-xl font-semibold text-gray-900">잉크 사용량 및 인쇄 시간</h2>
+                <PrintSimulationPlan
+                  plan={printSimulationPlan}
+                  selectedAssignments={assignmentSelections}
+                  onRequestImport={handleRequestImport}
+                  onClearSelection={handleClearAssignment}
+                  onConfirm={handleConfirmAssignments}
+                  isConfirmDisabled={isConfirmDisabled}
+                  isConfirmed={isPrintPlanConfirmed}
+                />
+                {isPrintPlanConfirmed ? (
+                  <InkConsumptionSummary plan={printSimulationPlan} selectedAssignments={assignmentSelections} />
+                ) : (
+                  <CommonContainerBox className="px-4 py-4 text-sm text-gray-600">
+                    설비별 이미지 매칭을 모두 완료하고 &quot;설비 매칭 확인&quot; 버튼을 누르면 잉크 사용량과 예상 시간이 계산됩니다.
+                  </CommonContainerBox>
+                )}
+              </div>
             </div>
           </main>
         </div>

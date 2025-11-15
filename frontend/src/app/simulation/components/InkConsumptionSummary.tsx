@@ -187,7 +187,7 @@ export default function InkConsumptionSummary({ plan, selectedAssignments }: Ink
     <div id="ink-consumption-summary">
       <CommonContainerBox className="px-4 py-4 space-y-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">잉크 소모량 및 예상 시간 계산</h3>
+          <h3 className="text-lg font-semibold text-gray-900">잉크 사용량 및 예상 시간 계산</h3>
         <p className="mt-1 text-sm text-gray-500">
           이미지 픽셀 수와 인쇄 수량을 반영해 색상별 잉크 사용량을 계산합니다. 10,000px당 1ml 기준으로 환산합니다.
         </p>
@@ -280,11 +280,19 @@ export default function InkConsumptionSummary({ plan, selectedAssignments }: Ink
               <div className="rounded-md bg-gray-50 px-3 py-2 text-[12px] text-gray-500">
                 총 픽셀 {metric.totalPixels.toLocaleString()} px · 인쇄 수량 {metric.assignedSheets.toLocaleString()} · 총 잉크 사용량{' '}
                 {metric.totalUsageMl.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml · 충전 횟수 {metric.totalRefillEvents.toLocaleString()} 회
-                <div className="mt-1 flex flex-wrap gap-3 text-[11px]">
-                  <span className="text-rose-500">Red {metric.refillEventsPerColor.red.toLocaleString()}회</span>
-                  <span className="text-green-600">Green {metric.refillEventsPerColor.green.toLocaleString()}회</span>
-                  <span className="text-blue-600">Blue {metric.refillEventsPerColor.blue.toLocaleString()}회</span>
-                </div>
+                {metric.refillEventsPerColor.red > 0 || metric.refillEventsPerColor.green > 0 || metric.refillEventsPerColor.blue > 0 ? (
+                  <div className="mt-1 flex flex-wrap gap-3 text-[11px]">
+                    {metric.refillEventsPerColor.red > 0 && (
+                      <span className="text-rose-500">Red {metric.refillEventsPerColor.red.toLocaleString()}회</span>
+                    )}
+                    {metric.refillEventsPerColor.green > 0 && (
+                      <span className="text-green-600">Green {metric.refillEventsPerColor.green.toLocaleString()}회</span>
+                    )}
+                    {metric.refillEventsPerColor.blue > 0 && (
+                      <span className="text-blue-600">Blue {metric.refillEventsPerColor.blue.toLocaleString()}회</span>
+                    )}
+                  </div>
+                ) : null}
               </div>
               </React.Fragment>
             );
@@ -313,7 +321,14 @@ export default function InkConsumptionSummary({ plan, selectedAssignments }: Ink
               </div>
               <div className="flex flex-col">
                 <span className="text-xs font-semibold text-gray-500">총 잉크 사용량</span>
-                <span className="text-sm text-gray-800">{totalUsageMl.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml</span>
+                <span className="text-xs text-gray-600">
+                  <span className="text-rose-500">Red {totals.usagePerColor.red.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml</span> ·{' '}
+                  <span className="text-green-600">Green {totals.usagePerColor.green.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml</span> ·{' '}
+                  <span className="text-blue-600">Blue {totals.usagePerColor.blue.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml</span>
+                </span>
+                <span className="text-sm font-semibold text-gray-800 mt-1">
+                  합계: {totalUsageMl.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml
+                </span>
               </div>
               <div className="flex flex-col">
                 <span className="text-xs font-semibold text-gray-500">총 충전 횟수</span>
@@ -321,11 +336,27 @@ export default function InkConsumptionSummary({ plan, selectedAssignments }: Ink
               </div>
               <div className="flex flex-col">
                 <span className="text-xs font-semibold text-gray-500">색상별 충전 횟수</span>
-                <span className="text-xs text-gray-600">
-                  <span className="text-rose-500">Red {totals.refillEventsPerColor.red.toLocaleString()}회</span> ·{' '}
-                  <span className="text-green-600">Green {totals.refillEventsPerColor.green.toLocaleString()}회</span> ·{' '}
-                  <span className="text-blue-600">Blue {totals.refillEventsPerColor.blue.toLocaleString()}회</span>
-                </span>
+                {totals.refillEventsPerColor.red > 0 || totals.refillEventsPerColor.green > 0 || totals.refillEventsPerColor.blue > 0 ? (
+                  <span className="text-xs text-gray-600">
+                    {totals.refillEventsPerColor.red > 0 && (
+                      <>
+                        <span className="text-rose-500">Red {totals.refillEventsPerColor.red.toLocaleString()}회</span>
+                        {(totals.refillEventsPerColor.green > 0 || totals.refillEventsPerColor.blue > 0) && ' · '}
+                      </>
+                    )}
+                    {totals.refillEventsPerColor.green > 0 && (
+                      <>
+                        <span className="text-green-600">Green {totals.refillEventsPerColor.green.toLocaleString()}회</span>
+                        {totals.refillEventsPerColor.blue > 0 && ' · '}
+                      </>
+                    )}
+                    {totals.refillEventsPerColor.blue > 0 && (
+                      <span className="text-blue-600">Blue {totals.refillEventsPerColor.blue.toLocaleString()}회</span>
+                    )}
+                  </span>
+                ) : (
+                  <span className="text-xs text-gray-400">-</span>
+                )}
               </div>
               <div className="flex flex-col lg:col-span-2">
                 <span className="text-xs font-semibold text-gray-500">최대 예상 시간(가장 오래 걸린 설비 기준)</span>

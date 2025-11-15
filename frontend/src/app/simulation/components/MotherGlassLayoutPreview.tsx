@@ -3,10 +3,12 @@
 import React, { useMemo } from 'react';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import type { LayoutComputationResult } from '../utils/layoutCalculations';
+import LayoutSlider from './LayoutSlider';
 
 interface GenerationOverallSummary {
   motherGlassName: string;
   productSummary: string;
+  totalProductCount?: number;
   averageUsedPercent: number;
   averageRemainingPercent: number;
   sheetCount: number;
@@ -127,15 +129,23 @@ export default function MotherGlassLayoutPreview({ layoutResult, overallSummary 
 
   return (
     <CommonContainerBox className="px-4 py-4">
-      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">
-            {motherGlass.generationName || '-'} 원장 배치도
-          </h3>
+      <div className="mb-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {motherGlass.generationName || '-'} 원장 배치도
+            </h3>
+            <span className="text-sm text-gray-600">
+              총 원장 수: {totalMotherGlassesUsed.toLocaleString()}장
+            </span>
+          </div>
+          <div className="rounded-full bg-blue-50 px-4 py-2 text-sm font-medium text-blue-600">
+            원장 크기: {motherGlass.widthMm.toLocaleString()}mm × {motherGlass.heightMm.toLocaleString()}mm
+          </div>
         </div>
-        <div className="rounded-full bg-blue-50 px-4 py-2 text-sm font-medium text-blue-600">
-          원장 크기: {motherGlass.widthMm.toLocaleString()}mm × {motherGlass.heightMm.toLocaleString()}mm
-        </div>
+        <p className="mt-2 text-right text-sm text-gray-500">
+          * 배치는 제품 회전 가능 여부를 자동 판단하여 구성되며, 실제 생산에서는 추가 최적화가 필요할 수 있습니다.
+        </p>
       </div>
 
       {!hasPlacements ? (
@@ -145,7 +155,7 @@ export default function MotherGlassLayoutPreview({ layoutResult, overallSummary 
       ) : (
         <div className="space-y-6">
           <div>
-            <div className="mt-2 grid gap-4 lg:grid-cols-2">
+            <LayoutSlider>
               {uniqueSheetsForVisualization.map((sheet, index) => {
                 const groupedSheet = groupedSheets[index];
                 const placements = sheet.placements;
@@ -171,8 +181,33 @@ export default function MotherGlassLayoutPreview({ layoutResult, overallSummary 
                   offsetYPercent = (offsetY / motherGlass.heightMm) * 100;
                 }
 
+                // 원장 비율 계산
+                const aspectRatio = motherGlass.widthMm / motherGlass.heightMm;
+                const maxCardWidth = 500; // 최대 카드 너비
+                const maxCardHeight = 400; // 최대 카드 높이
+                
+                let cardWidth: number;
+                let cardHeight: number;
+                
+                if (aspectRatio > 1) {
+                  // 가로가 더 긴 경우
+                  cardWidth = Math.min(maxCardWidth, maxCardHeight * aspectRatio);
+                  cardHeight = cardWidth / aspectRatio;
+                } else {
+                  // 세로가 더 긴 경우
+                  cardHeight = Math.min(maxCardHeight, maxCardWidth / aspectRatio);
+                  cardWidth = cardHeight * aspectRatio;
+                }
+
                 return (
-                  <div key={`sheet-${sheet.sheetIndex}`} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+                  <div 
+                    key={`sheet-${sheet.sheetIndex}`} 
+                    className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm mx-auto"
+                    style={{
+                      width: `${cardWidth}px`,
+                      maxWidth: '100%',
+                    }}
+                  >
                     <div className="mb-3 flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2">
                         <span className="font-semibold text-base text-gray-900">배치 유형 #{index + 1}</span>
@@ -181,15 +216,14 @@ export default function MotherGlassLayoutPreview({ layoutResult, overallSummary 
                         </span>
                       </div>
                       <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-medium text-blue-600 sm:text-sm">
-                        사용 효율 {groupedSheet.areaUsedPercent.toFixed(1)}%
+                        면취효율 {groupedSheet.areaUsedPercent.toFixed(1)}%
                       </span>
                     </div>
                     <div
                       className="relative overflow-hidden rounded-lg border border-dashed border-gray-300 bg-gray-50"
                       style={{
-                        width: '75%',
-                        paddingTop: `${(motherGlass.heightMm / motherGlass.widthMm) * 75}%`,
-                        margin: '0 auto',
+                        width: '100%',
+                        paddingTop: `${(motherGlass.heightMm / motherGlass.widthMm) * 100}%`,
                       }}
                     >
                       <div className="absolute inset-0">
@@ -236,15 +270,11 @@ export default function MotherGlassLayoutPreview({ layoutResult, overallSummary 
                   </div>
                 );
               })}
-            </div>
-            <p className="mt-2 text-sm text-gray-500">
-              * 배치는 제품 회전 가능 여부를 자동 판단하여 구성되며, 실제 생산에서는 추가 최적화가 필요할 수 있습니다. 실제 사용된 원장 수: {totalMotherGlassesUsed.toLocaleString()} 장
-            </p>
+            </LayoutSlider>
           </div>
 
           <div className="space-y-6">
             <div>
-              <h4 className="text-base font-semibold text-gray-900">패널 배치 요약</h4>
               <div className="mt-2 overflow-x-auto rounded-xl border border-gray-200">
                 <div className="min-w-[800px] grid grid-cols-[0.5fr_0.5fr_3fr_1fr_1fr] gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-600 text-center">
                   <span>원장 종류</span>
@@ -280,17 +310,19 @@ export default function MotherGlassLayoutPreview({ layoutResult, overallSummary 
               <div>
                 <h4 className="text-base font-semibold text-gray-900">전체 배치 요약</h4>
                 <div className="mt-2 overflow-x-auto rounded-xl border border-[#0059FF]/20">
-                  <div className="min-w-[700px] grid grid-cols-[1.2fr_2.8fr_1fr_1fr] gap-2 border-b border-[#0059FF]/10 bg-[#0059FF]/5 px-4 py-2 text-sm font-semibold text-[#0059FF] text-center">
+                  <div className="min-w-[700px] grid grid-cols-[1.2fr_2.8fr_0.8fr_1fr_1fr] gap-2 border-b border-[#0059FF]/10 bg-[#0059FF]/5 px-4 py-2 text-sm font-semibold text-[#0059FF] text-center">
                     <span>원장 세대</span>
                     <span>포함 제품</span>
+                    <span>제품 수량</span>
                     <span>평균 사용 면적</span>
                     <span>사용 장수</span>
                   </div>
                   <div className="divide-y divide-[#0059FF]/10 text-sm text-gray-700">
                     {overallGenerationSummary.map((summary) => (
-                      <div key={`overall-summary-${summary.motherGlassName}`} className="min-w-[700px] grid grid-cols-[1.2fr_2.8fr_1fr_1fr] gap-2 px-4 py-2">
+                      <div key={`overall-summary-${summary.motherGlassName}`} className="min-w-[700px] grid grid-cols-[1.2fr_2.8fr_0.8fr_1fr_1fr] gap-2 px-4 py-2">
                         <span className="text-sm font-semibold text-gray-900">{summary.motherGlassName}</span>
                         <span className="text-right text-gray-600 whitespace-pre-line">{summary.productSummary}</span>
+                        <span className="text-right text-gray-900">{summary.totalProductCount?.toLocaleString() || 0}개</span>
                         <span className="text-right text-[#0059FF]">{summary.averageUsedPercent.toFixed(1)}% 사용<br />
                           <span className="text-[10px] text-gray-400">잔여 {summary.averageRemainingPercent.toFixed(1)}%</span>
                         </span>
