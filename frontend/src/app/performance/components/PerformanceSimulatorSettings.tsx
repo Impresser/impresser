@@ -172,13 +172,14 @@ export default function PerformanceSimulatorSettings({
         />
         <div>
           <label className="mb-3 block text-sm font-medium text-gray-700">처리방식</label>
-          <div className="flex gap-4">
+          <div className="flex justify-between">
             <RadioButton
               name={`processing-${slotIndex}`}
               value="cpu"
               label="CPU"
               checked={settings.processingMethod === 'cpu'}
               onChange={(value) => onSettingsChange({ processingMethod: value as 'cpu' | 'gpu' })}
+              className="flex-1"
             />
             <RadioButton
               name={`processing-${slotIndex}`}
@@ -186,6 +187,7 @@ export default function PerformanceSimulatorSettings({
               label="GPU"
               checked={settings.processingMethod === 'gpu'}
               onChange={(value) => onSettingsChange({ processingMethod: value as 'cpu' | 'gpu' })}
+              className="flex-1"
             />
           </div>
         </div>

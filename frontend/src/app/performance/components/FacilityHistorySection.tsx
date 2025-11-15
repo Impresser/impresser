@@ -11,6 +11,7 @@ interface FacilityHistorySectionProps {
   historyError: string | null;
   onDownload?: (item: HistoryItem) => void;
   withContainer?: boolean;
+  facilityName?: string;
 }
 
 export default function FacilityHistorySection({
@@ -19,10 +20,13 @@ export default function FacilityHistorySection({
   historyError,
   onDownload,
   withContainer = true,
+  facilityName,
 }: FacilityHistorySectionProps) {
   const content = (
     <div>
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">작업내역</h3>
+      <h3 className="text-lg font-semibold text-gray-900 mb-4">
+        {facilityName ? `${facilityName} 작업내역` : '작업내역'}
+      </h3>
 
       {isLoadingHistory && (
         <div className="flex justify-center items-center py-8">
