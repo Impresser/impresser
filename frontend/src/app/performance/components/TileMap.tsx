@@ -601,7 +601,6 @@ export default function TileMap({
                   key={overlay.id}
                   type="button"
                   className={overlayClasses}
-                  style={overlay.style}
                   onClick={(event) => {
                     event.stopPropagation();
                     if (isLocationSelectMode) return;
