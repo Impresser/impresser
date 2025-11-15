@@ -17,6 +17,7 @@ public record ConvertHistoryItemResponse(
     Long tiffVolume,
     Long compressionRatio,
     String userName,
+    String employeeNo,
     String completedAt,
     Long elapsedTime,
     String tiffUrl
@@ -37,6 +38,7 @@ public record ConvertHistoryItemResponse(
             .tiffVolume(src.tiffVolume())
             .compressionRatio(src.compressionRatio())
             .userName(src.userName())
+            .employeeNo(src.employeeNo())
             .completedAt(src.completedAt())
             .elapsedTime(src.elapsedTime())
             .tiffUrl(tiffUrl)
@@ -54,6 +56,7 @@ public record ConvertHistoryItemResponse(
             convertHistory.getTiffVolume(),
             convertHistory.getCompressionRatio(),
             convertHistory.getUser().getUserName(),
+            convertHistory.getUser().getEmployeeNo(),
             convertHistory.getCompletedAt().toString(),
             Duration.between(convertHistory.getRequestedAt(), convertHistory.getCompletedAt())
                 .getSeconds(),
