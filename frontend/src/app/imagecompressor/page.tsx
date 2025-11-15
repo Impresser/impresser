@@ -10,10 +10,12 @@ import { FileInfo } from '@/types/imageCompressor';
 import CompressionQueue from './components/CompressionQueue';
 import CompressionHistory from './components/CompressionHistory';
 import { useAuthStore } from '@/store/authStore';
-import { createConvertJobs } from '@/service/imageCompressor';
+import { createConvertJobs, subscribeSSEWithAuth, SSEEventData } from '@/service/imageCompressor';
+import { useToast } from '@/components/ui/CommonToast';
 
 export default function ImageCompressorPage() {
   const userName = useAuthStore((state) => state.user?.userName ?? '사용자');
+  const { showToast } = useToast();
   const [selectedFiles, setSelectedFiles] = useState<FileInfo[]>([]);
   const [processingMethod, setProcessingMethod] = useState('cpu');
   const [algorithm, setAlgorithm] = useState('lzw');
@@ -21,6 +23,7 @@ export default function ImageCompressorPage() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const idCounterRef = useRef(0);
   const queueSectionRef = useRef<HTMLDivElement | null>(null);
+  const previousStatusMapRef = useRef<Map<string, '대기' | '진행' | '완료'>>(new Map());
 
   // BMP 파일 헤더에서 이미지 크기 추출 (처음 26바이트만 읽음)
   const readBmpDimensions = (file: File): Promise<{ width: number; height: number }> => {
@@ -201,6 +204,10 @@ export default function ImageCompressorPage() {
         newItems.forEach((newItem) => {
           const index = updated.findIndex(item => item.id === newItem.id);
           if (index !== -1) {
+            // 초기 상태 저장 (convertHistoryUuid가 있으면)
+            if (updated[index].convertHistoryUuid) {
+              previousStatusMapRef.current.set(updated[index].convertHistoryUuid, '대기');
+            }
             updated[index] = {
               ...updated[index],
               status: '진행' as const,
@@ -209,6 +216,13 @@ export default function ImageCompressorPage() {
           }
         });
         return updated;
+      });
+
+      // 압축 시작 토스트 표시 (렌더링 완료 후)
+      newItems.forEach((newItem) => {
+        setTimeout(() => {
+          showToast(`${newItem.fileName} 압축이 시작되었습니다.`);
+        }, 0);
       });
 
       // 대기열 섹션으로 스크롤 이동 (중앙 정렬)
@@ -237,6 +251,78 @@ export default function ImageCompressorPage() {
     });
   };
 
+
+  // SSE 연결 및 실시간 업데이트
+  useEffect(() => {
+    const abortController = subscribeSSEWithAuth(
+      (data: SSEEventData) => {
+        console.log('SSE 메시지 수신:', data);
+        
+        // convertHistoryUuid가 있으면 큐에서 해당 항목 찾아서 업데이트
+        if (data.convertHistoryUuid) {
+          let toastMessage: string | null = null;
+          
+          setQueue((prev) => {
+            return prev.map((item) => {
+              // convertHistoryUuid로 매칭 (convertHistoryUuid 필드가 있는 경우)
+              if (item.convertHistoryUuid === data.convertHistoryUuid) {
+                const previousStatus = previousStatusMapRef.current.get(data.convertHistoryUuid) || item.status;
+                const updated: QueueItem = { ...item };
+                
+                // 진행률 업데이트
+                if (data.progress !== undefined) {
+                  updated.progress = data.progress;
+                }
+                
+                // 상태 업데이트
+                if (data.status) {
+                  if (data.status === '완료' || data.status === 'COMPLETED') {
+                    updated.status = '완료';
+                    updated.progress = 100;
+                    // 상태가 변경되었고 완료로 변경된 경우 토스트 메시지 저장
+                    if (previousStatus !== '완료') {
+                      toastMessage = `${item.fileName} 압축이 완료되었습니다.`;
+                    }
+                  } else if (data.status === '진행' || data.status === 'PROCESSING') {
+                    updated.status = '진행';
+                    if (!updated.startTime) {
+                      updated.startTime = new Date();
+                    }
+                    // 상태가 변경되었고 진행으로 변경된 경우 토스트 메시지 저장
+                    if (previousStatus !== '진행') {
+                      toastMessage = `${item.fileName} 압축이 시작되었습니다.`;
+                    }
+                  } else if (data.status === '대기' || data.status === 'WAITING') {
+                    updated.status = '대기';
+                  }
+                }
+                
+                // 이전 상태 저장
+                previousStatusMapRef.current.set(data.convertHistoryUuid, updated.status);
+                
+                return updated;
+              }
+              return item;
+            });
+          });
+
+          // 토스트 표시 (렌더링 완료 후)
+          if (toastMessage) {
+            setTimeout(() => {
+              showToast(toastMessage!);
+            }, 0);
+          }
+        }
+      },
+      (error) => {
+        console.error('SSE 연결 오류:', error);
+      }
+    );
+
+    return () => {
+      abortController.abort();
+    };
+  }, [showToast]);
 
   // 경과시간 업데이트 및 완료 처리를 위한 useEffect
   useEffect(() => {
