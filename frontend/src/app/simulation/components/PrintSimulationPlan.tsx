@@ -25,6 +25,9 @@ interface PrintSimulationPlanProps {
   onConfirm: () => void;
   isConfirmDisabled: boolean;
   isConfirmed: boolean;
+  compressionTimeSeconds: number | null; // 압축 시간 (초 단위, null이면 데이터 없음)
+  printTimeSeconds: number; // 인쇄 시간 (초 단위)
+  onPrintTimeChange: (seconds: number) => void; // 인쇄 시간 변경 핸들러
 }
 
 function getPrintablePixels(detail: BmpDetailResult | undefined) {
@@ -105,6 +108,9 @@ export default function PrintSimulationPlan({
   onConfirm,
   isConfirmDisabled,
   isConfirmed,
+  compressionTimeSeconds,
+  printTimeSeconds,
+  onPrintTimeChange,
 }: PrintSimulationPlanProps) {
   if (plan.length === 0) {
     return null;
@@ -261,6 +267,66 @@ export default function PrintSimulationPlan({
               </div>
             </>
           )}
+
+          {/* 압축 및 인쇄 시간 설정 섹션 */}
+          <div className="mt-6 space-y-4">
+            <h4 className="text-lg font-semibold text-gray-900">압축 및 인쇄 시간 설정</h4>
+            <div className="rounded-lg border border-gray-200 bg-white p-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* 압축 시간 */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    압축 시간 (장당 초)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={compressionTimeSeconds ?? ''}
+                      disabled
+                      className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-gray-100"
+                      placeholder="성능 비교 데이터 없음"
+                    />
+                    <span className="text-sm text-gray-500">초/장</span>
+                  </div>
+                  {compressionTimeSeconds === null ? (
+                    <p className="text-xs text-gray-500">
+                      성능 비교 페이지에서 압축 작업을 수행하면 자동으로 설정됩니다.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      성능 비교 페이지에서 가장 빠른 압축 시간을 사용합니다.
+                    </p>
+                  )}
+                </div>
+
+                {/* 인쇄 시간 */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    인쇄 시간 (장당 초)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      value={printTimeSeconds}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value, 10);
+                        if (!isNaN(value) && value > 0) {
+                          onPrintTimeChange(value);
+                        }
+                      }}
+                      className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="60"
+                    />
+                    <span className="text-sm text-gray-500">초/장</span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    기본값: 60초/장 (변경 가능)
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div className="relative flex justify-end">
             <div

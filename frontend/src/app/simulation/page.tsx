@@ -17,6 +17,7 @@ import BmpImportModal from './components/BmpImportModal';
 import { products } from './data/productionProducts';
 import { motherGlasses } from './data/motherGlasses';
 import { getInkjetPrinters, type GetInkjetPrintersResponse, type InkjetPrinter } from '@/service/inkjet';
+import { usePerformanceHistoryStore } from '@/store/performanceHistoryStore';
 import {
   computeOptimalMotherGlassPlan,
   MotherGlassOptimizationResult,
@@ -60,6 +61,42 @@ export default function SimulationPage() {
   } | null>(null);
   const [activeAssignmentDetail, setActiveAssignmentDetail] = useState<BmpDetailResult | null>(null);
   const [isPrintPlanConfirmed, setIsPrintPlanConfirmed] = useState<boolean>(false);
+  const [printTimeSeconds, setPrintTimeSeconds] = useState<number>(60); // 기본 60초
+  const performanceHistoryData = usePerformanceHistoryStore((state) => state.performanceHistoryData);
+
+  // 성능 비교 페이지에서 저장된 압축 시간 데이터 가져오기
+  const compressionTimes = useMemo(() => {
+    const allCompressionTimes: number[] = [];
+    
+    // performanceHistoryData에서 모든 설비의 최근 완료된 작업들의 duration 수집
+    Object.values(performanceHistoryData).forEach((data) => {
+      const completedItems = data.historyItems.filter((item) => item.status === '완료' && item.duration > 0);
+      if (completedItems.length > 0) {
+        // 최근 5개 작업의 평균을 사용
+        const recentTimes = completedItems
+          .slice(0, 5)
+          .map((item) => item.duration);
+        allCompressionTimes.push(...recentTimes);
+      }
+    });
+
+    if (allCompressionTimes.length === 0) {
+      return { fast: null, slow: null }; // 데이터가 없으면 null 반환
+    }
+
+    // 정렬하여 가장 빠른 것과 가장 느린 것 추출
+    const sortedTimes = [...allCompressionTimes].sort((a, b) => a - b);
+    
+    // 가장 빠른 것과 가장 느린 것
+    // 2가지 이상 있으면 가장 작은 2개 중 빠른 것, 전체 중 가장 느린 것 사용
+    const fast = sortedTimes[0]; // 가장 빠른 것
+    const slow = sortedTimes[sortedTimes.length - 1]; // 가장 느린 것
+    
+    return { fast, slow };
+  }, [performanceHistoryData]);
+
+  // 빠른 압축 시간 (계산에 사용)
+  const compressionTimeSeconds = compressionTimes.fast;
 
   const productMap = useMemo(() => {
     return new Map(products.map((product) => [product.id, product]));
@@ -525,7 +562,7 @@ export default function SimulationPage() {
               ) : null}
 
               <div className="space-y-4 pt-4">
-                <h2 className="text-xl font-semibold text-gray-900">잉크 사용량 및 인쇄 시간</h2>
+                <h2 className="text-xl font-semibold text-gray-900">잉크 사용량 및 최종 예상 시간</h2>
                 <PrintSimulationPlan
                   plan={printSimulationPlan}
                   selectedAssignments={assignmentSelections}
@@ -534,12 +571,22 @@ export default function SimulationPage() {
                   onConfirm={handleConfirmAssignments}
                   isConfirmDisabled={isConfirmDisabled}
                   isConfirmed={isPrintPlanConfirmed}
+                  compressionTimeSeconds={compressionTimeSeconds}
+                  printTimeSeconds={printTimeSeconds}
+                  onPrintTimeChange={setPrintTimeSeconds}
                 />
                 {isPrintPlanConfirmed ? (
-                  <InkConsumptionSummary plan={printSimulationPlan} selectedAssignments={assignmentSelections} />
+                  <InkConsumptionSummary 
+                    plan={printSimulationPlan} 
+                    selectedAssignments={assignmentSelections}
+                    compressionTimeSeconds={compressionTimeSeconds}
+                    compressionTimeSlow={compressionTimes.slow}
+                    printTimeSeconds={printTimeSeconds}
+                    confirmedGoals={confirmedGoals}
+                  />
                 ) : (
                   <CommonContainerBox className="px-4 py-4 text-sm text-gray-600">
-                    설비별 이미지 매칭을 모두 완료하고 &quot;설비 매칭 확인&quot; 버튼을 누르면 잉크 사용량과 예상 시간이 계산됩니다.
+                    설비별 이미지 등록을 모두 완료하고 확인 버튼을 누르면 잉크 사용량과 예상 시간이 계산됩니다.
                   </CommonContainerBox>
                 )}
               </div>

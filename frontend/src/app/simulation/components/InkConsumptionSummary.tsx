@@ -2,16 +2,19 @@ import React, { useMemo } from 'react';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import type { PrintSimulationPlanEntry } from './PrintSimulationPlan';
 import type { BmpDetailResult } from '@/types/imageGenerator';
+import type { SelectedGoal } from './SelectedGoalList';
 import {
   INK_TANK_CAPACITY_ML,
   INK_REFILL_TIME_MINUTES,
-  PRINT_TIME_PER_SHEET_SECONDS,
-  COMPRESSION_TIME_PER_SHEET_SECONDS,
 } from '../data/inkConfig';
 
 interface InkConsumptionSummaryProps {
   plan: PrintSimulationPlanEntry[];
   selectedAssignments: Record<string, BmpDetailResult | undefined>;
+  compressionTimeSeconds: number | null; // 압축 시간 (장당 초, null이면 기본값 사용)
+  compressionTimeSlow: number | null; // 느린 압축 시간 (단축률 계산용)
+  printTimeSeconds: number; // 인쇄 시간 (장당 초)
+  confirmedGoals: SelectedGoal[]; // 확정된 생산 목표 (제품 및 수량)
 }
 
 function formatMinutes(value: number) {
@@ -43,7 +46,7 @@ function formatDurationDetail(value: number) {
   return parts.join(' ');
 }
 
-const PIXELS_PER_ML = 10000;
+const PIXELS_PER_ML = 1000;
 
 function computeColorUsage(detail: BmpDetailResult, color: 'red' | 'green' | 'blue', sheets: number) {
   const countX = detail[`${color}CountX` as const] ?? 0;
@@ -79,7 +82,18 @@ function computeRemainingAfterUsage(usageMl: number) {
   };
 }
 
-export default function InkConsumptionSummary({ plan, selectedAssignments }: InkConsumptionSummaryProps) {
+export default function InkConsumptionSummary({ 
+  plan, 
+  selectedAssignments,
+  compressionTimeSeconds,
+  compressionTimeSlow,
+  printTimeSeconds,
+  confirmedGoals,
+}: InkConsumptionSummaryProps) {
+  // 압축 시간 기본값 (데이터가 없을 경우)
+  const DEFAULT_COMPRESSION_TIME_SECONDS = 5;
+  const actualCompressionTimeSeconds = compressionTimeSeconds ?? DEFAULT_COMPRESSION_TIME_SECONDS;
+  
   const printerMetrics = useMemo(() => {
     return plan.flatMap((entry) =>
       entry.assignments.map((assignment) => {
@@ -113,8 +127,8 @@ export default function InkConsumptionSummary({ plan, selectedAssignments }: Ink
         };
         const totalRefillEvents = refillCounts.red + refillCounts.green + refillCounts.blue;
         const refillTime = totalRefillEvents * INK_REFILL_TIME_MINUTES;
-        const printTime = (assignedSheets * PRINT_TIME_PER_SHEET_SECONDS) / 60;
-        const compressionTime = (assignedSheets * COMPRESSION_TIME_PER_SHEET_SECONDS) / 60;
+        const printTime = (assignedSheets * printTimeSeconds) / 60; // 분 단위
+        const compressionTime = (assignedSheets * actualCompressionTimeSeconds) / 60; // 분 단위
         const totalTime = refillTime + printTime + compressionTime;
 
         return {
@@ -135,7 +149,7 @@ export default function InkConsumptionSummary({ plan, selectedAssignments }: Ink
         };
       }),
     ).filter((metric) => metric.assignedSheets > 0);
-  }, [plan, selectedAssignments]);
+  }, [plan, selectedAssignments, printTimeSeconds, actualCompressionTimeSeconds]);
 
   const totals = useMemo(() => {
     return printerMetrics.reduce(
@@ -183,15 +197,47 @@ export default function InkConsumptionSummary({ plan, selectedAssignments }: Ink
     { total: 0, refill: 0, print: 0, compression: 0 },
   );
 
+  // 느린 압축 방식 대비 빠른 압축 방식으로 인한 생산 시간 단축 퍼센트 계산
+  const timeReductionPercent = useMemo(() => {
+    if (!compressionTimeSlow || !compressionTimeSeconds || compressionTimeSlow <= compressionTimeSeconds) {
+      return null;
+    }
+
+    // 가장 오래 걸린 설비의 메트릭 찾기
+    const slowestMetric = printerMetrics.find((metric) => metric.totalTime === maxTimes.total);
+    if (!slowestMetric) {
+      return null;
+    }
+
+    // 느린 압축 시간과 빠른 압축 시간 차이 계산 (분 단위)
+    const slowCompressionTimeForMetric = (slowestMetric.assignedSheets * compressionTimeSlow) / 60;
+    const fastCompressionTimeForMetric = (slowestMetric.assignedSheets * compressionTimeSeconds) / 60;
+    
+    // 느린 방식 기준 총 생산 시간 = 현재 총 시간 - 빠른 압축 시간 + 느린 압축 시간
+    const slowTotalTime = maxTimes.total - slowestMetric.compressionTime + slowCompressionTimeForMetric;
+    
+    // 빠른 방식 기준 총 생산 시간 (현재 계산된 값)
+    const fastTotalTime = maxTimes.total;
+    
+    if (slowTotalTime <= 0 || slowTotalTime <= fastTotalTime) {
+      return null;
+    }
+
+    // 단축 퍼센트 = (느린 시간 - 빠른 시간) / 느린 시간 * 100
+    const reduction = ((slowTotalTime - fastTotalTime) / slowTotalTime) * 100;
+    return Math.max(0, Math.min(100, reduction)); // 0~100% 범위로 제한
+  }, [compressionTimeSlow, compressionTimeSeconds, maxTimes, printerMetrics]);
+
   return (
-    <div id="ink-consumption-summary">
+    <div id="ink-consumption-summary" className="space-y-6">
+      {/* 잉크 사용량 섹션 */}
       <CommonContainerBox className="px-4 py-4 space-y-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">잉크 사용량 및 예상 시간 계산</h3>
-        <p className="mt-1 text-sm text-gray-500">
-          이미지 픽셀 수와 인쇄 수량을 반영해 색상별 잉크 사용량을 계산합니다. 10,000px당 1ml 기준으로 환산합니다.
-        </p>
-      </div>
+          <h3 className="text-lg font-semibold text-gray-900">잉크 사용량 계산</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            이미지 픽셀 수와 인쇄 수량을 반영해 색상별 잉크 사용량을 계산합니다. 1,000px당 1ml 기준으로 환산합니다.
+          </p>
+        </div>
 
       {printerMetrics.length === 0 ? (
         <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
@@ -203,101 +249,258 @@ export default function InkConsumptionSummary({ plan, selectedAssignments }: Ink
             const totalDetail = formatDurationDetail(metric.totalTime);
             return (
               <React.Fragment key={`${metric.motherGlassName}-${metric.printerName}`}>
-              <div className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="h-48 w-64 rounded-lg border border-gray-200 bg-white flex items-center justify-center p-2">
-                    <img
-                      src="/images/facilities/inkjet_detail01.png"
-                      alt={`${metric.printerName} 이미지`}
-                      className="max-h-full max-w-full object-contain"
-                    />
-                  </div>
-                  <div>
-                    <p className="text-base font-semibold text-gray-900">{metric.printerName}</p>
-                    <p className="text-sm text-gray-500">모델명: {metric.modelName}</p>
-                    <p className="text-sm text-gray-500">
+              <div className="rounded-xl border border-gray-200 bg-white p-4">
+                <div className="flex flex-col gap-4">
+                  {/* 설비 정보 - 상단 타이틀 줄 */}
+                  <div className="flex flex-wrap items-center gap-4 pb-3 border-b border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-900">{metric.printerName}</h3>
+                    <span className="text-sm text-gray-500">모델명: {metric.modelName}</span>
+                    <span className="text-sm text-gray-500">
                       {metric.motherGlassName} · {metric.assignedSheets.toLocaleString()} 장 배정
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3 sm:w-80">
-                  <div className="text-sm font-semibold text-gray-900">
-                    잉크 탱크 사용량 (각 탱크 용량 {INK_TANK_CAPACITY_ML.toLocaleString()} ml)
-                  </div>
-                  {(['red', 'green', 'blue'] as const).map((color) => {
-                    const label = color === 'red' ? 'Red' : color === 'green' ? 'Green' : 'Blue';
-                    const usage = metric.usagePerColor[color];
-                    const remaining = metric.remainingPerColor[color];
-                    const remainingPercent = Math.max(0, Math.min(100, remaining.percent));
-                    const barColor = color === 'red' ? 'bg-rose-500' : color === 'green' ? 'bg-green-500' : 'bg-blue-500';
-                    return (
-                      <div key={color}>
-                        <div className="flex items-center justify-between text-[13px] text-gray-600">
-                          <span className={color === 'red' ? 'text-rose-600' : color === 'green' ? 'text-green-600' : 'text-blue-600'}>
-                            {label}
-                          </span>
-                          <span className="text-gray-500">
-                            남은 잉크 {remaining.remainingMl.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml ({remainingPercent.toFixed(1)}%)
-                          </span>
-                        </div>
-                        <div className="mt-1 h-2 w-full rounded-full bg-gray-200">
-                          <div
-                            className={`h-full rounded-full transition-all ${barColor}`}
-                            style={{ width: `${remainingPercent}%` }}
-                          />
-                        </div>
-                        <div className="mt-1 text-[11px] text-gray-400">총 사용 {usage.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml</div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                <div className="flex flex-col gap-2 text-sm text-gray-600 sm:w-48">
-                  <div className="flex items-center justify-between">
-                    <span>총 충전시간</span>
-                    <span>{formatMinutes(metric.refillTime)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>인쇄시간</span>
-                    <span>{formatMinutes(metric.printTime)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span>압축시간</span>
-                    <span>{formatMinutes(metric.compressionTime)}</span>
-                  </div>
-                  <div className="flex flex-col text-right text-sm font-semibold text-gray-900">
-                    <span className="flex items-center justify-between">
-                      <span>총 예상시간</span>
-                      <span>{formatMinutes(metric.totalTime)}</span>
                     </span>
-                    {totalDetail && (
-                      <span className="text-xs font-medium text-gray-500">{totalDetail}</span>
-                    )}
+                  </div>
+
+                  {/* 설비 사진, 통계, 잉크 탱크 - 같은 줄 */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+                    {/* 설비 사진 - 왼쪽 */}
+                    <div className="h-full min-h-[135px] rounded-lg border border-gray-200 bg-white flex items-center justify-center p-2">
+                      <img
+                        src="/images/facilities/inkjet_detail01.png"
+                        alt={`${metric.printerName} 이미지`}
+                        className="max-h-full max-w-full object-contain w-[77%] h-[77%]"
+                      />
+                    </div>
+
+                    {/* 잉크 탱크 - 가운데 */}
+                    <div className="h-full space-y-3 flex flex-col">
+                      <div className="text-base font-semibold text-gray-900">
+                        잉크 탱크 사용량 (각 탱크 용량 {INK_TANK_CAPACITY_ML.toLocaleString()} ml)
+                      </div>
+                      <div className="flex flex-col gap-3">
+                        {(['red', 'green', 'blue'] as const).map((color) => {
+                          const label = color === 'red' ? 'Red' : color === 'green' ? 'Green' : 'Blue';
+                          const usage = metric.usagePerColor[color];
+                          const remaining = metric.remainingPerColor[color];
+                          const remainingPercent = Math.max(0, Math.min(100, remaining.percent));
+                          const barColor = color === 'red' ? 'bg-rose-500' : color === 'green' ? 'bg-green-500' : 'bg-blue-500';
+                          return (
+                            <div key={color}>
+                              <div className="flex items-center justify-between text-[14px] text-gray-600 mb-1">
+                                <span className={color === 'red' ? 'text-rose-600' : color === 'green' ? 'text-green-600' : 'text-blue-600'}>
+                                  {label}
+                                </span>
+                                <span className="text-gray-500 text-xs">
+                                  남은 잉크 {remaining.remainingMl.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml ({remainingPercent.toFixed(1)}%)
+                                </span>
+                              </div>
+                              <div className="h-2 w-full rounded-full bg-gray-200">
+                                <div
+                                  className={`h-full rounded-full transition-all ${barColor}`}
+                                  style={{ width: `${remainingPercent}%` }}
+                                />
+                              </div>
+                              <div className="mt-1 text-[11px] text-gray-400">
+                                총 사용 {usage.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 인쇄 통계 - 오른쪽, 파란색 테마 */}
+                    <div className="h-full rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 flex flex-col">
+                      <div className="text-base font-semibold text-blue-900 mb-3">인쇄 통계</div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="flex flex-col">
+                          <span className="text-blue-600 font-semibold mb-1">총 픽셀</span>
+                          <span className="text-blue-900 font-medium">{metric.totalPixels.toLocaleString()} px</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-blue-600 font-semibold mb-1">인쇄 수량</span>
+                          <span className="text-blue-900 font-medium">{metric.assignedSheets.toLocaleString()} 장</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-blue-600 font-semibold mb-1">총 잉크 사용량</span>
+                          <span className="text-blue-900 font-medium">{metric.totalUsageMl.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-blue-600 font-semibold mb-1">충전 횟수</span>
+                          <span className="text-blue-900 font-medium">{metric.totalRefillEvents.toLocaleString()} 회</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-blue-600 font-semibold mb-1">압축시간</span>
+                          <span className="text-blue-900 font-medium">{formatMinutes(metric.compressionTime)}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-blue-600 font-semibold mb-1">인쇄시간</span>
+                          <span className="text-blue-900 font-medium">{formatMinutes(metric.printTime)}</span>
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-blue-600 font-semibold mb-1">충전시간</span>
+                          <span className="text-blue-900 font-medium">{formatMinutes(metric.refillTime)}</span>
+                        </div>
+                      </div>
+                      {metric.refillEventsPerColor.red > 0 || metric.refillEventsPerColor.green > 0 || metric.refillEventsPerColor.blue > 0 ? (
+                        <div className="mt-2 pt-2 border-t border-blue-200 flex flex-wrap gap-2 text-[11px]">
+                          {metric.refillEventsPerColor.red > 0 && (
+                            <span className="text-rose-600 font-medium">Red {metric.refillEventsPerColor.red.toLocaleString()}회</span>
+                          )}
+                          {metric.refillEventsPerColor.green > 0 && (
+                            <span className="text-green-600 font-medium">Green {metric.refillEventsPerColor.green.toLocaleString()}회</span>
+                          )}
+                          {metric.refillEventsPerColor.blue > 0 && (
+                            <span className="text-blue-600 font-medium">Blue {metric.refillEventsPerColor.blue.toLocaleString()}회</span>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="rounded-md bg-gray-50 px-3 py-2 text-[12px] text-gray-500">
-                총 픽셀 {metric.totalPixels.toLocaleString()} px · 인쇄 수량 {metric.assignedSheets.toLocaleString()} · 총 잉크 사용량{' '}
-                {metric.totalUsageMl.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml · 충전 횟수 {metric.totalRefillEvents.toLocaleString()} 회
-                {metric.refillEventsPerColor.red > 0 || metric.refillEventsPerColor.green > 0 || metric.refillEventsPerColor.blue > 0 ? (
-                  <div className="mt-1 flex flex-wrap gap-3 text-[11px]">
-                    {metric.refillEventsPerColor.red > 0 && (
-                      <span className="text-rose-500">Red {metric.refillEventsPerColor.red.toLocaleString()}회</span>
-                    )}
-                    {metric.refillEventsPerColor.green > 0 && (
-                      <span className="text-green-600">Green {metric.refillEventsPerColor.green.toLocaleString()}회</span>
-                    )}
-                    {metric.refillEventsPerColor.blue > 0 && (
-                      <span className="text-blue-600">Blue {metric.refillEventsPerColor.blue.toLocaleString()}회</span>
-                    )}
-                  </div>
-                ) : null}
               </div>
               </React.Fragment>
             );
           })}
 
+          {/* 잉크 사용량 요약 */}
+          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-500">총 인쇄 수량</span>
+                <span className="text-sm text-gray-800">{totals.sheetCount.toLocaleString()} 장</span>
+              </div>
+              <div className="h-4 w-px bg-gray-300"></div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-500">총 픽셀 수</span>
+                <span className="text-sm text-gray-800">{totals.totalPixels.toLocaleString()} px</span>
+              </div>
+              <div className="h-4 w-px bg-gray-300"></div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-500">총 잉크 사용량</span>
+                <span className="text-sm text-gray-600">
+                  <span className="text-rose-500">Red {totals.usagePerColor.red.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml</span> ·{' '}
+                  <span className="text-green-600">Green {totals.usagePerColor.green.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml</span> ·{' '}
+                  <span className="text-blue-600">Blue {totals.usagePerColor.blue.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml</span>
+                </span>
+                <span className="text-sm font-semibold text-gray-800">
+                  합계: {totalUsageMl.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml
+                </span>
+              </div>
+              <div className="h-4 w-px bg-gray-300"></div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-500">총 충전 횟수</span>
+                <span className="text-sm text-gray-800">{totals.refillEvents.toLocaleString()} 회</span>
+              </div>
+              {totals.refillEventsPerColor.red > 0 || totals.refillEventsPerColor.green > 0 || totals.refillEventsPerColor.blue > 0 ? (
+                <>
+                  <div className="h-4 w-px bg-gray-300"></div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-gray-500">색상별 충전 횟수</span>
+                    <span className="text-sm text-gray-600">
+                      {totals.refillEventsPerColor.red > 0 && (
+                        <>
+                          <span className="text-rose-500">Red {totals.refillEventsPerColor.red.toLocaleString()}회</span>
+                          {(totals.refillEventsPerColor.green > 0 || totals.refillEventsPerColor.blue > 0) && ' · '}
+                        </>
+                      )}
+                      {totals.refillEventsPerColor.green > 0 && (
+                        <>
+                          <span className="text-green-600">Green {totals.refillEventsPerColor.green.toLocaleString()}회</span>
+                          {totals.refillEventsPerColor.blue > 0 && ' · '}
+                        </>
+                      )}
+                      {totals.refillEventsPerColor.blue > 0 && (
+                        <span className="text-blue-600">Blue {totals.refillEventsPerColor.blue.toLocaleString()}회</span>
+                      )}
+                    </span>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+      </CommonContainerBox>
+
+      {/* 최종 예상 시간 섹션 */}
+      {printerMetrics.length > 0 && (
+        <CommonContainerBox className="px-4 py-4 space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">최종 예상 시간</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              설비별 충전, 인쇄, 압축 시간을 계산하여 최종 생산 소요 시간을 예측합니다.
+            </p>
+          </div>
+
+          <div className="overflow-x-auto rounded-xl border border-[#0059FF]/20">
+            <table className="min-w-full divide-y divide-[#0059FF]/10">
+              <thead className="bg-[#0059FF]/5">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-[#0059FF] uppercase tracking-wider">
+                    설비명
+                  </th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-[#0059FF] uppercase tracking-wider">
+                    원장 세대
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold text-[#0059FF] uppercase tracking-wider">
+                    배정 수량
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold text-[#0059FF] uppercase tracking-wider">
+                    총 충전시간
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold text-[#0059FF] uppercase tracking-wider">
+                    인쇄시간
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold text-[#0059FF] uppercase tracking-wider">
+                    압축시간
+                  </th>
+                  <th className="px-4 py-3 text-right text-sm font-semibold text-[#0059FF] uppercase tracking-wider">
+                    총 예상시간
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-[#0059FF]/10">
+                {printerMetrics.map((metric) => {
+                  const totalDetail = formatDurationDetail(metric.totalTime);
+                  return (
+                    <tr key={`${metric.motherGlassName}-${metric.printerName}`} className="hover:bg-[#0059FF]/5">
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm font-semibold text-gray-900">{metric.printerName}</div>
+                        <div className="text-xs text-gray-500">{metric.modelName}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="text-sm text-gray-900">{metric.motherGlassName}</span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                        <span className="text-sm text-gray-900">{metric.assignedSheets.toLocaleString()} 장</span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                        <span className="text-sm text-gray-800">{formatMinutes(metric.refillTime)}</span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                        <span className="text-sm text-gray-800">{formatMinutes(metric.printTime)}</span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                        <span className="text-sm text-gray-800">{formatMinutes(metric.compressionTime)}</span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                        <div className="flex flex-col items-end">
+                          <span className="text-sm font-semibold text-gray-900">
+                            {formatMinutes(metric.totalTime)}
+                          </span>
+                          {totalDetail && (
+                            <span className="text-xs text-gray-500 mt-0.5">{totalDetail}</span>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* 최종 요약 */}
           {(() => {
             const maxTotalDetail = formatDurationDetail(maxTimes.total);
             const maxRefillDetail = formatDurationDetail(maxTimes.refill);
@@ -309,72 +512,94 @@ export default function InkConsumptionSummary({ plan, selectedAssignments }: Ink
               maxCompressionDetail ? `압축 ${maxCompressionDetail}` : null,
             ].filter(Boolean).join(' · ');
             return (
-          <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <div className="flex flex-col">
-                <span className="text-xs font-semibold text-gray-500">총 인쇄 수량</span>
-                <span className="text-sm text-gray-800">{totals.sheetCount.toLocaleString()} 장</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-semibold text-gray-500">총 픽셀 수</span>
-                <span className="text-sm text-gray-800">{totals.totalPixels.toLocaleString()} px</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-semibold text-gray-500">총 잉크 사용량</span>
-                <span className="text-xs text-gray-600">
-                  <span className="text-rose-500">Red {totals.usagePerColor.red.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml</span> ·{' '}
-                  <span className="text-green-600">Green {totals.usagePerColor.green.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml</span> ·{' '}
-                  <span className="text-blue-600">Blue {totals.usagePerColor.blue.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml</span>
-                </span>
-                <span className="text-sm font-semibold text-gray-800 mt-1">
-                  합계: {totalUsageMl.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml
-                </span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-semibold text-gray-500">총 충전 횟수</span>
-                <span className="text-sm text-gray-800">{totals.refillEvents.toLocaleString()} 회</span>
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs font-semibold text-gray-500">색상별 충전 횟수</span>
-                {totals.refillEventsPerColor.red > 0 || totals.refillEventsPerColor.green > 0 || totals.refillEventsPerColor.blue > 0 ? (
-                  <span className="text-xs text-gray-600">
-                    {totals.refillEventsPerColor.red > 0 && (
-                      <>
-                        <span className="text-rose-500">Red {totals.refillEventsPerColor.red.toLocaleString()}회</span>
-                        {(totals.refillEventsPerColor.green > 0 || totals.refillEventsPerColor.blue > 0) && ' · '}
-                      </>
-                    )}
-                    {totals.refillEventsPerColor.green > 0 && (
-                      <>
-                        <span className="text-green-600">Green {totals.refillEventsPerColor.green.toLocaleString()}회</span>
-                        {totals.refillEventsPerColor.blue > 0 && ' · '}
-                      </>
-                    )}
-                    {totals.refillEventsPerColor.blue > 0 && (
-                      <span className="text-blue-600">Blue {totals.refillEventsPerColor.blue.toLocaleString()}회</span>
-                    )}
-                  </span>
-                ) : (
-                  <span className="text-xs text-gray-400">-</span>
+              <div className="space-y-4">
+                {/* 시간 요약 */}
+                <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                  <div className="flex items-center justify-between flex-nowrap overflow-x-auto w-full">
+                    <div className="flex items-center gap-2 whitespace-nowrap">
+                      <span className="text-sm font-semibold text-gray-500">최대 예상 시간</span>
+                      <span className="text-base font-semibold text-gray-900">
+                        {formatMinutes(maxTimes.total)}
+                        {maxTotalDetail ? ` (${maxTotalDetail})` : ''}
+                      </span>
+                    </div>
+                    <div className="h-4 w-px bg-gray-300 flex-shrink-0 mx-4"></div>
+                    <div className="flex items-center gap-1 text-sm text-gray-600 whitespace-nowrap">
+                      <span>충전시간</span>
+                      <span className="font-medium text-gray-800">
+                        {formatMinutes(maxTimes.refill)}
+                        {maxRefillDetail ? ` (${maxRefillDetail})` : ''}
+                      </span>
+                    </div>
+                    <div className="h-4 w-px bg-gray-300 flex-shrink-0 mx-4"></div>
+                    <div className="flex items-center gap-1 text-sm text-gray-600 whitespace-nowrap">
+                      <span>인쇄시간</span>
+                      <span className="font-medium text-gray-800">
+                        {formatMinutes(maxTimes.print)}
+                        {maxPrintDetail ? ` (${maxPrintDetail})` : ''}
+                      </span>
+                    </div>
+                    <div className="h-4 w-px bg-gray-300 flex-shrink-0 mx-4"></div>
+                    <div className="flex items-center gap-1 text-sm text-gray-600 whitespace-nowrap">
+                      <span>압축시간</span>
+                      <span className="font-medium text-gray-800">
+                        {formatMinutes(maxTimes.compression)}
+                        {maxCompressionDetail ? ` (${maxCompressionDetail})` : ''}
+                      </span>
+                    </div>
+                  </div>
+                  {timeReductionPercent !== null && (
+                    <div className="flex flex-col mt-3">
+                      <span className="text-xs font-semibold text-gray-500">생산 시간 단축</span>
+                      <div className="mt-1 rounded-md bg-green-50 border border-green-200 px-3 py-2">
+                        <span className="text-base font-semibold text-green-800">
+                          {timeReductionPercent.toFixed(1)}%
+                        </span>
+                        <p className="text-xs text-green-700 mt-1">
+                          느린 압축 방식 대비 빠른 압축 방식 적용으로 생산 시간이 단축되었습니다.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 생산 목표 정보 */}
+                {confirmedGoals.length > 0 && (
+                  <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                    <div className="mb-3">
+                      <span className="text-base font-semibold text-gray-900">생산 목표</span>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      {confirmedGoals.map((goal) => (
+                        <div key={goal.product.id} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
+                          <img
+                            src={goal.product.imageUrl}
+                            alt={goal.product.productName}
+                            className="h-12 w-12 rounded object-contain"
+                          />
+                          <div className="flex flex-col">
+                            <span className="text-sm font-semibold text-gray-900">{goal.product.productName}</span>
+                            <span className="text-sm text-gray-500">수량: {goal.quantity.toLocaleString()} 개</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <p className="text-sm text-right text-[#0059FF]">
+                        총 <span className="font-semibold">{confirmedGoals.reduce((sum, goal) => sum + goal.quantity, 0).toLocaleString()} 개의 제품을 </span> 생산하기 위해{' '}
+                        <span className="font-semibold">
+                          {formatMinutes(maxTimes.total)}
+                          {maxTotalDetail ? ` (${maxTotalDetail})` : ''}
+                        </span>의 시간이 소요됩니다.
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
-              <div className="flex flex-col lg:col-span-2">
-                <span className="text-xs font-semibold text-gray-500">최대 예상 시간(가장 오래 걸린 설비 기준)</span>
-                <span className="text-sm text-gray-800">
-                  {formatMinutes(maxTimes.total)}
-                  {maxTotalDetail ? ` (${maxTotalDetail})` : ''}
-                </span>
-                <span className="text-xs text-gray-500">
-                  {timeParts || '충전 0분 · 인쇄 0분 · 압축 0분'}
-                </span>
-              </div>
-            </div>
-          </div>
             );
           })()}
-        </div>
+        </CommonContainerBox>
       )}
-      </CommonContainerBox>
     </div>
   );
 }
