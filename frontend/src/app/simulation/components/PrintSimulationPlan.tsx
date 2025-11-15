@@ -77,8 +77,8 @@ export default function PrintSimulationPlan({
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-[#0059FF]/20">
-        <div className="grid grid-cols-[1.2fr_1fr_1fr_1.2fr_1.2fr] gap-2 border-b border-[#0059FF]/10 bg-[#0059FF]/5 px-4 py-2 text-sm font-semibold text-[#0059FF] text-center">
+      <div className="overflow-x-auto rounded-xl border border-[#0059FF]/20">
+        <div className="min-w-[800px] grid grid-cols-[1.2fr_1fr_1fr_1.2fr_1.2fr] gap-2 border-b border-[#0059FF]/10 bg-[#0059FF]/5 px-4 py-2 text-sm font-semibold text-[#0059FF] text-center">
           <span>원장 세대</span>
           <span>총 인쇄 수량</span>
           <span>사용 가능 설비</span>
@@ -97,7 +97,7 @@ export default function PrintSimulationPlan({
                 ? '-'
                 : effectiveAssignments.map((assignment) => `${assignment.assignedSheets.toLocaleString()} 장`).join('\n');
             return (
-              <div key={`print-plan-${entry.motherGlassName}`} className="grid grid-cols-[1.2fr_1fr_1fr_1.2fr_1.2fr] gap-2 px-4 py-3">
+              <div key={`print-plan-${entry.motherGlassName}`} className="min-w-[800px] grid grid-cols-[1.2fr_1fr_1fr_1.2fr_1.2fr] gap-2 px-4 py-3">
                 <span className="text-center text-sm font-semibold text-gray-900">{entry.motherGlassName}</span>
                 <span className="text-right text-gray-900">{entry.sheetCount.toLocaleString()} 장</span>
                 <span className="text-right text-gray-700">{effectiveAssignments.length.toLocaleString()} 대</span>

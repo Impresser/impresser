@@ -13,7 +13,7 @@ type CompressionSettings = {
   version: string;
 };
 
-interface FacilityJobUploadProps {
+interface AlgorithmOptionsProps {
   facility: Facility;
   settings: CompressionSettings;
   onSettingsChange: (update: Partial<CompressionSettings>) => void;
@@ -26,12 +26,12 @@ interface AlgorithmOption {
   uuid: string;
 }
 
-export default function FacilityJobUpload({
+export default function AlgorithmOptions({
   facility,
   settings,
   onSettingsChange,
   className = '',
-}: FacilityJobUploadProps) {
+}: AlgorithmOptionsProps) {
   const [algorithmOptions, setAlgorithmOptions] = useState<AlgorithmOption[]>([]);
   const [versionOptions, setVersionOptions] = useState<{ value: string; label: string }[]>([]);
   const [loadingAlgorithms, setLoadingAlgorithms] = useState(false);

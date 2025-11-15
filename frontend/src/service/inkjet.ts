@@ -402,3 +402,52 @@ export async function getDailyProduction(): Promise<ApiResponse<DailyProductionR
   return data;
 }
 
+// 잉크젯 설비 대기열 등록 요청 타입
+export interface CreateInkjetJobRequest {
+  createConvertRequests: Array<{
+    bmpUrl: string;
+    compressionTypeUuid: string;
+    bmpVolume: number;
+    bmpWidth: number;
+    bmpHeight: number;
+  }>;
+}
+
+/**
+ * 잉크젯 설비 대기열 등록 API 호출
+ * @param printerUuid 설비 UUID
+ * @param data 대기열 등록 요청 데이터
+ * @returns 대기열 등록 응답 데이터
+ */
+export async function createInkjetJob(
+  printerUuid: string,
+  data: CreateInkjetJobRequest
+): Promise<ApiResponse<{}>> {
+  const accessToken = localStorage.getItem("accessToken");
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+
+  // 토큰이 있으면 Authorization 헤더에 추가
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/inkjet-printer/${printerUuid}/jobs`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `잉크젯 설비 대기열 등록 실패: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const result: ApiResponse<{}> = await response.json();
+  return result;
+}
+

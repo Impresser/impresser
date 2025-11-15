@@ -71,7 +71,7 @@ export default function FacilityQueueTable({ items }: FacilityQueueTableProps) {
           {items.length === 0 ? (
             <tr>
               <td colSpan={11} className="py-12 text-center text-sm text-gray-500">
-                작업대기열이 없습니다.
+                현재 진행 중인 작업이 없습니다.
               </td>
             </tr>
           ) : (

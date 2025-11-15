@@ -39,7 +39,7 @@ export default function FacilityHistorySection({
       {!isLoadingHistory && (
         <FacilityHistoryTable
           items={historyItems}
-          emptyMessage="작업 내역이 없습니다."
+          emptyMessage="지난 작업 내역이 없습니다."
           onDownload={onDownload}
         />
       )}

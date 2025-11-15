@@ -27,8 +27,8 @@ export default function OverallProductionSummary({ summary }: OverallProductionS
         </p>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-[#0059FF]/20">
-        <div className="grid grid-cols-[1fr_2.8fr_1fr_1fr] gap-2 border-b border-[#0059FF]/10 bg-[#0059FF]/5 px-4 py-2 text-sm font-semibold text-[#0059FF] text-center">
+      <div className="overflow-x-auto rounded-xl border border-[#0059FF]/20">
+        <div className="min-w-[700px] grid grid-cols-[1fr_2.8fr_1fr_1fr] gap-2 border-b border-[#0059FF]/10 bg-[#0059FF]/5 px-4 py-2 text-sm font-semibold text-[#0059FF] text-center">
           <span>원장 세대</span>
           <span>포함 제품</span>
           <span>평균 사용 면적</span>
@@ -36,7 +36,7 @@ export default function OverallProductionSummary({ summary }: OverallProductionS
         </div>
         <div className="divide-y divide-[#0059FF]/10 text-sm text-gray-700">
           {summary.map((entry) => (
-            <div key={`overall-summary-${entry.motherGlassName}`} className="grid grid-cols-[1fr_2.8fr_1fr_1fr] gap-2 px-4 py-2">
+            <div key={`overall-summary-${entry.motherGlassName}`} className="min-w-[700px] grid grid-cols-[1fr_2.8fr_1fr_1fr] gap-2 px-4 py-2">
               <span className="text-center text-sm font-semibold text-gray-900">{entry.motherGlassName}</span>
               <span className="text-right text-gray-600 whitespace-pre-line">{entry.productSummary}</span>
               <span className="text-right text-[#0059FF]">{entry.averageUsedPercent.toFixed(1)}% 사용

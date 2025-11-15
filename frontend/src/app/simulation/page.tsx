@@ -426,12 +426,12 @@ export default function SimulationPage() {
 
   return (
     <AuthGuard>
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen overflow-x-hidden bg-gray-50">
         <Sidebar />
-        <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col overflow-x-hidden">
           <Navbar />
-          <main className="flex-1 overflow-y-auto px-6 py-6">
-            <div className="mx-auto w-full max-w-7xl pb-2 space-y-6">
+          <main className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-6">
+            <div className="mx-auto w-full max-w-7xl overflow-x-hidden pb-2 space-y-6">
               <div className="flex gap-6">
                 <div className="flex-1">
                   <ProductList
