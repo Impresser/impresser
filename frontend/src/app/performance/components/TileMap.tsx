@@ -34,6 +34,8 @@ interface TileMapProps {
   focusPaddingBottom?: number;
   selectedFacilityId?: string | null;
   onBackgroundClick?: () => void;
+  isPerformanceComparisonMode?: boolean;
+  selectedFacilityIds?: string[];
 }
 
 interface FacilityOverlay {
@@ -60,6 +62,8 @@ export default function TileMap({
   focusPaddingBottom = 240,
   selectedFacilityId = null,
   onBackgroundClick,
+  isPerformanceComparisonMode = false,
+  selectedFacilityIds = [],
 }: TileMapProps) {
   const [internalHoveredFacilityId, setInternalHoveredFacilityId] = useState<string | null>(null);
   const [hoveredTile, setHoveredTile] = useState<{ x: number; y: number } | null>(null);
@@ -489,6 +493,22 @@ export default function TileMap({
           z-index: 6;
         }
 
+        .tile-map-facility-overlay-image.tile-map-facility-overlay-image--comparison-selected {
+          transform: scale(1.1);
+          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.8), 0 18px 36px rgba(59, 130, 246, 0.4);
+          z-index: 6;
+          animation: pulse-comparison 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-comparison {
+          0%, 100% {
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.8), 0 18px 36px rgba(59, 130, 246, 0.4);
+          }
+          50% {
+            box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.6), 0 18px 36px rgba(59, 130, 246, 0.5);
+          }
+        }
+
         .tile-map-container-wrapper.is-location-select-mode .tile-map-facility-overlay-image {
           pointer-events: none;
           transform: scale(1) !important;
@@ -529,6 +549,11 @@ export default function TileMap({
             <p className="text-sm font-medium">맵에서 위치를 클릭하여 선택하세요</p>
           </div>
         )}
+        {isPerformanceComparisonMode && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-blue-500 text-white px-6 py-3 rounded-lg shadow-lg">
+            <p className="text-sm font-medium">비교할 설비 2개를 선택하세요 ({selectedFacilityIds.length}/2)</p>
+          </div>
+        )}
 
         <div
           className="tile-map-container"
@@ -555,11 +580,13 @@ export default function TileMap({
             {facilityOverlayData.overlays.map((overlay) => {
               const isActiveOverlay = activeHoveredFacilityId === overlay.id;
               const facilityMeta = facilityMetaById.get(overlay.id);
+              const isSelectedForComparison = selectedFacilityIds.includes(overlay.id);
               const overlayClasses = [
                 "relative",
                 "tile-map-facility-overlay-image",
                 isActiveOverlay ? "tile-map-facility-overlay-image--active" : "",
                 selectedFacilityId === overlay.id ? "tile-map-facility-overlay-image--selected" : "",
+                isSelectedForComparison ? "tile-map-facility-overlay-image--comparison-selected" : "",
                 facilityMeta?.status === "inactive"
                   ? "tile-map-facility-overlay-image--inactive"
                   : facilityMeta?.status === "maintenance"
@@ -589,6 +616,10 @@ export default function TileMap({
                     if (isLocationSelectMode) return;
                     setInternalHoveredFacilityId((prev) => (prev === overlay.id ? null : prev));
                     onFacilityHoverChange?.(null);
+                  }}
+                  style={{
+                    ...overlay.style,
+                    cursor: isPerformanceComparisonMode ? 'pointer' : overlay.style.cursor,
                   }}
                   aria-label="facility"
                 >

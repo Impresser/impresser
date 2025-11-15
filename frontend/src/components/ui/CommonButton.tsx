@@ -16,6 +16,7 @@ export default function Button({
 }: ButtonProps) {
   const baseStyle = `
     px-7 py-2
+    text-sm
     rounded-full
     font-medium
     backdrop-blur-md

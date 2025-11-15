@@ -105,7 +105,7 @@ export default function FacilityInfoSection({
                     tabIndex={isPerformanceDisabled ? -1 : 0}
                     disabled={isPerformanceDisabled}
                   >
-                    압축하기
+                    설비선택
                   </CommonButton>
                   <div
                     data-tooltip

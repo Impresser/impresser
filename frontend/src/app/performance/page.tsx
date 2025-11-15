@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import Sidebar from '@/components/layout/sidebar';
 import Navbar from '@/components/layout/navbar';
-import FacilityList from './components/FacilityList';
 import FacilityDetailPanel from './components/FacilityDetailPanel';
 import AddFacilityModal from './components/AddFacilityModal';
 import AuthGuard from '@/components/auth/AuthGuard';
@@ -11,16 +10,16 @@ import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import TileMap, { type TileType } from './components/TileMap';
 import CommonButton from '@/components/ui/CommonButton';
 import { useAuthStore } from '@/store/authStore';
-import { getInkjetPrinters, getInkjetPrinterDetail, getDailyProduction, getInkjetJobs, type InkjetPrinter, type InkjetPrinterDetail, type DailyProductionResponse, type InkjetJob } from '@/service/inkjet';
+import { getInkjetPrinters, getInkjetPrinterDetail, getDailyProduction, getInkjetJobs, createInkjetJob, type InkjetPrinter, type InkjetPrinterDetail, type DailyProductionResponse, type InkjetJob } from '@/service/inkjet';
 import { QueueItem, HistoryItem } from '@/components/ui/CommonTable';
 import type { Facility } from './types';
 import EditFacilityModal from './components/EditFacilityModal';
-import PerformanceSimulatorContainer from './components/PerformanceSimulatorContainer';
-import FacilityQueueModal from './components/FacilityQueueModal';
-import FacilityComparisonModal from './components/FacilityComparisonModal';
+import PerformanceSimulator from './components/PerformanceSimulator';
 import FacilityQueueSection from './components/FacilityQueueSection';
 import FacilityStatisticsSummary from './components/FacilityStatisticsSummary';
 import FacilityHistorySection from './components/FacilityHistorySection';
+import NewFacilityList from './components/NewFacilityList';
+import SelectedFacilitiesPanel from './components/SelectedFacilitiesPanel';
 
 const getQueueItems = (facilityId: string): QueueItem[] => {
   const queueData: Record<string, QueueItem[]> = {
@@ -137,13 +136,12 @@ export default function SimulationPage() {
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
-  const [queueModalFacility, setQueueModalFacility] = useState<Facility | null>(null);
+  const [performanceHistoryData, setPerformanceHistoryData] = useState<Record<string, {
+    historyItems: HistoryItem[];
+    isLoadingHistory: boolean;
+    historyError: string | null;
+  }>>({});
   const [queuedUploadsByFacility, setQueuedUploadsByFacility] = useState<Record<string, QueueItem[]>>({});
-  const [queueModalSettings, setQueueModalSettings] = useState<{
-    processingMethod: 'cpu' | 'gpu';
-    algorithm: string;
-    version: string;
-  } | null>(null);
   const [allFacilities, setAllFacilities] = useState<Facility[]>([]);
   const [paginatedFacilities, setPaginatedFacilities] = useState<Facility[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -153,6 +151,7 @@ export default function SimulationPage() {
   const [totalElements, setTotalElements] = useState(0);
   const [hoveredFacilityId, setHoveredFacilityId] = useState<string | null>(null);
   const [performanceComparisonSlots, setPerformanceComparisonSlots] = useState<(Facility | null)[]>([null, null]);
+  const performanceComparisonSectionRef = useRef<HTMLDivElement>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isLoadingProduction, setIsLoadingProduction] = useState(false);
@@ -163,6 +162,7 @@ export default function SimulationPage() {
     totalOperational: 0,
     totalRunning: 0,
   });
+  const [isPerformanceComparisonMode, setIsPerformanceComparisonMode] = useState(false);
   const isLocationSelectMode = locationSelectionTarget !== null;
   const mapData: TileType[][] = Array.from({ length: 14 }, () =>
     Array.from({ length: 25 }, () => 'g' as TileType)
@@ -176,8 +176,6 @@ export default function SimulationPage() {
   const [performanceSlotSettings, setPerformanceSlotSettings] = useState<SlotSettings[]>(
     () => performanceComparisonSlots.map(() => ({ ...DEFAULT_SLOT_SETTINGS }))
   );
-  const [comparisonModalFacility, setComparisonModalFacility] = useState<Facility | null>(null);
-  const [comparisonModalSettings, setComparisonModalSettings] = useState<SlotSettings>({ ...DEFAULT_SLOT_SETTINGS });
 
   const closeFacilityAddModal = useCallback((options?: { preserveSelection?: boolean }) => {
     setIsAddModalOpen(false);
@@ -232,24 +230,84 @@ export default function SimulationPage() {
     return pendingLocation ?? editDraftLocation;
   }, [locationSelectionTarget, pendingLocation, editDraftLocation]);
 
-  const addFacilityToPerformanceSlots = useCallback((facility: Facility) => {
+  // 상세 정보를 Facility 타입으로 변환
+  const mapDetailToFacility = useCallback((detail: InkjetPrinterDetail): Facility => {
+    // printerStatus 매핑: BROKEN -> inactive (고장), UNDER_REPAIR -> maintenance (수리 중), OPERATIONAL -> active (정상)
+    let status: 'active' | 'inactive' | 'maintenance' = 'inactive';
+    if (detail.printerStatus === 'BROKEN') {
+      status = 'inactive'; // 고장
+    } else if (detail.printerStatus === 'UNDER_REPAIR') {
+      status = 'maintenance'; // 수리 중
+    } else if (detail.printerStatus === 'OPERATIONAL') {
+      status = 'active'; // 정상
+    }
+
+    return {
+      id: detail.inkjetUuid,
+      name: detail.printerName,
+      type: 'Inkjet',
+      status,
+      modelName: detail.modelName,
+      processStatus: detail.processStatus as 'WAITING' | 'RUNNING',
+      cpu: detail.cpu,
+      gpu: detail.gpu,
+      ram: detail.ram,
+      vram: detail.vram,
+      installDate: detail.installDate,
+      canvasX: detail.canvasX,
+      canvasY: detail.canvasY,
+    };
+  }, []);
+
+  const addFacilityToPerformanceSlots = useCallback(async (facility: Facility) => {
     if (facility.status === 'inactive') {
       return;
     }
+    
+    // 설비 상세 정보 조회하여 CPU, GPU, RAM, VRAM 정보 포함
+    let facilityWithDetails = facility;
+    try {
+      const response = await getInkjetPrinterDetail(facility.id);
+      if (response.isSuccess && response.result) {
+        facilityWithDetails = mapDetailToFacility(response.result);
+      } else {
+        // API 응답은 성공했지만 isSuccess가 false인 경우
+        console.warn('설비 상세 조회 응답 실패 (성능 비교 추가):', response.message);
+      }
+    } catch (err) {
+      // API 호출 자체가 실패한 경우 (네트워크 오류, 서버 오류 등)
+      // 기본 정보로 진행하되, 에러를 조용히 처리
+      if (err instanceof Error) {
+        // 서버 내부 오류(500) 등은 조용히 처리
+        if (err.message.includes('500') || err.message.includes('서버 내부')) {
+          console.warn('설비 상세 조회 중 서버 오류 발생, 기본 정보로 진행:', facility.name);
+        } else {
+          console.warn('설비 상세 조회 실패 (성능 비교 추가):', err.message);
+        }
+      } else {
+        console.warn('설비 상세 조회 실패 (성능 비교 추가):', err);
+      }
+      // 에러가 있어도 기본 정보로 진행
+    }
+    
     setPerformanceComparisonSlots((prev) => {
-      if (prev.some((slot) => slot?.id === facility.id)) {
-        return prev;
+      const existingIndex = prev.findIndex((slot) => slot?.id === facilityWithDetails.id);
+      if (existingIndex !== -1) {
+        // 이미 선택된 설비를 클릭하면 선택 취소
+        const next = [...prev];
+        next[existingIndex] = null;
+        return next;
       }
       const next = [...prev];
       const emptyIndex = next.findIndex((slot) => slot === null);
       if (emptyIndex !== -1) {
-        next[emptyIndex] = facility;
+        next[emptyIndex] = facilityWithDetails;
       } else {
-        next[0] = facility;
+        next[0] = facilityWithDetails;
       }
       return next;
     });
-  }, []);
+  }, [mapDetailToFacility]);
 
   const removeFacilityFromPerformanceSlot = useCallback((index: number) => {
     setPerformanceComparisonSlots((prev) => {
@@ -264,51 +322,82 @@ export default function SimulationPage() {
     });
   }, [DEFAULT_SLOT_SETTINGS]);
 
-  const handleOpenQueueModal = useCallback((facility: Facility, settings: { processingMethod: 'cpu' | 'gpu'; algorithm: string; version: string }) => {
-    setQueueModalFacility(facility);
-    setQueueModalSettings({ ...settings });
-  }, []);
-
-  const handleCloseQueueModal = useCallback(() => {
-    setQueueModalFacility(null);
-    setQueueModalSettings(null);
-  }, []);
 
   const handleQueueUpload = useCallback(
-    (
+    async (
       facility: Facility,
       payload: {
         files: File[];
         processingMethod: string;
         algorithm: string;
         version: string;
+        fileInfos?: Array<{
+          fileName: string;
+          imageUrl: string;
+          compressionTypeUuid: string;
+          bmpVolume: number;
+          bmpWidth: number;
+          bmpHeight: number;
+          algorithm: string;
+          version: string;
+          processingMethod: string;
+        }>;
       }
     ) => {
       if (!payload.files.length) return;
 
-      const timestamp = Date.now();
-      const uploadItems: QueueItem[] = payload.files.map((file, index) => ({
-        id: `upload-${facility.id}-${timestamp}-${index}`,
-        fileName: file.name,
-        processingMethod: payload.processingMethod.toUpperCase(),
-        algorithm: payload.algorithm,
-        version: payload.version,
-        fileSize: file.size,
-        status: '대기',
-        assignedUser: '자동등록',
-        startTime: null,
-        elapsedTime: 0,
-        estimatedTime: 0,
-        progress: 0,
-      }));
+      // fileInfos가 없으면 API 호출 불가
+      if (!payload.fileInfos || payload.fileInfos.length === 0) {
+        console.error('파일 상세 정보가 없어 대기열 등록을 할 수 없습니다.');
+        alert('파일 업로드가 완료되지 않았습니다. 잠시 후 다시 시도해주세요.');
+        return;
+      }
 
-      setQueuedUploadsByFacility((prev) => {
-        const existing = prev[facility.id] ?? [];
-        return {
-          ...prev,
-          [facility.id]: [...uploadItems, ...existing],
-        };
-      });
+      try {
+        // 잉크젯 설비 대기열 등록 API 호출
+        const response = await createInkjetJob(facility.id, {
+          createConvertRequests: payload.fileInfos.map((fileInfo) => ({
+            bmpUrl: fileInfo.imageUrl,
+            compressionTypeUuid: fileInfo.compressionTypeUuid,
+            bmpVolume: fileInfo.bmpVolume,
+            bmpWidth: fileInfo.bmpWidth,
+            bmpHeight: fileInfo.bmpHeight,
+          })),
+        });
+
+        if (!response.isSuccess) {
+          throw new Error(response.message || '대기열 등록에 실패했습니다.');
+        }
+
+        // 성공 시 로컬 대기열에도 추가 (UI 업데이트용)
+        const userName = useAuthStore.getState().user?.userName ?? '사용자';
+        const timestamp = Date.now();
+        const uploadItems: QueueItem[] = payload.files.map((file, index) => ({
+          id: `upload-${facility.id}-${timestamp}-${index}`,
+          fileName: file.name,
+          processingMethod: payload.processingMethod.toUpperCase(),
+          algorithm: payload.algorithm,
+          version: payload.version,
+          fileSize: file.size,
+          status: '대기',
+          assignedUser: userName,
+          startTime: null,
+          elapsedTime: 0,
+          estimatedTime: 0,
+          progress: 0,
+        }));
+
+        setQueuedUploadsByFacility((prev) => {
+          const existing = prev[facility.id] ?? [];
+          return {
+            ...prev,
+            [facility.id]: [...uploadItems, ...existing],
+          };
+        });
+      } catch (err) {
+        console.error('잉크젯 설비 대기열 등록 실패:', err);
+        alert(err instanceof Error ? err.message : '대기열 등록 중 오류가 발생했습니다.');
+      }
     },
     []
   );
@@ -333,6 +422,18 @@ export default function SimulationPage() {
     [performanceComparisonSlots, queuedUploadsByFacility]
   );
 
+  // 슬롯별 작업 내역 데이터
+  const performanceHistoryDataArray = useMemo(
+    () =>
+      performanceComparisonSlots.map((facility) => {
+        if (!facility) {
+          return { historyItems: [] as HistoryItem[], isLoadingHistory: false, historyError: null };
+        }
+        return performanceHistoryData[facility.id] || { historyItems: [], isLoadingHistory: false, historyError: null };
+      }),
+    [performanceComparisonSlots, performanceHistoryData]
+  );
+
   useEffect(() => {
     setPerformanceSlotSettings((prev) => {
       const length = performanceComparisonSlots.length;
@@ -346,6 +447,62 @@ export default function SimulationPage() {
       return next;
     });
   }, [performanceComparisonSlots, DEFAULT_SLOT_SETTINGS]);
+
+  // 슬롯별 작업 내역 조회
+  useEffect(() => {
+    const fetchSlotHistories = async () => {
+      const promises = performanceComparisonSlots.map(async (facility, index) => {
+        if (!facility) return;
+
+        try {
+          setPerformanceHistoryData((prev) => ({
+            ...prev,
+            [facility.id]: { ...prev[facility.id], isLoadingHistory: true, historyError: null },
+          }));
+
+          const response = await getInkjetJobs(facility.id, {
+            page: 0,
+            size: 100,
+          });
+
+          if (response.isSuccess && response.result) {
+            const mappedHistory = response.result.content.content.map(mapJobToHistoryItem);
+            setPerformanceHistoryData((prev) => ({
+              ...prev,
+              [facility.id]: {
+                historyItems: mappedHistory,
+                isLoadingHistory: false,
+                historyError: null,
+              },
+            }));
+          } else {
+            setPerformanceHistoryData((prev) => ({
+              ...prev,
+              [facility.id]: {
+                ...prev[facility.id],
+                isLoadingHistory: false,
+                historyError: response.message || '작업 내역 조회에 실패했습니다.',
+              },
+            }));
+          }
+        } catch (err) {
+          console.error(`슬롯 ${index + 1} 작업 내역 조회 실패:`, err);
+          setPerformanceHistoryData((prev) => ({
+            ...prev,
+            [facility.id]: {
+              ...prev[facility.id],
+              isLoadingHistory: false,
+              historyError: err instanceof Error ? err.message : '작업 내역 조회 중 오류가 발생했습니다.',
+            },
+          }));
+        }
+      });
+
+      await Promise.all(promises);
+    };
+
+    fetchSlotHistories();
+  }, [performanceComparisonSlots]);
 
   useEffect(() => {
     if (!selectedFacility) {
@@ -410,35 +567,6 @@ export default function SimulationPage() {
       installDate: inkjet.installDate,
       canvasX: inkjet.canvasX,
       canvasY: inkjet.canvasY,
-    };
-  };
-
-  // 상세 정보를 Facility 타입으로 변환
-  const mapDetailToFacility = (detail: InkjetPrinterDetail): Facility => {
-    // printerStatus 매핑: BROKEN -> inactive (고장), UNDER_REPAIR -> maintenance (수리 중), OPERATIONAL -> active (정상)
-    let status: 'active' | 'inactive' | 'maintenance' = 'inactive';
-    if (detail.printerStatus === 'BROKEN') {
-      status = 'inactive'; // 고장
-    } else if (detail.printerStatus === 'UNDER_REPAIR') {
-      status = 'maintenance'; // 수리 중
-    } else if (detail.printerStatus === 'OPERATIONAL') {
-      status = 'active'; // 정상
-    }
-
-    return {
-      id: detail.inkjetUuid,
-      name: detail.printerName,
-      type: 'Inkjet',
-      status,
-      modelName: detail.modelName,
-      processStatus: detail.processStatus as 'WAITING' | 'RUNNING',
-      cpu: detail.cpu,
-      gpu: detail.gpu,
-      ram: detail.ram,
-      vram: detail.vram,
-      installDate: detail.installDate,
-      canvasX: detail.canvasX,
-      canvasY: detail.canvasY,
     };
   };
 
@@ -600,6 +728,7 @@ export default function SimulationPage() {
     fetchDailyProduction();
   }, []);
 
+
   const handleFacilityPageChange = (nextPage: number) => {
     const zeroBased = nextPage - 1;
     setPage(zeroBased);
@@ -673,62 +802,12 @@ export default function SimulationPage() {
     handleCloseEditModal();
   };
 
-  const handleOpenComparisonModal = useCallback(
-    (facility: Facility) => {
-      setComparisonModalFacility(facility);
-      setComparisonModalSettings({ ...DEFAULT_SLOT_SETTINGS });
-    },
-    [DEFAULT_SLOT_SETTINGS]
-  );
-
-  const handleCloseComparisonModal = useCallback(() => {
-    setComparisonModalFacility(null);
-    setComparisonModalSettings({ ...DEFAULT_SLOT_SETTINGS });
-  }, [DEFAULT_SLOT_SETTINGS]);
-
-  const handleConfirmComparisonModal = useCallback(() => {
-    if (!comparisonModalFacility) return;
-
-    let assignedIndex = -1;
-
-    setPerformanceComparisonSlots((prev) => {
-      const next = [...prev];
-      const existingIndex = next.findIndex((slot) => slot?.id === comparisonModalFacility.id);
-      if (existingIndex !== -1) {
-        assignedIndex = existingIndex;
-        next[existingIndex] = comparisonModalFacility;
-        return next;
-      }
-      const emptyIndex = next.findIndex((slot) => slot === null);
-      assignedIndex = emptyIndex !== -1 ? emptyIndex : 0;
-      next[assignedIndex] = comparisonModalFacility;
-      return next;
-    });
-
-    setPerformanceSlotSettings((prev) => {
-      if (assignedIndex === -1) return prev;
-      const next = [...prev];
-      next[assignedIndex] = { ...comparisonModalSettings };
-      return next;
-    });
-
-    setComparisonModalFacility(null);
-    setComparisonModalSettings({ ...DEFAULT_SLOT_SETTINGS });
-  }, [comparisonModalFacility, comparisonModalSettings, DEFAULT_SLOT_SETTINGS]);
-
   const handleAddFacilityToPerformanceFromDetail = useCallback(
-    (facility: Facility) => {
-      handleOpenComparisonModal(facility);
+    async (facility: Facility) => {
+      await addFacilityToPerformanceSlots(facility);
     },
-    [handleOpenComparisonModal]
+    [addFacilityToPerformanceSlots]
   );
-
-  const handleComparisonSettingsChange = useCallback((update: Partial<SlotSettings>) => {
-    setComparisonModalSettings((prev) => ({
-      ...prev,
-      ...update,
-    }));
-  }, []);
 
   const availabilityRate =
     facilityStats.totalOperational > 0
@@ -767,7 +846,7 @@ export default function SimulationPage() {
               <>
                 <div className="relative flex gap-6">
                   <CommonContainerBox className="flex-1 h-[570px] overflow-hidden p-0 relative">
-                    <div className="absolute right-4 top-4 z-20 flex justify-end">
+                    <div className="absolute left-4 top-4 z-20">
                       <CommonContainerBox className="bg-white/95 shadow !px-4 !py-4">
                         <FacilityStatisticsSummary
                           total={totalElements}
@@ -776,6 +855,33 @@ export default function SimulationPage() {
                           availabilityRate={availabilityRate}
                         />
                       </CommonContainerBox>
+                    </div>
+                    <div className="absolute right-4 top-4 z-20">
+                      {isPerformanceComparisonMode ? (
+                        <CommonButton
+                          variant="gray"
+                          className="px-4 py-2 text-sm"
+                          onClick={() => {
+                            setIsPerformanceComparisonMode(false);
+                          }}
+                        >
+                          취소
+                        </CommonButton>
+                      ) : (
+                        <CommonButton
+                          variant="blue"
+                          className="px-4 py-2 text-sm"
+                          onClick={() => {
+                            setIsPerformanceComparisonMode(true);
+                            // 성능비교 모드로 전환 시 상세정보 패널 닫기
+                            setSelectedFacility(null);
+                            setDetailError(null);
+                            setShowTaskSections(false);
+                          }}
+                        >
+                          성능비교
+                        </CommonButton>
+                      )}
                     </div>
                     {isAdmin && (
                       <div className="absolute right-4 bottom-4 z-20">
@@ -796,14 +902,22 @@ export default function SimulationPage() {
                       selectedLocation={mapSelectedLocation}
                       hoveredFacilityId={hoveredFacilityId}
                       onFacilityHoverChange={setHoveredFacilityId}
-                      onFacilityClick={(facilityId) => {
+                      isPerformanceComparisonMode={isPerformanceComparisonMode}
+                      selectedFacilityIds={performanceComparisonSlots.filter((slot) => slot !== null).map((slot) => slot!.id)}
+                      onFacilityClick={async (facilityId) => {
                         const facility = allFacilities.find((item) => item.id === facilityId);
                         if (facility) {
-                          handleFacilityClick(facility);
+                          if (isPerformanceComparisonMode) {
+                            // 성능비교 모드일 때는 슬롯에 추가
+                            await addFacilityToPerformanceSlots(facility);
+                          } else {
+                            // 일반 모드일 때는 상세 정보 표시
+                            handleFacilityClick(facility);
+                          }
                         }
                       }}
                       onTileClick={() => {
-                        if (locationSelectionTarget) {
+                        if (locationSelectionTarget || isPerformanceComparisonMode) {
                           return;
                         }
                         setSelectedFacility(null);
@@ -812,7 +926,7 @@ export default function SimulationPage() {
                         setHoveredFacilityId(null);
                       }}
                       onBackgroundClick={() => {
-                        if (locationSelectionTarget) {
+                        if (locationSelectionTarget || isPerformanceComparisonMode) {
                           return;
                         }
                         setSelectedFacility(null);
@@ -854,22 +968,27 @@ export default function SimulationPage() {
                     )}
                   </CommonContainerBox>
 
-                  <div className="w-80 mb-6">
-                    <div className="relative h-[570px]">
-                      <FacilityList
-                        facilities={paginatedFacilities}
-                        onFacilityClick={handleFacilityClick}
-                        onFacilityHover={setHoveredFacilityId}
-                        currentPage={page + 1}
-                        totalPages={totalPages}
-                        onPageChange={handleFacilityPageChange}
+                  <div className="w-80 h-[570px] mb-6 relative">
+                    {isPerformanceComparisonMode ? (
+                      <SelectedFacilitiesPanel
+                        selectedFacilities={performanceComparisonSlots}
+                        onConfirm={() => {
+                          const selectedCount = performanceComparisonSlots.filter((slot) => slot !== null).length;
+                          if (selectedCount === 2) {
+                            setIsPerformanceComparisonMode(false);
+                            // 알고리즘 성능 비교 섹션으로 스크롤
+                            setTimeout(() => {
+                              performanceComparisonSectionRef.current?.scrollIntoView({
+                                behavior: 'smooth',
+                                block: 'start',
+                              });
+                            }, 100);
+                          }
+                        }}
                       />
-                      {isLoading && (
-                        <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/85 backdrop-blur-[1px]">
-                          <div className="text-gray-500 text-sm">목록을 불러오는 중...</div>
-                        </div>
-                      )}
-                    </div>
+                    ) : (
+                      <NewFacilityList />
+                    )}
                   </div>
                 </div>
               </>
@@ -898,14 +1017,15 @@ export default function SimulationPage() {
               </CommonContainerBox>
             )}
 
-            <div className="mt-10">
-              <PerformanceSimulatorContainer
+            <div className="mt-10" ref={performanceComparisonSectionRef}>
+              <PerformanceSimulator
                 slots={performanceComparisonSlots}
                 onRemove={removeFacilityFromPerformanceSlot}
                 onRun={(currentSlots) => {
                   console.log('성능 시뮬레이터 실행', currentSlots);
                 }}
                 queueData={performanceQueueData}
+                historyData={performanceHistoryDataArray}
                 settings={performanceSlotSettings}
                 onSettingsChange={(index, update) => {
                   setPerformanceSlotSettings((prev) => {
@@ -914,9 +1034,13 @@ export default function SimulationPage() {
                     return next;
                   });
                 }}
-                onAddTask={handleOpenQueueModal}
+                onQueueUpload={handleQueueUpload}
+                onDownload={(item) => {
+                  console.log('다운로드:', item.fileName);
+                }}
               />
             </div>
+
 
           </div>
         </main>
@@ -943,22 +1067,7 @@ export default function SimulationPage() {
         onRequestLocationChange={handleRequestEditLocationChange}
         draftLocation={editDraftLocation}
       />
-      <FacilityQueueModal
-        facility={queueModalFacility}
-        isOpen={Boolean(queueModalFacility)}
-        onClose={handleCloseQueueModal}
-        onUpload={handleQueueUpload}
-        settings={queueModalSettings}
-      />
 
-      <FacilityComparisonModal
-        facility={comparisonModalFacility}
-        isOpen={Boolean(comparisonModalFacility)}
-        settings={comparisonModalSettings}
-        onSettingsChange={handleComparisonSettingsChange}
-        onConfirm={handleConfirmComparisonModal}
-        onClose={handleCloseComparisonModal}
-      />
 
     </div>
     </AuthGuard>

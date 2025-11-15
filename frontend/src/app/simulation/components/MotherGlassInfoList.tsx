@@ -192,13 +192,13 @@ export default function MotherGlassInfoList({
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-4">
-          <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex-1 min-w-0 rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-700">
             모든 원장 조합을 고려하여 최적 면취 효율을 계산합니다. 목표 수량을 확정하면 최적 배치가 자동 산출됩니다.
           </div>
           <CommonButton
             variant="blue"
-            className="px-4 py-2 text-sm"
+            className="shrink-0 px-4 py-2 text-sm"
             onClick={onCalculate}
             disabled={isCalculating || calculateDisabled}
           >
