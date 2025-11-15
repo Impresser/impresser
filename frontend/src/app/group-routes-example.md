@@ -5,8 +5,8 @@ app/
 ├── page.tsx → /
 ├── dashboard/
 │ └── page.tsx → /dashboard
-├── simulation/
-│ └── page.tsx → /simulation
+├── performance/
+│ └── page.tsx → /performance
 ├── imagegenerator/
 │ └── page.tsx → /imagegenerator
 ├── imagecompressor/
@@ -30,8 +30,8 @@ app/
 ├── layout.tsx → 앱 페이지용 레이아웃 (사이드바 + 네비게이션바)
 ├── dashboard/
 │ └── page.tsx → /dashboard
-├── simulation/
-│ └── page.tsx → /simulation
+├── performance/
+│ └── page.tsx → /performance
 ├── imagegenerator/
 │ └── page.tsx → /imagegenerator
 ├── imagecompressor/

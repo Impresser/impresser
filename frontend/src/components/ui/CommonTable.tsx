@@ -1,0 +1,250 @@
+'use client';
+
+import React from 'react';
+import Button from './CommonButton';
+import CommonTableFrame from './CommonTableFrame';
+
+export interface QueueItem {
+  id: string;
+  fileName: string;
+  processingMethod: string;
+  algorithm: string;
+  version: string;
+  fileSize: number;
+  status: '대기' | '진행';
+  assignedUser: string;
+  startTime: Date | null;
+  elapsedTime: number; // 초 단위
+  estimatedTime: number; // 초 단위
+  progress: number; // 0-100
+  bmpUrl?: string;
+  compressionTypeUuid?: string;
+  bmpWidth?: number;
+  bmpHeight?: number;
+  convertHistoryUuid?: string;
+}
+
+export interface HistoryItem {
+  id: string;
+  fileName: string;
+  processingMethod: string;
+  algorithm: string;
+  version: string;
+  fileSize: number;
+  status: '완료';
+  assignedUser: string;
+  completedTime: Date;
+  duration: number; // 초 단위
+  tiffUrl?: string; // 다운로드 URL (선택적)
+}
+
+interface CommonTableProps {
+  data: QueueItem[] | HistoryItem[];
+  emptyMessage?: string;
+  mode?: 'queue' | 'history';
+  onDownload?: (item: HistoryItem) => void;
+}
+
+const formatFileSize = (bytes: number) => {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
+const formatTime = (seconds: number): string => {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
+};
+
+const formatDateTime = (date: Date): string => {
+  // 한국 시간대(Asia/Seoul)로 변환
+  const formatter = new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  
+  const parts = formatter.formatToParts(date).reduce<Record<string, string>>((acc, p) => {
+    if (p.type !== 'literal') acc[p.type] = p.value;
+    return acc;
+  }, {});
+  
+  return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+};
+
+const isQueueItem = (item: QueueItem | HistoryItem): item is QueueItem => {
+  return 'startTime' in item || 'progress' in item;
+};
+
+const isHistoryItem = (item: QueueItem | HistoryItem): item is HistoryItem => {
+  return 'completedTime' in item && 'duration' in item;
+};
+
+export default function CommonTable({ data, emptyMessage = '데이터가 없습니다.', mode = 'queue', onDownload }: CommonTableProps) {
+  const handleDownload = (item: HistoryItem) => {
+    if (onDownload) {
+      onDownload(item);
+    } else {
+      console.log('다운로드:', item.fileName);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* 테이블 헤더 */}
+      <div className="grid grid-cols-12 gap-4 pb-3 border-b border-gray-200 text-sm font-semibold text-gray-700">
+        <div className="col-span-2">파일명</div>
+        <div className="col-span-1">처리방식</div>
+        <div className="col-span-1">알고리즘</div>
+        <div className="col-span-1">버전</div>
+        <div className="col-span-1">파일용량</div>
+        <div className="col-span-1">상태</div>
+        <div className="col-span-1">담당자</div>
+        {mode === 'queue' ? (
+          <>
+            <div className="col-span-1">시작시각</div>
+            <div className="col-span-1">경과시간</div>
+            <div className="col-span-1">예상시간</div>
+            <div className="col-span-1">진행률</div>
+          </>
+        ) : (
+          <>
+            <div className="col-span-2">완료일시</div>
+            <div className="col-span-1">소요시간</div>
+            <div className="col-span-1">다운로드</div>
+          </>
+        )}
+      </div>
+
+      {/* 테이블 행 또는 빈 메시지 */}
+      {data.length === 0 ? (
+        <div className="py-12 text-center text-gray-500 text-sm">
+          {emptyMessage}
+        </div>
+      ) : (
+        data.map((item) => {
+          if (mode === 'queue' && isQueueItem(item)) {
+            return (
+              <div
+                key={item.id}
+                className="grid grid-cols-12 gap-4 py-3 border-b border-gray-100 text-sm text-gray-900"
+              >
+                <div className="col-span-2 truncate" title={item.fileName}>
+                  {item.fileName}
+                </div>
+                <div className="col-span-1">{item.processingMethod}</div>
+                <div className="col-span-1 truncate" title={item.algorithm}>
+                  {item.algorithm}
+                </div>
+                <div className="col-span-1">{item.version}</div>
+                <div className="col-span-1">{formatFileSize(item.fileSize)}</div>
+                <div className="col-span-1">
+                  <span
+                    className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                      item.status === '진행'
+                        ? 'bg-blue-100 text-blue-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {item.status}
+                  </span>
+                </div>
+                <div className="col-span-1">{item.assignedUser}</div>
+                <div className="col-span-1 text-xs">
+                  {item.startTime ? formatDateTime(item.startTime) : '-'}
+                </div>
+                <div className="col-span-1">
+                  {item.status === '진행' ? formatTime(item.elapsedTime) : '-'}
+                </div>
+                <div className="col-span-1">
+                  {item.estimatedTime > 0 ? formatTime(item.estimatedTime) : '-'}
+                </div>
+                <div className="col-span-1">
+                  {item.status === '진행' ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="flex-1 bg-gray-200 rounded-full h-2">
+                        <div
+                          className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${item.progress}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-600 min-w-12">
+                        {item.progress}%
+                      </span>
+                    </div>
+                  ) : (
+                    '-'
+                  )}
+                </div>
+              </div>
+            );
+          } else if (mode === 'history' && isHistoryItem(item)) {
+            return (
+              <div
+                key={item.id}
+                className="grid grid-cols-12 gap-4 py-3 border-b border-gray-100 text-sm text-gray-900"
+              >
+                <div className="col-span-2 truncate" title={item.fileName}>
+                  {item.fileName}
+                </div>
+                <div className="col-span-1">{item.processingMethod}</div>
+                <div className="col-span-1 truncate" title={item.algorithm}>
+                  {item.algorithm}
+                </div>
+                <div className="col-span-1">{item.version}</div>
+                <div className="col-span-1">{formatFileSize(item.fileSize)}</div>
+                <div className="col-span-1">
+                  <span className="inline-block px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
+                    {item.status}
+                  </span>
+                </div>
+                <div className="col-span-1">{item.assignedUser}</div>
+                <div className="col-span-2 text-xs">
+                  {formatDateTime(item.completedTime)}
+                </div>
+                <div className="col-span-1">
+                  {formatTime(item.duration)}
+                </div>
+                <div className="col-span-1">
+                  <button
+                    onClick={() => handleDownload(item)}
+                    className="flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline transition-colors text-sm"
+                  >
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                      />
+                    </svg>
+                    <span>다운로드</span>
+                  </button>
+                </div>
+              </div>
+            );
+          }
+          return null;
+        })
+      )}
+    </div>
+  );
+}

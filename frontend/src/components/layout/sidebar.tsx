@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
+import Link from 'next/link';
+import { useSidebarStore } from '@/store/sidebarStore';
 
 // 아이콘 컴포넌트들 (추후 실제 아이콘으로 교체 예정)
 const HomeIcon = () => (
@@ -118,6 +120,45 @@ const SimulationIcon = () => (
   </svg>
 );
 
+const PerformanceIcon = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M4 20V12"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M10 20V6"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M16 20V10"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M22 20V4"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 interface MenuItem {
   id: string;
   name: string;
@@ -145,6 +186,12 @@ const menuItems: MenuItem[] = [
     icon: CompressIcon,
   },
   {
+    id: 'performance',
+    name: '성능 비교',
+    path: '/performance',
+    icon: PerformanceIcon,
+  },
+  {
     id: 'simulation',
     name: '시뮬레이션',
     path: '/simulation',
@@ -153,42 +200,57 @@ const menuItems: MenuItem[] = [
 ];
 
 export default function Sidebar() {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const { isCollapsed, setIsCollapsed, toggleCollapsed } = useSidebarStore();
+  const [isHovered, setIsHovered] = useState(false);
   const pathname = usePathname();
 
-  // 화면 크기에 따른 사이드바 상태 관리
-  React.useEffect(() => {
+  // 화면 크기에 따른 사이드바 상태 관리 (초기 로드 시에만)
+  useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 1024) {
-        // lg 브레이크포인트
+        // lg 브레이크포인트 미만일 때는 자동으로 접기
         setIsCollapsed(true);
-      } else {
-        setIsCollapsed(false);
       }
+      // 화면이 커져도 사용자가 접어놓은 상태는 유지 (자동으로 펼치지 않음)
     };
 
-    handleResize(); // 초기 실행
+    // 초기 로드 시에만 화면 크기 확인
+    if (window.innerWidth < 1024) {
+      setIsCollapsed(true);
+    }
+
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  }, [setIsCollapsed]);
+
+  // 실제 표시 여부: 접혀있을 때 호버하면 펼쳐짐
+  const isExpanded = isCollapsed ? isHovered : true;
 
   return (
     <div
       className={`bg-white shadow-lg transition-all duration-300 ease-in-out h-screen flex flex-col ${
-        isCollapsed ? 'w-16' : 'w-48'
-      }`}
+        isExpanded ? 'w-48' : 'w-16'
+      } ${isCollapsed && isHovered ? 'z-50 shadow-xl' : 'z-10'}`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       {/* 브랜드 로고 및 이름 */}
-      <div className="flex items-center h-16 px-4 border-b border-gray-100">
+      <Link href="/dashboard" className="flex items-center h-16 px-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors">
         <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-[#0059FF] rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">I</span>
-          </div>
-          {!isCollapsed && (
-            <span className="text-[#0059FF] font-bold text-lg">Impresser</span>
-          )}
+          <img
+            src="/images/logos/impresser_logo_icon01.png"
+            alt="Impresser Brand Icon"
+            className="w-8 h-8 object-contain"
+          />
+          <img
+            src="/images/logos/impresser_logo_text01.png"
+            alt="Impresser"
+            className={`h-6 object-contain transition-all duration-300 ${
+              isExpanded ? 'opacity-100 w-auto' : 'opacity-0 w-0 overflow-hidden'
+            }`}
+          />
         </div>
-      </div>
+      </Link>
 
       {/* 메뉴 아이템들 */}
       <nav className="flex-1 mt-4">
@@ -207,12 +269,18 @@ export default function Sidebar() {
               }`}
             >
               <div
-                className={`flex items-center ${isCollapsed ? 'justify-center w-full' : 'space-x-3'}`}
+                className={`flex items-center ${isExpanded ? '' : 'justify-center w-full'}`}
               >
-                <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                <div className="w-5 h-5 flex items-center justify-center shrink-0">
                   <IconComponent />
                 </div>
-                {!isCollapsed && <span className="text-sm">{item.name}</span>}
+                <span 
+                  className={`text-sm whitespace-nowrap transition-all duration-300 ${
+                    isExpanded ? 'opacity-100 w-auto ml-3' : 'opacity-0 w-0 overflow-hidden ml-0'
+                  }`}
+                >
+                  {item.name}
+                </span>
               </div>
             </a>
           );
@@ -220,10 +288,19 @@ export default function Sidebar() {
       </nav>
 
       {/* 토글 버튼 (데스크톱에서 수동 토글용) */}
-      <div className="p-4 border-t border-gray-100">
+      <div 
+        className="p-4 border-t border-gray-100"
+        onMouseEnter={(e) => {
+          e.stopPropagation();
+          setIsHovered(false);
+        }}
+        onMouseLeave={(e) => {
+          e.stopPropagation();
+        }}
+      >
         <div className="flex justify-center">
           <button
-            onClick={() => setIsCollapsed(!isCollapsed)}
+            onClick={toggleCollapsed}
             className="w-8 h-8 bg-gray-100 border border-gray-200 rounded-full shadow-sm flex items-center justify-center hover:bg-gray-200 transition-colors"
           >
             <svg
@@ -232,7 +309,7 @@ export default function Sidebar() {
               viewBox="0 0 24 24"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
-              className={`transition-transform duration-200 ${isCollapsed ? 'rotate-180' : ''}`}
+              className={`transition-transform duration-200 ${!isCollapsed ? 'rotate-180' : ''}`}
             >
               <path
                 d="M9 18L15 12L9 6"
