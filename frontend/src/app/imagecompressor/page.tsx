@@ -265,7 +265,7 @@ export default function ImageCompressorPage() {
           setQueue((prev) => {
             return prev.map((item) => {
               // convertHistoryUuid로 매칭 (convertHistoryUuid 필드가 있는 경우)
-              if (item.convertHistoryUuid === data.convertHistoryUuid) {
+              if (item.convertHistoryUuid === data.convertHistoryUuid && data.convertHistoryUuid) {
                 const previousStatus = previousStatusMapRef.current.get(data.convertHistoryUuid) || item.status;
                 const updated: QueueItem = { ...item };
                 
@@ -277,7 +277,7 @@ export default function ImageCompressorPage() {
                 // 상태 업데이트
                 if (data.status) {
                   if (data.status === '완료' || data.status === 'COMPLETED') {
-                    updated.status = '완료';
+                    updated.status = '완료' as const;
                     updated.progress = 100;
                     // 상태가 변경되었고 완료로 변경된 경우 토스트 메시지 저장
                     if (previousStatus !== '완료') {
