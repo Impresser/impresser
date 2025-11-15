@@ -7,6 +7,7 @@ public record AllGenerationHistoryResponse(
     UUID generationUuid,
     String bmpUrl,
     String userName,
+    String employeeNo,
     Long bmpHeight,
     Long bmpWidth,
     Long bmpVolume,
