@@ -92,4 +92,8 @@ public class InkjetPrinter extends BaseTimeEntity {
     public void deleteInkjet() {
         this.deletedAt = LocalDateTime.now();
     }
+
+    public void updateProcessStatus(ProcessStatus processStatus) {
+        this.processStatus = processStatus;
+    }
 }

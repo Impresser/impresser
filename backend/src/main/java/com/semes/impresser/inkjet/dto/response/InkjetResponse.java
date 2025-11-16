@@ -23,7 +23,7 @@ public record InkjetResponse(
     Integer canvasY
 ) {
 
-    public static InkjetResponse toDto(String tiffName, InkjetResponse inkjetResponse) {
+    public static InkjetResponse toDto(String tiffName, InkjetResponse inkjetResponse, String tiffUrl) {
         return InkjetResponse.builder()
             .inkjetUuid(inkjetResponse.inkjetUuid)
             .printerName(inkjetResponse.printerName)
@@ -37,7 +37,7 @@ public record InkjetResponse(
             .vram(inkjetResponse.vram)
             .sheetCount(inkjetResponse.sheetCount)
             .tiffName(tiffName)
-            .tiffUrl(inkjetResponse.tiffUrl)
+            .tiffUrl(tiffUrl)
             .canvasX(inkjetResponse.canvasX)
             .canvasY(inkjetResponse.canvasY)
             .build();

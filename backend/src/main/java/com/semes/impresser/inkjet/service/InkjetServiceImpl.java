@@ -146,11 +146,13 @@ public class InkjetServiceImpl implements InkjetService {
 
         InkjetResponse tempInkjetResponse = inkjetRepository.getInkjet(inkjetUuid);
 
-        String tiffUrl = tempInkjetResponse.tiffUrl();
+        String tiffKey = tempInkjetResponse.tiffUrl();
 
-        String tiffName = S3Util.extractOriginalFileName(tiffUrl);
+        String tiffUrl = S3Util.buildUrlFromKey(tiffKey);
 
-        InkjetResponse inkjetResponse = InkjetResponse.toDto(tiffName, tempInkjetResponse);
+        String tiffName = S3Util.extractOriginalFileName(tiffKey);
+
+        InkjetResponse inkjetResponse = InkjetResponse.toDto(tiffName, tempInkjetResponse, tiffUrl);
 
         return inkjetResponse;
     }
