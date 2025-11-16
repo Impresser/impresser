@@ -348,17 +348,13 @@ export default function CompressionHistory({
                             <td className="py-3 px-3 text-center">{formatFileSize(originalItem?.bmpVolume || 0)}</td>
                             <td className="py-3 px-3 text-center">{formatFileSize(originalItem?.tiffVolume || 0)}</td>
                             <td className="py-3 px-3 text-center">
-                              {(() => {
-                                const bmpVol = originalItem?.bmpVolume || 0;
-                                const tiffVol = originalItem?.tiffVolume || 0;
-                                if (bmpVol === 0) return '-';
-                                const compressionRatio = ((bmpVol - tiffVol) / bmpVol) * 100;
-                                return (
-                                  <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] bg-green-50 text-green-700 border-green-200">
-                                    {compressionRatio.toFixed(2)}%
-                                  </span>
-                                );
-                              })()}
+                              {originalItem?.compressionRatio != null ? (
+                                <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] bg-green-50 text-green-700 border-green-200">
+                                  {Math.round(originalItem.compressionRatio)}%
+                                </span>
+                              ) : (
+                                '-'
+                              )}
                             </td>
                             <td className="py-3 px-3 text-center">{item.assignedUser}</td>
                             <td className="py-3 px-3 text-center">
