@@ -4,23 +4,13 @@ project(image_converter LANGUAGES CXX CUDA)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if (MSVC)
-  add_compile_options(/O2 /W3 /utf-8)
-else()
-  add_compile_options(-O2 -Wall)
-endif()
+add_compile_options(-O2 -Wall -Wextra)
 
 # -----------------------------------------------------------------------------
 # nvTIFF 설정
 # -----------------------------------------------------------------------------
-if (WIN32)
-  set(NVTIFF_INCLUDE_DIR "C:/Program Files/NVIDIA nvTIFF/v0.5/include" CACHE PATH "")
-  set(NVTIFF_LIBRARY     "C:/Program Files/NVIDIA nvTIFF/v0.5/lib/12/nvtiff.lib" CACHE FILEPATH "")
-  set(NVTIFF_BIN_DIR     "C:/Program Files/NVIDIA nvTIFF/v0.5/lib/12/" CACHE PATH "")
-else()
-  if (NOT DEFINED NVTIFF_INCLUDE_DIR OR NOT DEFINED NVTIFF_LIBRARY)
-    message(FATAL_ERROR "Set NVTIFF_INCLUDE_DIR and NVTIFF_LIBRARY for Linux")
-  endif()
+if (NOT DEFINED NVTIFF_INCLUDE_DIR OR NOT DEFINED NVTIFF_LIBRARY)
+  message(FATAL_ERROR "Set NVTIFF_INCLUDE_DIR and NVTIFF_LIBRARY for Linux")
 endif()
 
 # -----------------------------------------------------------------------------
@@ -51,13 +41,7 @@ find_package(TIFF REQUIRED)
 # ----------------------------------------------------------------------------- 
 # zlib (Deflate 압축용)
 # ----------------------------------------------------------------------------- 
-if(WIN32)
-    # vcpkg 설치 경로 기준
-    set(ZLIB_INCLUDE_DIR "C:/devtools/vcpkg/installed/x64-windows/include")
-    set(ZLIB_LIBRARY     "C:/devtools/vcpkg/installed/x64-windows/lib/zlib.lib")
-else()
-    find_package(ZLIB REQUIRED)
-endif()
+find_package(ZLIB REQUIRED)
 
 include_directories(${ZLIB_INCLUDE_DIR})
 

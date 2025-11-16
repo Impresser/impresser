@@ -195,18 +195,18 @@ namespace {
         do {
             mrc = curl_multi_perform(multi, &running);
             if (mrc == CURLM_OK && running) {
-#if LIBCURL_VERSION_NUM >= 0x073400
-                curl_multi_poll(multi, nullptr, 0, 1000, nullptr);
-#else
-                fd_set rd, wr, ex;
-                int maxfd = -1;
-                struct timeval tv;
-                tv.tv_sec = 1; tv.tv_usec = 0;
-                FD_ZERO(&rd); FD_ZERO(&wr); FD_ZERO(&ex);
-                curl_multi_fdset(multi, &rd, &wr, &ex, &maxfd);
-                if (maxfd >= 0) ::select(maxfd + 1, &rd, &wr, &ex, &tv);
-                else ::usleep(1000 * 1000);
-#endif
+                #if LIBCURL_VERSION_NUM >= 0x073400
+                    curl_multi_poll(multi, nullptr, 0, 1000, nullptr);
+                #else
+                    fd_set rd, wr, ex;
+                    int maxfd = -1;
+                    struct timeval tv;
+                    tv.tv_sec = 1; tv.tv_usec = 0;
+                    FD_ZERO(&rd); FD_ZERO(&wr); FD_ZERO(&ex);
+                    curl_multi_fdset(multi, &rd, &wr, &ex, &maxfd);
+                    if (maxfd >= 0) ::select(maxfd + 1, &rd, &wr, &ex, &tv);
+                    else ::usleep(1000 * 1000);
+                #endif
             }
         } while (mrc == CURLM_OK && running);
 
@@ -287,7 +287,7 @@ public:
     ~LibcurlMultiIO() override = default;
 
     bool downloadToFile(const std::string& url, const std::string& localPath) override {
-        if (!is_http_url(url)) { LOGE("Bad URL: " << url); return false; }
+        if (!is_http_url(url)) { LOGE("[http] Bad URL: " << url); return false; }
 
         Stopwatch dlSw;
         LOGI("[http] GET begin url=" << redacted(url) << " -> " << localPath);
@@ -311,11 +311,11 @@ public:
 
         // 2) 파일 열기(+ pre-alloc)
         int fd = ::open(tmp.c_str(), O_CREAT | O_TRUNC | O_WRONLY, 0666);
-        if (fd < 0) { LOGE("open failed: " << tmp); return false; }
+        if (fd < 0) { LOGE("[http] open failed: " << tmp); return false; }
 
         if (hi.content_length > 0) {
             if (::ftruncate(fd, static_cast<off_t>(hi.content_length)) != 0) {
-                LOGW("ftruncate failed; proceed without pre-alloc");
+                LOGW("[http] ftruncate failed; proceed without pre-alloc");
             }
         }
 
@@ -339,7 +339,7 @@ public:
         }
 
         if (std::rename(tmp.c_str(), localPath.c_str()) != 0) {
-            LOGE("rename failed to " << localPath);
+            LOGE("[http] rename failed to " << localPath);
             std::remove(tmp.c_str());
             return false;
         }
@@ -357,7 +357,7 @@ public:
         // to가 HTTP/HTTPS면 PUT 업로드, 아니면 로컬 파일 복사
         if (is_http_url(to)) {
             FILE* fp = std::fopen(localPath.c_str(), "rb");
-            if (!fp) { LOGE("open failed: " << localPath); return false; }
+            if (!fp) { LOGE("[http] open failed: " << localPath); return false; }
 
             const auto size = get_filesize(localPath);
             Stopwatch sw;
@@ -408,7 +408,7 @@ public:
                 std::remove(tmp.c_str());
                 return false;
             }
-            LOGI("Saved: " << to);
+            LOGI("[http] Saved: " << to);
             return true;
         }
     }
@@ -450,7 +450,7 @@ public:
     }
 
     bool putBinary(const std::string& url, const std::vector<char>& data, size_t size, int* httpCode, std::string* resp) {
-        LOGI("[GPU BMP] putBinary begin url=" << redacted(url) << " size=" << size);
+        LOGI("[http] putBinary begin url=" << redacted(url) << " size=" << size);
         CURL* eh = curl_easy_init();
         if (!eh) return false;
 
@@ -494,10 +494,10 @@ public:
         if (httpCode) *httpCode = (int)http;
         if (resp) *resp = std::move(out);
 
-        LOGI("[GPU BMP] putBinary done rc=" << rc << " http=" << http
+        LOGI("[http] putBinary done rc=" << rc << " http=" << http
             << " respBytes=" << (resp ? resp->size() : 0));
         if (!(rc == CURLE_OK && http == 200)) {
-            LOGW("[GPU BMP] putBinary fail rc=" << rc << " http=" << http
+            LOGW("[http] putBinary fail rc=" << rc << " http=" << http
                 << " body=" << (resp ? *resp : std::string()));
         }
         return (rc == CURLE_OK && http == 200);
@@ -639,7 +639,7 @@ public:
         const std::vector<std::pair<std::string, std::string>>& headers,
         int* httpCode,
         std::string* resp) override {
-        if (!is_http_url(url)) { LOGE("Bad URL: " << url); return false; }
+        if (!is_http_url(url)) { LOGE("[http] Bad URL: " << url); return false; }
 
         CURL* eh = curl_easy_init();
         if (!eh) return false;
@@ -677,7 +677,7 @@ public:
         if (resp)     *resp = std::move(out);
 
         if (rc != CURLE_OK || http < 200 || http >= 300) {
-            LOGW("postJson failed rc=" << rc << " http=" << http);
+            LOGW("[http] postJson failed rc=" << rc << " http=" << http);
             return false;
         }
         return true;
