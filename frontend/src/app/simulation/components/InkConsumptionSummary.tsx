@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import type { PrintSimulationPlanEntry } from './PrintSimulationPlan';
 import type { BmpDetailResult } from '@/types/imageGenerator';
@@ -80,6 +80,20 @@ function computeRemainingAfterUsage(usageMl: number) {
     remainingMl,
     percent: (remainingMl / INK_TANK_CAPACITY_ML) * 100,
   };
+}
+
+function AnimatedBar({ percent, className }: { percent: number; className?: string }) {
+  const [displayPercent, setDisplayPercent] = useState<number>(100);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setDisplayPercent(percent));
+    return () => cancelAnimationFrame(id);
+  }, [percent]);
+  return (
+    <div
+      className={`h-full rounded-full transition-[width] duration-700 ease-in-out ${className ?? ''}`}
+      style={{ width: `${Math.max(0, Math.min(100, displayPercent))}%` }}
+    />
+  );
 }
 
 export default function InkConsumptionSummary({ 
@@ -233,7 +247,7 @@ export default function InkConsumptionSummary({
       {/* 잉크 사용량 섹션 */}
       <CommonContainerBox className="px-4 py-4 space-y-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">잉크 사용량 계산</h3>
+          <h3 className="text-lg font-semibold text-gray-900">잉크 사용량</h3>
           <p className="mt-1 text-sm text-gray-500">
             이미지 픽셀 수와 인쇄 수량을 반영해 색상별 잉크 사용량을 계산합니다. 1,000px당 1ml 기준으로 환산합니다.
           </p>
@@ -293,11 +307,8 @@ export default function InkConsumptionSummary({
                                   남은 잉크 {remaining.remainingMl.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml ({remainingPercent.toFixed(1)}%)
                                 </span>
                               </div>
-                              <div className="h-2 w-full rounded-full bg-gray-200">
-                                <div
-                                  className={`h-full rounded-full transition-all ${barColor}`}
-                                  style={{ width: `${remainingPercent}%` }}
-                                />
+                              <div className="h-2 w-full rounded-full bg-gray-200 overflow-hidden">
+                                <AnimatedBar percent={remainingPercent} className={barColor} />
                               </div>
                               <div className="mt-1 text-[11px] text-gray-400">
                                 총 사용 {usage.toLocaleString(undefined, { maximumFractionDigits: 1 })} ml
