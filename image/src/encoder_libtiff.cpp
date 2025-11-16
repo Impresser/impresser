@@ -23,7 +23,7 @@ static inline unsigned int snapToPreferred(unsigned int r) {
     return best;
 }
 
-static inline unsigned int pickRowsPerStrip(uint32_t width, uint32_t height) {
+static inline unsigned int pickRowsPerStrip(uint32_t height) {
     const unsigned int targetStrips = 1000; // Áß¾Ó°ª
     unsigned int rps = (height + targetStrips - 1) / targetStrips;
     if (rps == 0) rps = 1;
@@ -53,14 +53,10 @@ public:
         if (rgb.size() != expected)
             throw std::runtime_error("RGB buffer size mismatch.");
 
-        const unsigned int width = (unsigned int)info.width;
-        const unsigned int height = (unsigned int)info.height;
-        const unsigned int pixelSize = 3;  // RGB24
-
         unsigned int rowsPerStrip = opt.rowsPerStrip.has_value() && opt.rowsPerStrip.value() > 0
             ? (unsigned int)opt.rowsPerStrip.value()
-            : pickRowsPerStrip(info.width, info.height);
-        rowsPerStrip = std::max(1u, std::min(rowsPerStrip, height));
+            : pickRowsPerStrip(info.height);
+        rowsPerStrip = std::max(1u, std::min(rowsPerStrip, (unsigned int)info.height));
 
         const int maxAttempts = 4;
         bool encoded = false;

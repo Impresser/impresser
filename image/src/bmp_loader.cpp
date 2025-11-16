@@ -33,11 +33,11 @@ namespace conv {
 
     bool LoadBmp24ToRGB(const std::string& path, ImageInfo& info, std::vector<uint8_t>& rgb) {
         FILE* fp = fopen(path.c_str(), "rb");
-        if (!fp) { LOGE("Open failed: " << path); return false; }
+        if (!fp) { LOGE("[bmp] Open failed: " << path); return false; }
 
         BMPHeader bh{};
         if (fread(&bh, sizeof(bh), 1, fp) != 1 || bh.bfType != 0x4D42) {
-            LOGE("Not a BMP file");
+            LOGE("[bmp] Not a BMP file");
             fclose(fp);
             return false;
         }
@@ -45,7 +45,7 @@ namespace conv {
         if (fread(&ih, sizeof(ih), 1, fp) != 1) { fclose(fp); return false; }
 
         if (ih.biBitCount != 24 || ih.biCompression != 0) {
-            LOGE("Only 24-bit uncompressed BMP supported");
+            LOGE("[bmp] Only 24-bit uncompressed BMP supported");
             fclose(fp);
             return false;
         }
@@ -59,7 +59,7 @@ namespace conv {
 
         fseek(fp, static_cast<long>(bh.bfOffBits), SEEK_SET);
         if (fread(raw.data(), 1, raw.size(), fp) != raw.size()) {
-            LOGE("Read pixel data failed");
+            LOGE("[bmp] Read pixel data failed");
             fclose(fp);
             return false;
         }
