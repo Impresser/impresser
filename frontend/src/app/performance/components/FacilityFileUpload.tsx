@@ -581,9 +581,13 @@ export default function FacilityFileUpload({ settings, onSubmit, submitLabel = '
                         <th className="text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
                         <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">크기</th>
                         <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
-                        <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">알고리즘</th>
-                        <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">버전</th>
-                        <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 whitespace-nowrap">처리방식</th>
+                        {!skipAlgorithmCheck && (
+                          <>
+                            <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">알고리즘</th>
+                            <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">버전</th>
+                            <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 whitespace-nowrap">처리방식</th>
+                          </>
+                        )}
                         <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">업로드 상태</th>
                         <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
                       </tr>
@@ -615,21 +619,25 @@ export default function FacilityFileUpload({ settings, onSubmit, submitLabel = '
                             {file.dimensions.width.toLocaleString()} × {file.dimensions.height.toLocaleString()}
                           </td>
                           <td className="py-3 px-3 text-center">{formatFileSize(file.size)}</td>
-                          <td className="py-3 px-3 text-center">
-                            <span className="text-sm font-medium text-gray-900">
-                              {settings.algorithm || '미선택'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            <span className="text-sm font-medium text-gray-900">
-                              {settings.version || '미선택'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            <span className="text-sm font-medium text-gray-900">
-                              {settings.processingMethod.toUpperCase()}
-                            </span>
-                          </td>
+                          {!skipAlgorithmCheck && (
+                            <>
+                              <td className="py-3 px-3 text-center">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {settings.algorithm || '미선택'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-center">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {settings.version || '미선택'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-center">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {settings.processingMethod.toUpperCase()}
+                                </span>
+                              </td>
+                            </>
+                          )}
                           <td className="py-3 px-3 text-center">
                             <div className="space-y-2">
                               {file.uploadStatus === 'uploading' ? (

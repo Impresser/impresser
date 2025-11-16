@@ -316,6 +316,79 @@ export interface GetInkjetJobsResponse {
   };
 }
 
+// 잉크젯 설비 가동 응답 타입
+export interface StartInkjetPrinterResponse {
+  jobHistoryUuid: string;
+}
+
+/**
+ * 잉크젯 설비 가동 (POST /inkjet-printer/{inkjetUuid})
+ * tiffUrl, sheetCount는 백엔드에서 사용하지 않으므로 임의 값 전송
+ */
+export async function startInkjetPrinter(
+  inkjetUuid: string,
+): Promise<ApiResponse<StartInkjetPrinterResponse>> {
+  const accessToken = typeof window !== 'undefined' ? localStorage.getItem("accessToken") : null;
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/inkjet-printer/${inkjetUuid}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      tiffUrl: "about:blank",
+      sheetCount: 0,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `설비 가동 실패: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const data: ApiResponse<StartInkjetPrinterResponse> = await response.json();
+  return data;
+}
+
+/**
+ * 잉크젯 설비 가동 완료 (PATCH /inkjet-printer/{inkjetUuid}/jobs/{jobHistoryUuid})
+ * 204 No Content
+ */
+export async function completeInkjetJob(
+  inkjetUuid: string,
+  jobHistoryUuid: string,
+): Promise<void> {
+  const accessToken = typeof window !== 'undefined' ? localStorage.getItem("accessToken") : null;
+
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+  };
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}/inkjet-printer/${inkjetUuid}/jobs/${jobHistoryUuid}`, {
+    method: "PATCH",
+    headers,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `설비 가동 완료 실패: ${response.status} ${response.statusText}`
+    );
+  }
+
+  return;
+}
+
 /**
  * 잉크젯 설비별 작업 내역 조회 API 호출
  * @param inkjetUuid 설비 UUID
@@ -466,6 +539,7 @@ export interface ConvertHistoryItemResponse {
   completedAt: string;
   elapsedTime: number;
   tiffUrl: string;
+  compressionTime?: number;
 }
 
 // SSE 이벤트 데이터 타입
@@ -486,6 +560,7 @@ export interface InkjetSSEEventData {
 // SSE 이벤트 핸들러 타입
 export interface InkjetSSEEventHandlers {
   onCompressionComplete?: (data: ConvertHistoryItemResponse) => void;
+  onCompressionFailed?: (data: Partial<ConvertHistoryItemResponse> & { message?: string }) => void;
   onError?: (error: Error) => void;
 }
 
@@ -501,110 +576,160 @@ export function subscribeInkjetCompressionSSE(
   const accessToken = typeof window !== 'undefined' ? localStorage.getItem("accessToken") : null;
 
   const abortController = new AbortController();
+  let stopped = false;
+  abortController.signal.addEventListener('abort', () => {
+    stopped = true;
+  });
 
   const headers: HeadersInit = {
     Accept: "text/event-stream",
+    "Cache-Control": "no-cache",
+    Pragma: "no-cache",
   };
 
   if (accessToken) {
     headers["Authorization"] = `Bearer ${accessToken}`;
   }
 
-  console.log('설비 대기열 SSE 연결 시도:', `${API_BASE_URL}/sse/subscribe`);
-  fetch(`${API_BASE_URL}/sse/subscribe`, {
-    method: "GET",
-    headers,
-    signal: abortController.signal,
-  })
-    .then(async (response) => {
-      console.log('설비 대기열 SSE 응답 상태:', response.status, response.ok);
-      if (!response.ok) {
-        throw new Error(`SSE 연결 실패: ${response.status}`);
-      }
-
-      console.log('설비 대기열 SSE 연결 성공, 스트림 읽기 시작');
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) {
-        throw new Error("응답 본문을 읽을 수 없습니다.");
-      }
-
-      let buffer = "";
-      let currentEventName = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        
-        if (done) {
-          console.log('설비 대기열 SSE 스트림 종료');
-          break;
+  const connect = () => {
+    if (stopped) return;
+    console.log('설비 대기열 SSE 연결 시도:', `${API_BASE_URL}/sse/subscribe`);
+    fetch(`${API_BASE_URL}/sse/subscribe`, {
+      method: "GET",
+      headers,
+      cache: "no-store",
+      signal: abortController.signal,
+    })
+      .then(async (response) => {
+        console.log('설비 대기열 SSE 응답 상태:', response.status, response.ok);
+        if (!response.ok) {
+          throw new Error(`SSE 연결 실패: ${response.status}`);
         }
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
+        console.log('설비 대기열 SSE 연결 성공, 스트림 읽기 시작');
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
 
-        for (const line of lines) {
-          // event: 라인 처리 (이벤트 이름 파싱)
-          if (line.startsWith("event:")) {
-            currentEventName = line.slice(6).trim();
-            continue;
+        if (!reader) {
+          throw new Error("응답 본문을 읽을 수 없습니다.");
+        }
+
+        let buffer = "";
+        let currentEventName = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          
+          if (done) {
+            console.log('설비 대기열 SSE 스트림 종료');
+            break;
           }
 
-          // data: 라인 처리
-          if (line.startsWith("data:")) {
-            const dataContent = line.slice(5).trim();
-            
-            // 빈 데이터나 "ok", "ping" 같은 하트비트 메시지는 무시
-            if (dataContent === "" || dataContent === "ok" || dataContent === "ping") {
-              currentEventName = "";
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split("\n");
+          buffer = lines.pop() || "";
+
+          for (const line of lines) {
+            // event: 라인 처리 (이벤트 이름 파싱)
+            if (line.startsWith("event:")) {
+              currentEventName = line.slice(6).trim();
               continue;
             }
-            
-            try {
-              const data: InkjetSSEEventData = JSON.parse(dataContent);
+
+            // data: 라인 처리
+            if (line.startsWith("data:")) {
+              const dataContent = line.slice(5).trim();
               
-              // CONVERT_BMP_SUCCESS 이벤트 처리
-              if (currentEventName === "CONVERT_BMP_SUCCESS" && handlers.onCompressionComplete) {
-                const convertHistoryData: ConvertHistoryItemResponse = {
-                  convertHistoryUuid: data.convertHistoryUuid || "",
-                  tiffName: data.tiffName || "",
-                  processingUnit: data.processingUnit || "",
-                  compressionType: data.compressionType || "",
-                  version: data.version || 0,
-                  bmpVolume: data.bmpVolume || 0,
-                  tiffVolume: data.tiffVolume || 0,
-                  compressionRatio: data.compressionRatio || 0,
-                  userName: data.userName || "",
-                  employeeNo: data.employeeNo || "",
-                  completedAt: data.completedAt || "",
-                  elapsedTime: data.elapsedTime || 0,
-                  tiffUrl: data.tiffUrl || "",
-                };
-                
-                console.log('설비 대기열 압축 완료 이벤트 수신:', convertHistoryData);
-                handlers.onCompressionComplete(convertHistoryData);
+              // 빈 데이터, 하트비트/타임아웃 메시지는 무시
+              if (
+                dataContent === "" ||
+                dataContent === "ok" ||
+                dataContent === "ping" ||
+                dataContent === "{\"timeout\":0}" ||
+                dataContent.includes("\"timeout\"")
+              ) {
+                currentEventName = "";
+                continue;
               }
               
-              // 이벤트 이름 초기화
-              currentEventName = "";
-            } catch (error) {
-              console.error("설비 대기열 SSE 메시지 파싱 오류:", error, "원본:", dataContent);
-              currentEventName = "";
+              try {
+                const data: InkjetSSEEventData = JSON.parse(dataContent);
+                
+                // CONVERT_BMP_SUCCESS 이벤트 처리
+                if (currentEventName === "CONVERT_BMP_SUCCESS" && handlers.onCompressionComplete) {
+                  const convertHistoryData: ConvertHistoryItemResponse = {
+                    convertHistoryUuid: data.convertHistoryUuid || "",
+                    tiffName: data.tiffName || "",
+                    processingUnit: data.processingUnit || "",
+                    compressionType: data.compressionType || "",
+                    version: data.version || 0,
+                    bmpVolume: data.bmpVolume || 0,
+                    tiffVolume: data.tiffVolume || 0,
+                    compressionRatio: data.compressionRatio || 0,
+                    userName: data.userName || "",
+                    employeeNo: data.employeeNo || "",
+                    completedAt: data.completedAt || "",
+                    elapsedTime: data.elapsedTime || 0,
+                    tiffUrl: data.tiffUrl || "",
+                  compressionTime: (data as any).compressionTime ?? undefined,
+                  };
+                  
+                  console.log('설비 대기열 압축 완료 이벤트 수신:', convertHistoryData);
+                  handlers.onCompressionComplete(convertHistoryData);
+                }
+
+                // CONVERT_BMP_FAILED 이벤트 처리
+                if (currentEventName === "CONVERT_BMP_FAILED" && handlers.onCompressionFailed) {
+                  const failedData: Partial<ConvertHistoryItemResponse> & { message?: string } = {
+                    convertHistoryUuid: data.convertHistoryUuid,
+                    tiffName: data.tiffName,
+                    processingUnit: data.processingUnit,
+                    compressionType: data.compressionType,
+                    version: data.version,
+                    bmpVolume: data.bmpVolume,
+                    tiffVolume: data.tiffVolume,
+                    compressionRatio: data.compressionRatio,
+                    userName: data.userName,
+                    employeeNo: data.employeeNo,
+                    completedAt: data.completedAt,
+                    elapsedTime: data.elapsedTime,
+                    tiffUrl: data.tiffUrl,
+                    message: typeof data.message === 'string' ? data.message : undefined,
+                  };
+                  console.warn('설비 대기열 압축 실패 이벤트 수신:', failedData);
+                  handlers.onCompressionFailed(failedData);
+                }
+                
+                // 이벤트 이름 초기화
+                currentEventName = "";
+              } catch (error) {
+                console.error("설비 대기열 SSE 메시지 파싱 오류:", error, "원본:", dataContent);
+                currentEventName = "";
+              }
             }
           }
         }
-      }
-    })
-    .catch((error) => {
-      if (error.name !== "AbortError") {
-        console.error("설비 대기열 SSE 연결 오류:", error);
-        if (handlers.onError) {
-          handlers.onError(error);
+        // 스트림이 종료되면 자동 재시도
+        if (!stopped) {
+          setTimeout(connect, 1000);
         }
-      }
-    });
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError") {
+          console.error("설비 대기열 SSE 연결 오류:", error);
+          if (handlers.onError) {
+            handlers.onError(error);
+          }
+        }
+        // 오류 시에도 자동 재시도
+        if (!stopped) {
+          setTimeout(connect, 1500);
+        }
+      });
+  };
+
+  // 최초 연결
+  connect();
 
   return abortController;
 }

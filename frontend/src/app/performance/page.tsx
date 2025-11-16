@@ -9,6 +9,7 @@ import AuthGuard from '@/components/auth/AuthGuard';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import TileMap, { type TileType } from './components/TileMap';
 import CommonButton from '@/components/ui/CommonButton';
+import { useToast } from '@/components/ui/CommonToast';
 import { useAuthStore } from '@/store/authStore';
 import { usePerformanceHistoryStore } from '@/store/performanceHistoryStore';
 import { getInkjetPrinters, getInkjetPrinterDetail, getDailyProduction, getInkjetJobs, createInkjetJob, subscribeInkjetCompressionSSE, type InkjetPrinter, type InkjetPrinterDetail, type DailyProductionResponse, type InkjetJob, type ConvertHistoryItemResponse } from '@/service/inkjet';
@@ -19,6 +20,8 @@ import PerformanceSimulator from './components/PerformanceSimulator';
 import FacilityQueueSection from './components/FacilityQueueSection';
 import FacilityStatisticsSummary from './components/FacilityStatisticsSummary';
 import FacilityHistorySection from './components/FacilityHistorySection';
+import PerformanceResultComparisonTable, { type ResultComparisonItem } from './components/PerformanceResultComparisonTable';
+import PerformanceResultSummary from './components/PerformanceResultSummary';
 import NewFacilityList from './components/NewFacilityList';
 import SelectedFacilitiesPanel from './components/SelectedFacilitiesPanel';
 
@@ -151,6 +154,7 @@ export default function SimulationPage() {
   const [hoveredFacilityId, setHoveredFacilityId] = useState<string | null>(null);
   const [performanceComparisonSlots, setPerformanceComparisonSlots] = useState<(Facility | null)[]>([null, null]);
   const performanceComparisonSectionRef = useRef<HTMLDivElement>(null);
+  const resultComparisonSectionRef = useRef<HTMLDivElement>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isLoadingProduction, setIsLoadingProduction] = useState(false);
@@ -162,6 +166,7 @@ export default function SimulationPage() {
     totalRunning: 0,
   });
   const [isPerformanceComparisonMode, setIsPerformanceComparisonMode] = useState(false);
+  const { showToast } = useToast();
   const isLocationSelectMode = locationSelectionTarget !== null;
   const mapData: TileType[][] = Array.from({ length: 14 }, () =>
     Array.from({ length: 25 }, () => 'g' as TileType)
@@ -358,7 +363,8 @@ export default function SimulationPage() {
           createConvertRequests: payload.fileInfos.map((fileInfo) => ({
             bmpUrl: fileInfo.imageUrl,
             compressionTypeUuid: fileInfo.compressionTypeUuid,
-            bmpVolume: fileInfo.bmpVolume,
+             // API 계약: bmpVolume 단위는 KB. 현재 fileInfo.bmpVolume은 Bytes이므로 KB로 변환
+             bmpVolume: Math.round((fileInfo.bmpVolume ?? 0) / 1024),
             bmpWidth: fileInfo.bmpWidth,
             bmpHeight: fileInfo.bmpHeight,
           })),
@@ -378,11 +384,11 @@ export default function SimulationPage() {
           algorithm: payload.algorithm,
           version: payload.version,
           fileSize: file.size,
-          status: '대기',
+           status: '진행',
           assignedUser: userName,
-          startTime: null,
-          elapsedTime: 0,
-          estimatedTime: 0,
+           startTime: new Date(),
+           elapsedTime: 0,
+           estimatedTime: 0,
           progress: 0,
         }));
 
@@ -393,6 +399,9 @@ export default function SimulationPage() {
             [facility.id]: [...uploadItems, ...existing],
           };
         });
+
+         // 토스트 알림
+         showToast(`${facility.name}에 ${uploadItems.length}건 대기열 등록됨 (진행)`);
       } catch (err) {
         console.error('잉크젯 설비 대기열 등록 실패:', err);
         alert(err instanceof Error ? err.message : '대기열 등록 중 오류가 발생했습니다.');
@@ -433,6 +442,36 @@ export default function SimulationPage() {
     [performanceComparisonSlots, performanceHistoryData]
   );
 
+  // 결과 비교용 단일 테이블 데이터
+  const resultComparisonItems = useMemo<ResultComparisonItem[]>(() => {
+    const idToName = new Map<string, string>();
+    performanceComparisonSlots.forEach((f) => {
+      if (f) idToName.set(f.id, f.name);
+    });
+    const items: ResultComparisonItem[] = [];
+    Object.entries(performanceHistoryData).forEach(([facilityId, data]) => {
+      const facilityName = idToName.get(facilityId) ?? facilityId;
+      data.historyItems.forEach((it) => {
+        items.push({
+          facilityId,
+          facilityName,
+          fileName: it.fileName,
+          processingMethod: it.processingMethod,
+          algorithm: it.algorithm,
+          version: it.version,
+          fileSizeBytes: it.fileSize,
+           compressionRatio: (it as any).compressionRatio,
+          compressionTime: (it as any).compressionTime,
+          elapsedTime: it.duration,
+          completedTime: it.completedTime,
+          tiffUrl: it.tiffUrl,
+        });
+      });
+    });
+    items.sort((a, b) => b.completedTime.getTime() - a.completedTime.getTime());
+    return items;
+  }, [performanceComparisonSlots, performanceHistoryData]);
+
   useEffect(() => {
     setPerformanceSlotSettings((prev) => {
       const length = performanceComparisonSlots.length;
@@ -461,7 +500,7 @@ export default function SimulationPage() {
         };
 
         // 모든 설비의 대기열에서 매칭되는 항목 찾기
-        setQueuedUploadsByFacility((prev) => {
+         setQueuedUploadsByFacility((prev) => {
           const updated = { ...prev };
           let matchedItem: QueueItem | null = null;
           let matchedFacilityId: string | null = null;
@@ -471,9 +510,8 @@ export default function SimulationPage() {
             const matched = queueItems.find((item) => {
               // 파일명 매칭
               const fileNameMatch = matchFileName(item.fileName, data.tiffName);
-              // bmpVolume도 확인 (추가 검증)
-              const volumeMatch = item.fileSize === data.bmpVolume;
-              
+              // bmpVolume 단위 차이 보정: item.fileSize(bytes) → KB 반올림 후 비교
+              const volumeMatch = Math.round((item.fileSize ?? 0) / 1024) === (data.bmpVolume ?? -1);
               return fileNameMatch && volumeMatch;
             });
 
@@ -484,7 +522,7 @@ export default function SimulationPage() {
             }
           }
 
-          if (matchedItem && matchedFacilityId) {
+           if (matchedItem && matchedFacilityId) {
             // 대기열에서 완료된 항목 제거
             updated[matchedFacilityId] = updated[matchedFacilityId].filter(
               (item) => item.id !== matchedItem!.id
@@ -502,6 +540,23 @@ export default function SimulationPage() {
               fileName: matchedItem.fileName,
               convertHistoryUuid: data.convertHistoryUuid,
             });
+
+             // 완료 토스트 알림 (비동기로 예약)
+             try {
+               const facilityName =
+                 performanceComparisonSlots.find((f) => f && f.id === matchedFacilityId)?.name ||
+                 matchedFacilityId ||
+                 '설비';
+               const timeText =
+                 typeof (data as any).compressionTime === 'number'
+                   ? `${(data as any).compressionTime.toFixed(2)}초`
+                   : `${data.elapsedTime}초`;
+             setTimeout(() => showToast(`${facilityName} 압축 완료: ${data.tiffName} (${timeText})`), 0);
+             // 결과 비교 섹션으로 자동 스크롤
+             setTimeout(() => {
+               resultComparisonSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+             }, 100);
+             } catch {}
           } else {
             console.warn('압축 완료 이벤트에 매칭되는 대기열 항목을 찾을 수 없습니다:', {
               tiffName: data.tiffName,
@@ -1070,7 +1125,11 @@ export default function SimulationPage() {
                     isLoadingHistory={isLoadingHistory}
                     historyError={historyError}
                     onDownload={(item) => {
-                      console.log('다운로드:', item.fileName);
+                      if (item.tiffUrl) {
+                        window.open(item.tiffUrl, '_blank', 'noopener,noreferrer');
+                      } else {
+                        alert('다운로드 URL이 없습니다.');
+                      }
                     }}
                     withContainer={false}
                   />
@@ -1094,9 +1153,17 @@ export default function SimulationPage() {
                 }}
                 onQueueUpload={handleQueueUpload}
                 onDownload={(item) => {
-                  console.log('다운로드:', item.fileName);
+                  if (item.tiffUrl) {
+                    window.open(item.tiffUrl, '_blank', 'noopener,noreferrer');
+                  } else {
+                    alert('다운로드 URL이 없습니다.');
+                  }
                 }}
               />
+              <div ref={resultComparisonSectionRef}>
+                <PerformanceResultComparisonTable items={resultComparisonItems} />
+                <PerformanceResultSummary items={resultComparisonItems} />
+              </div>
             </div>
 
 

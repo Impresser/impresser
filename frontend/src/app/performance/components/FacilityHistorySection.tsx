@@ -2,14 +2,14 @@
 
 import React from 'react';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
-import type { HistoryItem } from '@/components/ui/CommonTable';
+import type { FacilityHistoryItem } from '@/store/performanceHistoryStore';
 import FacilityHistoryTable from './FacilityHistoryTable';
 
 interface FacilityHistorySectionProps {
-  historyItems: HistoryItem[];
+  historyItems: FacilityHistoryItem[];
   isLoadingHistory: boolean;
   historyError: string | null;
-  onDownload?: (item: HistoryItem) => void;
+  onDownload?: (item: FacilityHistoryItem) => void;
   withContainer?: boolean;
   facilityName?: string;
 }

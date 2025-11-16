@@ -10,18 +10,17 @@ import 'swiper/css/pagination';
 interface LayoutSliderProps {
   children: React.ReactNode[];
   className?: string;
+  singleView?: boolean;
 }
 
-export default function LayoutSlider({ children, className = '' }: LayoutSliderProps) {
+export default function LayoutSlider({ children, className = '', singleView = false }: LayoutSliderProps) {
   const swiperRef = useRef<SwiperType | null>(null);
 
-  // 3개 미만이면 일반 그리드로 표시
-  if (children.length < 3) {
+  // singleView가 아닌 경우에만 개수에 따라 그리드 처리
+  if (!singleView && children.length < 3) {
     if (children.length === 1) {
-      // 1개인 경우 중앙 정렬
       return <div className={`flex justify-center ${className}`}>{children}</div>;
     }
-    // 2개인 경우 그리드
     return <div className={`grid gap-4 lg:grid-cols-2 ${className}`}>{children}</div>;
   }
 
@@ -112,17 +111,19 @@ export default function LayoutSlider({ children, className = '' }: LayoutSliderP
             clickable: true,
             dynamicBullets: true,
           }}
-          breakpoints={{
-            0: {
-              slidesPerView: 1,
-            },
-            768: {
-              slidesPerView: 2,
-            },
-            1024: {
-              slidesPerView: 2,
-            },
-          }}
+          breakpoints={
+            singleView
+              ? {
+                  0: { slidesPerView: 1 },
+                  768: { slidesPerView: 1 },
+                  1024: { slidesPerView: 1 },
+                }
+              : {
+                  0: { slidesPerView: 1 },
+                  768: { slidesPerView: 2 },
+                  1024: { slidesPerView: 2 },
+                }
+          }
           className="swiper"
         >
           {children.map((child, index) => (

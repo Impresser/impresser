@@ -52,17 +52,17 @@ export default function FacilityQueueTable({ items }: FacilityQueueTableProps) {
       header={
         <thead className="bg-gray-50">
           <tr className="text-gray-700">
-            <th className="py-2 px-3 text-left text-xs font-semibold tracking-wide">파일명</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide">처리방식</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide">알고리즘</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide">버전</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide">파일용량</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide">상태</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide">담당자</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide">시작시각</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide">경과시간</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide">예상시간</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide">진행률</th>
+            <th className="py-2 px-3 text-left text-sm font-semibold tracking-wide">파일명</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">처리방식</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">알고리즘</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">버전</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">파일용량</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">상태</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">담당자</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">시작시각</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">경과시간</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">예상시간</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">진행률</th>
           </tr>
         </thead>
       }

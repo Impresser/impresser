@@ -4,8 +4,10 @@ import { create } from "zustand";
 import { HistoryItem } from "@/components/ui/CommonTable";
 import { ConvertHistoryItemResponse } from "@/service/inkjet";
 
+export type FacilityHistoryItem = HistoryItem & { compressionTime?: number; compressionRatio?: number };
+
 type PerformanceHistoryData = {
-  historyItems: HistoryItem[];
+  historyItems: FacilityHistoryItem[];
   isLoadingHistory: boolean;
   historyError: string | null;
 };
@@ -45,7 +47,7 @@ export const usePerformanceHistoryStore = create<PerformanceHistoryStore>((set) 
           ...state.performanceHistoryData,
           [facilityId]: {
             ...existing,
-            historyItems: [historyItem, ...existing.historyItems],
+            historyItems: [historyItem as FacilityHistoryItem, ...existing.historyItems],
           },
         },
       };
@@ -94,18 +96,21 @@ export const usePerformanceHistoryStore = create<PerformanceHistoryStore>((set) 
   },
 
   addCompressionComplete: (facilityId, data, matchedItem) => {
-    const historyItem: HistoryItem = {
+    const historyItem: FacilityHistoryItem = {
       id: data.convertHistoryUuid,
       fileName: matchedItem.fileName,
       processingMethod: data.processingUnit.toUpperCase(),
       algorithm: matchedItem.algorithm,
       version: matchedItem.version,
-      fileSize: data.tiffVolume,
+      // SSE의 tiffVolume은 KB 단위로 전달됨 → bytes로 변환하여 저장
+      fileSize: (data.tiffVolume ?? 0) * 1024,
       status: '완료',
       assignedUser: data.userName,
       completedTime: new Date(data.completedAt),
       duration: data.elapsedTime,
       tiffUrl: data.tiffUrl,
+      compressionTime: data.compressionTime,
+      compressionRatio: data.compressionRatio,
     };
 
     set((state) => {
