@@ -2,6 +2,7 @@ package com.semes.impresser.convertImage.dto.response;
 
 import com.semes.impresser.common.util.S3Util;
 import com.semes.impresser.convertImage.entity.ConvertHistory;
+import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.UUID;
 import lombok.Builder;
@@ -20,6 +21,7 @@ public record ConvertHistoryItemResponse(
     String employeeNo,
     String completedAt,
     Long elapsedTime,
+    BigDecimal compressionTime,
     String tiffUrl
 ) {
 
@@ -41,6 +43,7 @@ public record ConvertHistoryItemResponse(
             .employeeNo(src.employeeNo())
             .completedAt(src.completedAt())
             .elapsedTime(src.elapsedTime())
+            .compressionTime(null)
             .tiffUrl(tiffUrl)
             .build();
     }
@@ -60,6 +63,7 @@ public record ConvertHistoryItemResponse(
             convertHistory.getCompletedAt().toString(),
             Duration.between(convertHistory.getRequestedAt(), convertHistory.getCompletedAt())
                 .getSeconds(),
+            convertHistory.getCompressionTime(),
             S3Util.buildUrlFromKey(convertHistory.getTiffKey())
         );
     }
