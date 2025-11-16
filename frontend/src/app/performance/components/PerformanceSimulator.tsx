@@ -256,7 +256,7 @@ export default function PerformanceSimulator({
             </div>
           )}
 
-          {/* 각 설비별 작업 대기열과 작업 내역 */}
+          {/* 각 설비별 작업 대기열 */}
           {hasBothSlots && (
             <div className="space-y-6 border-t border-gray-200 pt-6" ref={queueSectionRef}>
               {/* 슬롯 1의 작업 대기열 */}
@@ -281,30 +281,6 @@ export default function PerformanceSimulator({
                   isLoading={false}
                   withContainer={true}
                   showTitle={true}
-                  facilityName={slots[1].name}
-                />
-              )}
-
-              {/* 슬롯 1의 작업 내역 */}
-              {slots[0] && (
-                <FacilityHistorySection
-                  historyItems={historyData[0]?.historyItems || []}
-                  isLoadingHistory={historyData[0]?.isLoadingHistory || false}
-                  historyError={historyData[0]?.historyError || null}
-                  onDownload={onDownload}
-                  withContainer={true}
-                  facilityName={slots[0].name}
-                />
-              )}
-
-              {/* 슬롯 2의 작업 내역 */}
-              {slots[1] && (
-                <FacilityHistorySection
-                  historyItems={historyData[1]?.historyItems || []}
-                  isLoadingHistory={historyData[1]?.isLoadingHistory || false}
-                  historyError={historyData[1]?.historyError || null}
-                  onDownload={onDownload}
-                  withContainer={true}
                   facilityName={slots[1].name}
                 />
               )}

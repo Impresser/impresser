@@ -47,7 +47,9 @@ export default function PerformanceSimulatorSlot({
 }: PerformanceSimulatorSlotProps) {
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900">슬롯 {slotIndex + 1}</h3>
+      <h3 className="text-lg font-semibold text-gray-900">
+        {slotIndex === 0 ? '기존 알고리즘' : '신규 알고리즘'}
+      </h3>
       {/* 상단: 설비카드와 알고리즘 설정 */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:items-stretch">
         {/* 왼쪽: 설비카드 */}

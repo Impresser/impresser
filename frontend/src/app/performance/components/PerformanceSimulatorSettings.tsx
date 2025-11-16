@@ -152,7 +152,9 @@ export default function PerformanceSimulatorSettings({
   return (
     <CommonContainerBox className="space-y-5">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-gray-900">슬롯 {slotIndex + 1} 압축 설정</p>
+        <p className="text-sm font-semibold text-gray-900">
+          {slotIndex === 0 ? '기존 압축 설정' : '신규 압축 설정'}
+        </p>
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         <CommonDropdown

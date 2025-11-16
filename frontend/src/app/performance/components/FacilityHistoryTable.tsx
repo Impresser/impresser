@@ -2,12 +2,12 @@
 
 import React from 'react';
 import CommonTableFrame from '@/components/ui/CommonTableFrame';
-import type { HistoryItem } from '@/components/ui/CommonTable';
+import type { FacilityHistoryItem } from '@/store/performanceHistoryStore';
 
 interface FacilityHistoryTableProps {
-  items: HistoryItem[];
+  items: FacilityHistoryItem[];
   emptyMessage?: string;
-  onDownload?: (item: HistoryItem) => void;
+  onDownload?: (item: FacilityHistoryItem) => void;
 }
 
 const formatFileSize = (bytes: number) => {
@@ -59,16 +59,17 @@ export default function FacilityHistoryTable({
       header={
         <thead className="bg-gray-50">
           <tr className="text-gray-700">
-            <th className="py-2 px-3 text-left text-xs font-semibold tracking-wide">파일명</th>
-            <th className="py-2 px-3 text-left text-xs font-semibold tracking-wide">알고리즘</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide">버전</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide whitespace-nowrap">처리방식</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide">파일용량</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide">상태</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide">담당자</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide">완료일시</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide">소요시간</th>
-            <th className="py-2 px-3 text-center text-xs font-semibold tracking-wide">작업</th>
+            <th className="py-2 px-3 text-left text-sm font-semibold tracking-wide">파일명</th>
+            <th className="py-2 px-3 text-left text-sm font-semibold tracking-wide">알고리즘</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">버전</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide whitespace-nowrap">처리방식</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">파일용량</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">상태</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">담당자</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">완료일시</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">압축시간</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">소요시간</th>
+            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">작업</th>
           </tr>
         </thead>
       }
@@ -113,6 +114,9 @@ export default function FacilityHistoryTable({
                 </td>
                 <td className="py-3 px-3 text-center">{item.assignedUser}</td>
                 <td className="py-3 px-3 text-center">{formatDateTime(item.completedTime)}</td>
+                <td className="py-3 px-3 text-center">
+                  {item.compressionTime !== undefined ? `${item.compressionTime.toFixed(2)}초` : '-'}
+                </td>
                 <td className="py-3 px-3 text-center">{formatTime(item.duration)}</td>
                 <td className="py-3 px-3 text-center">
                   <button

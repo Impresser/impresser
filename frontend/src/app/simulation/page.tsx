@@ -17,7 +17,8 @@ import BmpImportModal from './components/BmpImportModal';
 import CommonLoader from '@/components/ui/CommonLoader';
 import { products } from './data/productionProducts';
 import { motherGlasses } from './data/motherGlasses';
-import { getInkjetPrinters, type GetInkjetPrintersResponse, type InkjetPrinter } from '@/service/inkjet';
+import { getInkjetPrinters, type GetInkjetPrintersResponse, type InkjetPrinter, subscribeInkjetCompressionSSE, type ConvertHistoryItemResponse } from '@/service/inkjet';
+import { getDashboardConvertDetail, getDashboardConvertHistoryDetail } from '@/service/dashboard';
 import { usePerformanceHistoryStore } from '@/store/performanceHistoryStore';
 import {
   computeOptimalMotherGlassPlan,
@@ -62,21 +63,22 @@ export default function SimulationPage() {
   } | null>(null);
   const [activeAssignmentDetail, setActiveAssignmentDetail] = useState<BmpDetailResult | null>(null);
   const [isPrintPlanConfirmed, setIsPrintPlanConfirmed] = useState<boolean>(false);
-  const [printTimeSeconds, setPrintTimeSeconds] = useState<number>(60); // 기본 60초
+  const [printTimeSeconds, setPrintTimeSeconds] = useState<number>(20); // 기본 20초
   const performanceHistoryData = usePerformanceHistoryStore((state) => state.performanceHistoryData);
+  const addCompressionComplete = usePerformanceHistoryStore((state) => state.addCompressionComplete);
 
-  // 성능 비교 페이지에서 저장된 압축 시간 데이터 가져오기
+  // 성능 비교에서 저장된 압축 시간(CompressionTime) 데이터 사용
   const compressionTimes = useMemo(() => {
     const allCompressionTimes: number[] = [];
     
-    // performanceHistoryData에서 모든 설비의 최근 완료된 작업들의 duration 수집
+    // performanceHistoryData에서 모든 설비의 최근 완료된 작업들의 compressionTime 수집
     Object.values(performanceHistoryData).forEach((data) => {
-      const completedItems = data.historyItems.filter((item) => item.status === '완료' && item.duration > 0);
+      const completedItems = data.historyItems.filter((item) => item.status === '완료');
       if (completedItems.length > 0) {
-        // 최근 5개 작업의 평균을 사용
+        // 최근 5개에서 compressionTime 사용, 없으면 2초 기본값
         const recentTimes = completedItems
           .slice(0, 5)
-          .map((item) => item.duration);
+          .map((item) => (typeof (item as any).compressionTime === 'number' ? (item as any).compressionTime as number : 2));
         allCompressionTimes.push(...recentTimes);
       }
     });
@@ -99,9 +101,101 @@ export default function SimulationPage() {
   // 빠른 압축 시간 (계산에 사용)
   const compressionTimeSeconds = compressionTimes.fast;
 
+  // 압축 시간을 가져온 경우 인쇄시간을 압축시간의 9배로 자동 설정
+  useEffect(() => {
+    if (typeof compressionTimeSeconds === 'number' && !Number.isNaN(compressionTimeSeconds)) {
+      const next = Math.max(0, Math.round(compressionTimeSeconds * 9));
+      setPrintTimeSeconds(next);
+    }
+  }, [compressionTimeSeconds]);
+
   const productMap = useMemo(() => {
     return new Map(products.map((product) => [product.id, product]));
   }, []);
+
+  // 시뮬레이션 페이지에서도 SSE 구독하여 성능 데이터 적재
+  useEffect(() => {
+    const controller = subscribeInkjetCompressionSSE({
+      onCompressionComplete: (data: ConvertHistoryItemResponse) => {
+        // 시뮬레이션에서는 매칭없이 공용 키로 적재
+        const facilityId = 'SIMULATION';
+        addCompressionComplete(facilityId, data, {
+          fileName: data.tiffName?.replace(/\.tiff$/i, '.bmp') || data.tiffName || 'unknown.bmp',
+          algorithm: data.compressionType || '-',
+          version: String(data.version ?? '-'),
+        });
+      },
+      onError: () => {},
+    });
+    return () => controller.abort();
+  }, [addCompressionComplete]);
+
+  // 진입 시 대시보드 변환 내역(최근 4건)으로 성능 데이터 시드
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const resp = await getDashboardConvertDetail(undefined, { page: 0, size: 4 });
+        const list = resp?.result?.content ?? [];
+        if (list.length === 0) return;
+
+        const withDetails = await Promise.all(
+          list.map(async (base) => {
+            try {
+              const d = await getDashboardConvertHistoryDetail(base.convertHistoryUuid);
+              return { base, detail: d?.result || null };
+            } catch {
+              return { base, detail: null };
+            }
+          })
+        );
+
+        if (!mounted) return;
+
+        withDetails.forEach(({ base, detail }) => {
+          const tiffNameFromUrl = (() => {
+            if (!base.tiffUrl) return undefined;
+            try {
+              const seg = base.tiffUrl.split('?')[0].split('/');
+              return seg[seg.length - 1] || undefined;
+            } catch {
+              return undefined;
+            }
+          })();
+
+          const fakeSSE: ConvertHistoryItemResponse = {
+            convertHistoryUuid: base.convertHistoryUuid,
+            tiffName: tiffNameFromUrl || 'unknown.tiff',
+            processingUnit: (base.processingUnit || '').toUpperCase(),
+            compressionType: base.compressionType,
+            version: base.version,
+            // 대시보드 tiffVolume은 KB 단위
+            tiffVolume: base.tiffVolume,
+            bmpVolume: base.bmpVolume,
+            userName: base.userName,
+            employeeNo: '',
+            completedAt: (detail as any)?.completedAt || new Date().toISOString(),
+            elapsedTime: (detail as any)?.elapsedTime ?? base.elapsedTime,
+            tiffUrl: base.tiffUrl || '',
+            compressionTime: (detail as any)?.compressionTime,
+            // compressionRatio는 상세 타입에 없어 비움
+            compressionRatio: 0,
+          };
+
+          addCompressionComplete('SIMULATION', fakeSSE, {
+            fileName: (tiffNameFromUrl || 'unknown.tiff').replace(/\.tiff$/i, '.bmp'),
+            algorithm: base.compressionType,
+            version: String(base.version),
+          });
+        });
+      } catch (e) {
+        console.warn('대시보드 변환 내역 시드 실패:', e);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [addCompressionComplete]);
 
   useEffect(() => {
     let isMounted = true;

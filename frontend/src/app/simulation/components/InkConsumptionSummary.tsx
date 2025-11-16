@@ -1,5 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
+import LayoutSlider from './LayoutSlider';
 import type { PrintSimulationPlanEntry } from './PrintSimulationPlan';
 import type { BmpDetailResult } from '@/types/imageGenerator';
 import type { SelectedGoal } from './SelectedGoalList';
@@ -19,6 +20,17 @@ interface InkConsumptionSummaryProps {
 
 function formatMinutes(value: number) {
   return value <= 0 ? '0분' : `${Math.ceil(value)}분`;
+}
+
+// 분과 초 포맷터: 분이 0이면 초만, 분이 있으면 "분 초"
+function formatMinutesWithSeconds(valueMinutes: number): string {
+  const totalSeconds = Math.round((valueMinutes ?? 0) * 60);
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  if (m > 0) {
+    return `${m}분 ${s}초`;
+  }
+  return `${s}초`;
 }
 
 function formatDurationDetail(value: number) {
@@ -259,11 +271,11 @@ export default function InkConsumptionSummary({
         </div>
       ) : (
         <div className="space-y-4">
+          <LayoutSlider singleView>
           {printerMetrics.map((metric) => {
             const totalDetail = formatDurationDetail(metric.totalTime);
             return (
-              <React.Fragment key={`${metric.motherGlassName}-${metric.printerName}`}>
-              <div className="rounded-xl border border-gray-200 bg-white p-4">
+              <div key={`${metric.motherGlassName}-${metric.printerName}`} className="rounded-xl border border-gray-200 bg-white p-4">
                 <div className="flex flex-col gap-4">
                   {/* 설비 정보 - 상단 타이틀 줄 */}
                   <div className="flex flex-wrap items-center gap-4 pb-3 border-b border-gray-200">
@@ -341,15 +353,15 @@ export default function InkConsumptionSummary({
                         </div>
                         <div className="flex flex-col">
                           <span className="text-blue-600 font-semibold mb-1">압축시간</span>
-                          <span className="text-blue-900 font-medium">{formatMinutes(metric.compressionTime)}</span>
+                          <span className="text-blue-900 font-medium">{formatMinutesWithSeconds(metric.compressionTime)}</span>
                         </div>
                         <div className="flex flex-col">
                           <span className="text-blue-600 font-semibold mb-1">인쇄시간</span>
-                          <span className="text-blue-900 font-medium">{formatMinutes(metric.printTime)}</span>
+                          <span className="text-blue-900 font-medium">{formatMinutesWithSeconds(metric.printTime)}</span>
                         </div>
                         <div className="flex flex-col">
                           <span className="text-blue-600 font-semibold mb-1">충전시간</span>
-                          <span className="text-blue-900 font-medium">{formatMinutes(metric.refillTime)}</span>
+                          <span className="text-blue-900 font-medium">{formatMinutesWithSeconds(metric.refillTime)}</span>
                         </div>
                       </div>
                       {metric.refillEventsPerColor.red > 0 || metric.refillEventsPerColor.green > 0 || metric.refillEventsPerColor.blue > 0 ? (
@@ -369,9 +381,9 @@ export default function InkConsumptionSummary({
                   </div>
                 </div>
               </div>
-              </React.Fragment>
             );
           })}
+          </LayoutSlider>
 
           {/* 잉크 사용량 요약 */}
           <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
@@ -486,18 +498,18 @@ export default function InkConsumptionSummary({
                         <span className="text-sm text-gray-900">{metric.assignedSheets.toLocaleString()} 장</span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right">
-                        <span className="text-sm text-gray-800">{formatMinutes(metric.refillTime)}</span>
+                        <span className="text-sm text-gray-800">{formatMinutesWithSeconds(metric.refillTime)}</span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right">
-                        <span className="text-sm text-gray-800">{formatMinutes(metric.printTime)}</span>
+                        <span className="text-sm text-gray-800">{formatMinutesWithSeconds(metric.printTime)}</span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right">
-                        <span className="text-sm text-gray-800">{formatMinutes(metric.compressionTime)}</span>
+                        <span className="text-sm text-gray-800">{formatMinutesWithSeconds(metric.compressionTime)}</span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-right">
                         <div className="flex flex-col items-end">
                           <span className="text-sm font-semibold text-gray-900">
-                            {formatMinutes(metric.totalTime)}
+                            {formatMinutesWithSeconds(metric.totalTime)}
                           </span>
                           {totalDetail && (
                             <span className="text-xs text-gray-500 mt-0.5">{totalDetail}</span>
@@ -530,7 +542,7 @@ export default function InkConsumptionSummary({
                     <div className="flex items-center gap-2 whitespace-nowrap">
                       <span className="text-sm font-semibold text-gray-500">최대 예상 시간</span>
                       <span className="text-base font-semibold text-gray-900">
-                        {formatMinutes(maxTimes.total)}
+                        {formatMinutesWithSeconds(maxTimes.total)}
                         {maxTotalDetail ? ` (${maxTotalDetail})` : ''}
                       </span>
                     </div>
@@ -538,7 +550,7 @@ export default function InkConsumptionSummary({
                     <div className="flex items-center gap-1 text-sm text-gray-600 whitespace-nowrap">
                       <span>충전시간</span>
                       <span className="font-medium text-gray-800">
-                        {formatMinutes(maxTimes.refill)}
+                        {formatMinutesWithSeconds(maxTimes.refill)}
                         {maxRefillDetail ? ` (${maxRefillDetail})` : ''}
                       </span>
                     </div>
@@ -546,7 +558,7 @@ export default function InkConsumptionSummary({
                     <div className="flex items-center gap-1 text-sm text-gray-600 whitespace-nowrap">
                       <span>인쇄시간</span>
                       <span className="font-medium text-gray-800">
-                        {formatMinutes(maxTimes.print)}
+                        {formatMinutesWithSeconds(maxTimes.print)}
                         {maxPrintDetail ? ` (${maxPrintDetail})` : ''}
                       </span>
                     </div>
@@ -554,7 +566,7 @@ export default function InkConsumptionSummary({
                     <div className="flex items-center gap-1 text-sm text-gray-600 whitespace-nowrap">
                       <span>압축시간</span>
                       <span className="font-medium text-gray-800">
-                        {formatMinutes(maxTimes.compression)}
+                        {formatMinutesWithSeconds(maxTimes.compression)}
                         {maxCompressionDetail ? ` (${maxCompressionDetail})` : ''}
                       </span>
                     </div>
@@ -576,13 +588,13 @@ export default function InkConsumptionSummary({
 
                 {/* 생산 목표 정보 */}
                 {confirmedGoals.length > 0 && (
-                  <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                  <div className="rounded-xl border border-[#0059FF]/20 bg-[#0059FF]/5 px-4 py-3">
                     <div className="mb-3">
-                      <span className="text-base font-semibold text-gray-900">생산 목표</span>
+                      <span className="text-base font-semibold text-[#0059FF]">생산 목표</span>
                     </div>
                     <div className="flex flex-wrap gap-3">
                       {confirmedGoals.map((goal) => (
-                        <div key={goal.product.id} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 p-2">
+                        <div key={goal.product.id} className="flex items-center gap-2 rounded-lg border border-[#0059FF]/20 bg-white p-2">
                           <img
                             src={goal.product.imageUrl}
                             alt={goal.product.productName}
@@ -595,11 +607,11 @@ export default function InkConsumptionSummary({
                         </div>
                       ))}
                     </div>
-                    <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="mt-3 pt-3 border-t border-[#0059FF]/20">
                       <p className="text-sm text-right text-[#0059FF]">
                         총 <span className="font-semibold">{confirmedGoals.reduce((sum, goal) => sum + goal.quantity, 0).toLocaleString()} 개의 제품을 </span> 생산하기 위해{' '}
                         <span className="font-semibold">
-                          {formatMinutes(maxTimes.total)}
+                          {formatMinutesWithSeconds(maxTimes.total)}
                           {maxTotalDetail ? ` (${maxTotalDetail})` : ''}
                         </span>의 시간이 소요됩니다.
                       </p>
