@@ -1226,7 +1226,7 @@ export default function CompressionSettings({
                   fileName: file.name,
                   imageUrl: uploadingFile.imageUrl,
                   compressionTypeUuid: compressionTypeUuid,
-                  bmpVolume: file.size,
+                  bmpVolume: file.size / 1024, // bytes를 KB로 변환
                   bmpWidth: file.dimensions.width,
                   bmpHeight: file.dimensions.height,
                   algorithm: fileSetting.algorithm,
