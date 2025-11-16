@@ -14,6 +14,7 @@ import InkConsumptionSummary from './components/InkConsumptionSummary';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import MotherGlassInfoList from './components/MotherGlassInfoList';
 import BmpImportModal from './components/BmpImportModal';
+import CommonLoader from '@/components/ui/CommonLoader';
 import { products } from './data/productionProducts';
 import { motherGlasses } from './data/motherGlasses';
 import { getInkjetPrinters, type GetInkjetPrintersResponse, type InkjetPrinter } from '@/service/inkjet';
@@ -470,21 +471,48 @@ export default function SimulationPage() {
       return;
     }
     setIsSimulationRunning(true);
-    setTimeout(() => {
+    // 메인 스레드를 막지 않도록 웹 워커에서 최적화 실행
+    try {
+      const worker = new Worker(new URL('./workers/optimizationWorker.ts', import.meta.url), { type: 'module' });
+      worker.onmessage = (e: MessageEvent<{ ok: boolean; result?: any; error?: string }>) => {
+        const data = e.data;
+        if (data.ok) {
+          setOptimizationResult(data.result);
+          setHasAttemptedSimulation(true);
+          // 설비별 배치 섹션으로 스크롤
+          setTimeout(() => {
+            const batchPlanSection = document.getElementById('batch-plan-section');
+            if (batchPlanSection) {
+              batchPlanSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }, 200);
+        } else {
+          console.error('Optimization worker error:', data.error);
+          setOptimizationResult(null);
+          setHasAttemptedSimulation(true);
+        }
+        setIsSimulationRunning(false);
+        worker.terminate();
+      };
+      worker.onerror = (err) => {
+        console.error('Optimization worker failed:', err);
+        setOptimizationResult(null);
+        setHasAttemptedSimulation(true);
+        setIsSimulationRunning(false);
+        worker.terminate();
+      };
+      worker.postMessage({
+        availableMotherGlasses,
+        goals: confirmedGoals,
+      });
+    } catch (err) {
+      console.error('Worker setup failed:', err);
       try {
         runOptimization(confirmedGoals);
-        
-        // 설비별 배치 섹션으로 스크롤
-        setTimeout(() => {
-          const batchPlanSection = document.getElementById('batch-plan-section');
-          if (batchPlanSection) {
-            batchPlanSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }, 200);
       } finally {
         setIsSimulationRunning(false);
       }
-    }, 0);
+    }
   }, [confirmedGoals, printersLoading, runOptimization]);
 
   return (
@@ -610,6 +638,11 @@ export default function SimulationPage() {
           : null
       }
     />
+    {isSimulationRunning && (
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center pointer-events-none">
+        <CommonLoader className="w-[240px] h-[180px]" color="#0059FF" timeScale={3} />
+      </div>
+    )}
     </AuthGuard>
   );
 }
