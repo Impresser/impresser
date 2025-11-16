@@ -1,5 +1,6 @@
 package com.semes.impresser.inkjet.dto.response;
 
+import com.semes.impresser.common.util.S3Util;
 import com.semes.impresser.inkjet.entity.JobHistory;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -16,7 +17,7 @@ public record JobHistoryResponse(
     public static JobHistoryResponse toDto(JobHistory jobHistory) {
         return JobHistoryResponse.builder()
             .jobUuid(jobHistory.getUuid())
-            .tiffImageUrl(jobHistory.getImageKey())
+            .tiffImageUrl(S3Util.buildUrlFromKey(jobHistory.getImageKey()))
             .requestedAt(jobHistory.getRequestedAt())
             .completedAt(jobHistory.getCompletedAt())
             .sheetCount(jobHistory.getSheetCount())
