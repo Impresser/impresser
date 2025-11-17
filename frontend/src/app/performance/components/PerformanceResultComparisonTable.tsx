@@ -21,6 +21,7 @@ export interface ResultComparisonItem {
 
 interface PerformanceResultComparisonTableProps {
   items: ResultComparisonItem[];
+  children?: React.ReactNode;
 }
 
 const formatFileSize = (bytes: number) => {
@@ -61,6 +62,7 @@ const formatDateTime = (date: Date): string => {
 
 export default function PerformanceResultComparisonTable({
   items,
+  children,
 }: PerformanceResultComparisonTableProps) {
   return (
     <CommonContainerBox className="mt-6">
@@ -139,6 +141,7 @@ export default function PerformanceResultComparisonTable({
           </tbody>
         }
       />
+      {children}
     </CommonContainerBox>
   );
 }
