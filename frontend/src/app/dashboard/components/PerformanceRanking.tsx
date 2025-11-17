@@ -232,6 +232,32 @@ export default function EquipmentUsage() {
 
   const selectedItem = selectedIndex !== null ? filteredAlgorithms[selectedIndex] : null;
   
+  // 대시보드 새로고침 이벤트 구독
+  useEffect(() => {
+    const handleRefresh = () => {
+      console.log('[PerformanceRanking] 대시보드 새로고침 이벤트 수신');
+      // 성능 순위 데이터 새로고침
+      fetch(0, 50).catch(() => {});
+      // 선택된 항목이 있으면 상세 정보도 새로고침
+      if (selectedItem && selectedItem.originalItem?.compressionTypeUuid) {
+        const page = jobListPage - 1;
+        getDashboardConvertDetail(selectedItem.originalItem.compressionTypeUuid, { page, size: 5 })
+          .then((res) => {
+            if (res.isSuccess && res.result) {
+              setDetailData(res.result.content || []);
+              setDetailPagination(res.result.pagination || null);
+            }
+          })
+          .catch(() => {});
+      }
+    };
+
+    window.addEventListener('refreshDashboard', handleRefresh);
+    return () => {
+      window.removeEventListener('refreshDashboard', handleRefresh);
+    };
+  }, [fetch, selectedItem, jobListPage]);
+  
   // 선택된 항목에 대한 상세 정보 조회
   useEffect(() => {
     if (selectedItem && selectedItem.originalItem?.compressionTypeUuid) {
