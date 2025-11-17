@@ -17,8 +17,6 @@ export function GlobalSSENotifications() {
   useSSESubscription(
     'global-notifications',
     useCallback((data: SSEEventData) => {
-      console.log('[전역 알림] SSE 이벤트 수신:', data);
-
       // bmpKey에서 generationUuid 추출 (bmpKey 형식: 'bmp/xxx_generationUuid.')
       let generationUuid = data.generationUuid;
       if (!generationUuid && (data as any).bmpKey) {
@@ -50,6 +48,11 @@ export function GlobalSSENotifications() {
          data.status === 'Success' ||
          data.status === 'SUCCESS' ||
          data.progress === 100);
+      
+      // 압축 완료 또는 패턴 생성 완료 이벤트만 로그 출력
+      if (isCompressionCompleted || isPatternCompleted) {
+        console.log('[전역 알림] SSE 이벤트 수신:', data);
+      }
       
       // 패턴 생성 실패 이벤트 확인
       // 단, message가 'SSE_GENERATION_FAILED'이고 generationUuid가 있는 경우는

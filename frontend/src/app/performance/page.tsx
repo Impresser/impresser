@@ -12,7 +12,8 @@ import CommonButton from '@/components/ui/CommonButton';
 import { useToast } from '@/components/ui/CommonToast';
 import { useAuthStore } from '@/store/authStore';
 import { usePerformanceHistoryStore } from '@/store/performanceHistoryStore';
-import { getInkjetPrinters, getInkjetPrinterDetail, getDailyProduction, getInkjetJobs, createInkjetJob, subscribeInkjetCompressionSSE, type InkjetPrinter, type InkjetPrinterDetail, type DailyProductionResponse, type InkjetJob, type ConvertHistoryItemResponse } from '@/service/inkjet';
+import { getInkjetPrinters, getInkjetPrinterDetail, getDailyProduction, getInkjetJobs, createInkjetJob, type InkjetPrinter, type InkjetPrinterDetail, type DailyProductionResponse, type InkjetJob, type ConvertHistoryItemResponse } from '@/service/inkjet';
+import { globalSSEService, type SSEEventData } from '@/service/globalSSEService';
 import { QueueItem, HistoryItem } from '@/components/ui/CommonTable';
 import type { Facility } from './types';
 import EditFacilityModal from './components/EditFacilityModal';
@@ -155,10 +156,9 @@ export default function SimulationPage() {
   const [performanceComparisonSlots, setPerformanceComparisonSlots] = useState<(Facility | null)[]>([null, null]);
   const performanceComparisonSectionRef = useRef<HTMLDivElement>(null);
   const resultComparisonSectionRef = useRef<HTMLDivElement>(null);
-  const sseSubscribedRef = useRef(false);
   const processedHistoryUuidsRef = useRef<Set<string>>(new Set());
   const toastShownRef = useRef<Set<string>>(new Set()); // 토스트 알림 중복 방지
-  const sseControllerRef = useRef<AbortController | null>(null);
+  const unsubscribeSSERef = useRef<(() => void) | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isLoadingProduction, setIsLoadingProduction] = useState(false);
@@ -513,53 +513,76 @@ export default function SimulationPage() {
     });
   }, [performanceComparisonSlots, getDefaultSlotSettings]);
 
-  // 설비 대기열 압축 완료 SSE 구독
+  // 설비 대기열 압축 완료 전역 SSE 구독
   useEffect(() => {
-    // 이미 구독된 경우 기존 연결 종료 후 재구독 (React Strict Mode에서 두 번 실행되는 것 방지)
-    if (sseSubscribedRef.current) {
-      console.log('SSE 이미 구독 중 - 재구독 방지');
-      return;
-    }
-    
-    // 기존 SSE 연결이 있으면 종료
-    if (sseControllerRef.current) {
-      console.log('기존 SSE 연결 종료');
-      sseControllerRef.current.abort();
-      sseControllerRef.current = null;
-    }
-    
-    console.log('SSE 구독 시작');
-    sseSubscribedRef.current = true;
+    console.log('[전역 SSE] 성능 비교 페이지 SSE 구독 시작');
 
-    const sseController = subscribeInkjetCompressionSSE({
-      onCompressionComplete: (data: ConvertHistoryItemResponse) => {
+    // 파일명 매칭: BMP 파일명 → TIFF 파일명 변환
+    const matchFileName = (bmpFileName: string, tiffName: string): boolean => {
+      // BMP 파일명에서 확장자를 .tiff로 변경
+      const expectedTiffName = bmpFileName.replace(/\.bmp$/i, '.tiff');
+      return tiffName === expectedTiffName;
+    };
+
+    // 전역 SSE 구독
+    unsubscribeSSERef.current = globalSSEService.subscribe(
+      'performance-page',
+      (data: SSEEventData) => {
+        // CONVERT_BMP_SUCCESS 이벤트만 처리
+        if (data.eventType !== 'CONVERT_BMP_SUCCESS') {
+          return;
+        }
+
+        // ConvertHistoryItemResponse 형태로 변환
         const historyUuid = data.convertHistoryUuid;
-        console.log('[SSE] 설비 대기열 압축 완료 이벤트 수신:', {
+        if (!historyUuid) {
+          return;
+        }
+
+        // compressionTime 필드 확인 (compressionTim 오타 대응 포함)
+        // 실제 SSE 데이터에서 compressionTim 또는 compressionTime으로 올 수 있음
+        const compressionTime = (data as any).compressionTim ?? (data as any).compressionTime ?? undefined;
+
+        const compressionData: ConvertHistoryItemResponse = {
+          convertHistoryUuid: historyUuid,
+          tiffName: data.tiffName || '',
+          processingUnit: data.processingUnit || '',
+          compressionType: data.compressionType || '',
+          version: data.version || 0,
+          bmpVolume: data.bmpVolume || 0,
+          tiffVolume: data.tiffVolume || 0,
+          compressionRatio: data.compressionRatio || 0,
+          userName: data.userName || '',
+          employeeNo: data.employeeNo || '',
+          completedAt: data.completedAt || '',
+          elapsedTime: data.elapsedTime || 0,
+          tiffUrl: data.tiffUrl || '',
+          compressionTime: compressionTime,
+        };
+
+        console.log('[전역 SSE] 설비 대기열 압축 완료 이벤트 수신:', {
           historyUuid,
-          tiffName: data.tiffName,
+          tiffName: compressionData.tiffName,
+          compressionTime: compressionData.compressionTime,
+          rawDataCompressionTime: (data as any).compressionTime,
+          rawDataCompressionTim: (data as any).compressionTim,
+          rawDataKeys: Object.keys(data),
           timestamp: new Date().toISOString(),
         });
 
         // 이미 처리된 항목인지 확인 (중복 실행 방지) - 최우선 체크
         if (processedHistoryUuidsRef.current.has(historyUuid)) {
-          console.log('[SSE] 이미 처리된 압축 완료 이벤트 (중복 무시):', historyUuid);
+          console.log('[전역 SSE] 이미 처리된 압축 완료 이벤트 (중복 무시):', historyUuid);
           return;
         }
         
         // 처리 시작 표시 (즉시 추가하여 중복 실행 방지)
         processedHistoryUuidsRef.current.add(historyUuid);
-        console.log('[SSE] 처리 시작 표시:', historyUuid);
-
-        // 파일명 매칭: BMP 파일명 → TIFF 파일명 변환
-        const matchFileName = (bmpFileName: string, tiffName: string): boolean => {
-          // BMP 파일명에서 확장자를 .tiff로 변경
-          const expectedTiffName = bmpFileName.replace(/\.bmp$/i, '.tiff');
-          return tiffName === expectedTiffName;
-        };
+        console.log('[전역 SSE] 처리 시작 표시:', historyUuid);
 
         // 상태 업데이트 전에 현재 상태를 읽어서 매칭 항목 찾기
-          let matchedItem: QueueItem | null = null;
-          let matchedFacilityId: string | null = null;
+        let matchedItem: QueueItem | null = null;
+        let matchedFacilityId: string | null = null;
 
         // 현재 상태에서 매칭 항목 찾기 (동기적으로)
         setQueuedUploadsByFacility((prev) => {
@@ -567,10 +590,21 @@ export default function SimulationPage() {
           for (const [facilityId, queueItems] of Object.entries(prev)) {
             const matched = queueItems.find((item) => {
               // 파일명 매칭
-              const fileNameMatch = matchFileName(item.fileName, data.tiffName);
+              const fileNameMatch = matchFileName(item.fileName, compressionData.tiffName);
               // bmpVolume 단위 차이 보정: item.fileSize(bytes) → KB 반올림 후 비교
-              const volumeMatch = Math.round((item.fileSize ?? 0) / 1024) === (data.bmpVolume ?? -1);
-              return fileNameMatch && volumeMatch;
+              const volumeMatch = Math.round((item.fileSize ?? 0) / 1024) === (compressionData.bmpVolume ?? -1);
+              
+              // processingMethod 매칭: SSE의 processingUnit과 큐의 processingMethod 비교
+              const processingMatch = item.processingMethod?.toUpperCase() === compressionData.processingUnit?.toUpperCase();
+              
+              // compressionType 매칭: SSE의 compressionType과 큐의 algorithm 비교
+              // algorithm은 전체 이름(예: "LZW (Lempel-Ziv-Welch)")일 수 있으므로, compressionType이 포함되는지 확인
+              const compressionTypeMatch = item.algorithm && compressionData.compressionType
+                ? item.algorithm.toUpperCase().includes(compressionData.compressionType.toUpperCase()) 
+                  || compressionData.compressionType.toUpperCase().includes(item.algorithm.toUpperCase().split(' ')[0])
+                : false;
+              
+              return fileNameMatch && volumeMatch && processingMatch && compressionTypeMatch;
             });
 
             if (matched && !matchedItem) {
@@ -599,75 +633,43 @@ export default function SimulationPage() {
           const item = matchedItem as QueueItem;
           const facilityId = matchedFacilityId as string;
 
-            // 작업 내역에 추가 (Zustand store 사용)
-          addCompressionCompleteRef.current(facilityId, data, {
+          // 작업 내역에 추가 (Zustand store 사용)
+          addCompressionCompleteRef.current(facilityId, compressionData, {
             fileName: item.fileName,
             algorithm: item.algorithm,
             version: item.version,
-            });
+          });
 
-            console.log('설비 대기열 항목 완료 처리:', {
+          console.log('설비 대기열 항목 완료 처리:', {
             facilityId: facilityId,
             fileName: item.fileName,
-              convertHistoryUuid: data.convertHistoryUuid,
-            });
+            convertHistoryUuid: compressionData.convertHistoryUuid,
+          });
 
-          // 완료 토스트 알림 (중복 방지)
-          const toastKey = `${historyUuid}-${data.tiffName}`;
-          if (!toastShownRef.current.has(toastKey)) {
-            toastShownRef.current.add(toastKey);
-            console.log('[SSE] 토스트 알림 표시:', toastKey);
-            
-            try {
-              const facilityName =
-                performanceComparisonSlotsRef.current.find((f) => f && f.id === facilityId)?.name ||
-                facilityId ||
-                '설비';
-              const timeText =
-                typeof (data as any).compressionTime === 'number'
-                  ? `${(data as any).compressionTime.toFixed(2)}초`
-                  : `${data.elapsedTime}초`;
-              showToastRef.current(`${facilityName} 압축 완료: ${data.tiffName} (${timeText})`);
-              // 결과 비교 섹션으로 자동 스크롤
-              setTimeout(() => {
-                resultComparisonSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }, 100);
-              
-              // 10초 후 토스트 키 제거 (메모리 관리)
-              setTimeout(() => {
-                toastShownRef.current.delete(toastKey);
-              }, 10000);
-            } catch (err) {
-              console.error('[SSE] 토스트 알림 오류:', err);
-              toastShownRef.current.delete(toastKey);
-            }
-          } else {
-            console.log('[SSE] 토스트 알림 중복 방지:', toastKey);
-          }
+          // 결과 비교 섹션으로 자동 스크롤 (토스트 알림은 GlobalSSENotifications에서 표시)
+          setTimeout(() => {
+            resultComparisonSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
         } else {
           // 매칭 항목이 없으면 처리 표시 제거 (다시 처리 가능하도록)
           processedHistoryUuidsRef.current.delete(historyUuid);
-            console.warn('압축 완료 이벤트에 매칭되는 대기열 항목을 찾을 수 없습니다:', {
-              tiffName: data.tiffName,
-              bmpVolume: data.bmpVolume,
-            });
-          }
+          console.warn('압축 완료 이벤트에 매칭되는 대기열 항목을 찾을 수 없습니다:', {
+            tiffName: compressionData.tiffName,
+            bmpVolume: compressionData.bmpVolume,
+          });
+        }
       },
-      onError: (error: Error) => {
-        console.error('설비 대기열 SSE 연결 오류:', error);
-      },
-    });
+      (error: Error) => {
+        console.error('[전역 SSE] 설비 대기열 SSE 연결 오류:', error);
+      }
+    );
 
-    // SSE 컨트롤러 저장
-    sseControllerRef.current = sseController;
-
-    // 컴포넌트 언마운트 시 SSE 연결 종료
+    // 컴포넌트 언마운트 시 SSE 구독 해제
     return () => {
-      console.log('SSE 구독 정리');
-      sseSubscribedRef.current = false;
-      if (sseControllerRef.current) {
-        sseControllerRef.current.abort();
-        sseControllerRef.current = null;
+      console.log('[전역 SSE] 성능 비교 페이지 SSE 구독 해제');
+      if (unsubscribeSSERef.current) {
+        unsubscribeSSERef.current();
+        unsubscribeSSERef.current = null;
       }
     };
   }, []); // dependency array를 빈 배열로 유지하여 한 번만 구독
@@ -1267,8 +1269,13 @@ export default function SimulationPage() {
                 }}
               />
               <div ref={resultComparisonSectionRef}>
-                <PerformanceResultComparisonTable items={resultComparisonItems} />
-                <PerformanceResultSummary items={resultComparisonItems} />
+                <PerformanceResultComparisonTable items={resultComparisonItems}>
+                  <PerformanceResultSummary 
+                    items={resultComparisonItems}
+                    slot1Facility={performanceComparisonSlots[0]}
+                    slot2Facility={performanceComparisonSlots[1]}
+                  />
+                </PerformanceResultComparisonTable>
               </div>
             </div>
 

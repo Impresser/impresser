@@ -65,6 +65,19 @@ export default function FacilityQueueTable({ items }: FacilityQueueTableProps) {
     return Math.max(0, elapsed);
   };
 
+  // 진행률 계산: 5분(300초) 기준으로 계산, 완료 시 100%
+  const getProgress = (item: QueueItem): number => {
+    if (item.status === '완료') {
+      return 100;
+    }
+    if (item.status === '진행' && item.startTime) {
+      const elapsedSeconds = getElapsedTime(item);
+      const progress = Math.min(100, Math.round((elapsedSeconds / 300) * 100));
+      return progress;
+    }
+    return 0;
+  };
+
   return (
     <CommonTableFrame
       header={
@@ -79,7 +92,6 @@ export default function FacilityQueueTable({ items }: FacilityQueueTableProps) {
             <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">담당자</th>
             <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">시작시각</th>
             <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">경과시간</th>
-            <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">예상시간</th>
             <th className="py-2 px-3 text-center text-sm font-semibold tracking-wide">진행률</th>
           </tr>
         </thead>
@@ -88,7 +100,7 @@ export default function FacilityQueueTable({ items }: FacilityQueueTableProps) {
         <tbody>
           {items.length === 0 ? (
             <tr>
-              <td colSpan={11} className="py-12 text-center text-sm text-gray-500">
+              <td colSpan={10} className="py-12 text-center text-sm text-gray-500">
                 현재 진행 중인 작업이 없습니다.
               </td>
             </tr>
@@ -128,21 +140,29 @@ export default function FacilityQueueTable({ items }: FacilityQueueTableProps) {
                 <td className="py-3 px-3 text-center">{item.assignedUser || '-'}</td>
                 <td className="py-3 px-3 text-center">{formatDateTime(item.startTime)}</td>
                 <td className="py-3 px-3 text-center">{formatTime(getElapsedTime(item))}</td>
-                <td className="py-3 px-3 text-center">{formatTime(item.estimatedTime)}</td>
                 <td className="py-3 px-3">
-                  {item.status === '진행' ? (
+                  {item.status === '진행' || item.status === '완료' ? (
                     <div className="relative min-w-[100px] rounded bg-gray-200">
-                      <div
-                        className="h-4 rounded bg-blue-600 transition-all duration-300"
-                        style={{ width: `${item.progress}%` }}
-                      />
-                      <span
-                        className={`absolute inset-0 flex items-center justify-center text-xs font-medium ${
-                          item.progress > 45 ? 'text-white' : 'text-gray-700'
-                        }`}
-                      >
-                        {item.progress}%
-                      </span>
+                      {(() => {
+                        const progress = getProgress(item);
+                        return (
+                          <>
+                            <div
+                              className={`h-4 rounded transition-all duration-300 ${
+                                item.status === '완료' ? 'bg-green-600' : 'bg-blue-600'
+                              }`}
+                              style={{ width: `${progress}%` }}
+                            />
+                            <span
+                              className={`absolute inset-0 flex items-center justify-center text-xs font-medium ${
+                                progress > 45 ? 'text-white' : 'text-gray-700'
+                              }`}
+                            >
+                              {progress}%
+                            </span>
+                          </>
+                        );
+                      })()}
                     </div>
                   ) : (
                     <span className="flex justify-center">-</span>

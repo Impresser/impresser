@@ -34,21 +34,6 @@ export default function FacilityQueueSection({
         </h3>
       )}
 
-      {processingItems.length > 0 && (
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-gray-700">전체 진행률</label>
-            <span className="text-sm font-semibold text-gray-900">{overallProgress}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-4">
-            <div
-              className="bg-blue-600 h-4 rounded-full transition-all duration-300"
-              style={{ width: `${overallProgress}%` }}
-            />
-          </div>
-        </div>
-      )}
-
       <FacilityQueueTable items={queueItems} />
     </div>
   );
