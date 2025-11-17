@@ -587,13 +587,13 @@ export default function ImageCompressorPage() {
         <Sidebar />
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col">
         {/* Navigation Bar */}
         <Navbar />
         
         {/* Content */}
         <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden">
-          <div className="w-full">
+          <div className="w-full max-w-7xl mx-auto flex flex-col gap-6">
             {/* 압축 이미지 영역 */}
             <CompressionSettings
               selectedFiles={selectedFiles}
