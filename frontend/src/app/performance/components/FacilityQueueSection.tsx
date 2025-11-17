@@ -12,6 +12,7 @@ interface FacilityQueueSectionProps {
   isLoading: boolean;
   withContainer?: boolean;
   showTitle?: boolean;
+  facilityName?: string;
 }
 
 export default function FacilityQueueSection({
@@ -21,12 +22,17 @@ export default function FacilityQueueSection({
   isLoading,
   withContainer = true,
   showTitle = true,
+  facilityName,
 }: FacilityQueueSectionProps) {
   if (isLoading) return null;
 
   const content = (
     <div>
-      {showTitle && <h3 className="text-lg font-semibold text-gray-900 mb-4">작업대기열</h3>}
+      {showTitle && (
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          {facilityName ? `${facilityName} 작업대기열` : '작업대기열'}
+        </h3>
+      )}
 
       {processingItems.length > 0 && (
         <div className="mb-6">

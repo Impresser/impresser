@@ -193,7 +193,7 @@ const menuItems: MenuItem[] = [
   },
   {
     id: 'simulation',
-    name: '시뮬레이션',
+    name: '생산 미리보기',
     path: '/simulation',
     icon: SimulationIcon,
   },

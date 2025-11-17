@@ -541,7 +541,7 @@ export default function PatternPreview({ form, onOpenModal }: PatternPreviewProp
   }, [handleWheel]);
 
   return (
-    <div className="relative w-full flex-1 bg-[#4B4B4B] rounded-lg shadow-inner overflow-hidden">
+    <div className="relative w-full h-full bg-[#4B4B4B] rounded-lg shadow-inner overflow-hidden">
       <div
         ref={previewContainerRef}
         className="w-full h-full cursor-grab active:cursor-grabbing"

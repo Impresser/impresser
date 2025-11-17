@@ -33,6 +33,7 @@ interface FacilityFileUploadProps {
     }>;
   }) => void;
   submitLabel?: string;
+  skipAlgorithmCheck?: boolean; // 알고리즘/버전 체크 건너뛰기 (공통 업로드용)
 }
 
 interface UploadEntry {
@@ -103,7 +104,7 @@ const formatFileSize = (bytes: number) => {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
 };
 
-export default function FacilityFileUpload({ settings, onSubmit, submitLabel = '대기열 추가' }: FacilityFileUploadProps) {
+export default function FacilityFileUpload({ settings, onSubmit, submitLabel = '대기열 추가', skipAlgorithmCheck = false }: FacilityFileUploadProps) {
   const [uploads, setUploads] = useState<UploadEntry[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -365,7 +366,13 @@ export default function FacilityFileUpload({ settings, onSubmit, submitLabel = '
   }, []);
 
   const handleAddToQueue = useCallback(async () => {
-    if (!uploads.length || !settings.algorithm || !settings.version) {
+    if (!uploads.length) {
+      alert('파일을 선택해주세요.');
+      return;
+    }
+
+    // skipAlgorithmCheck가 false일 때만 알고리즘/버전 체크
+    if (!skipAlgorithmCheck && (!settings.algorithm || !settings.version)) {
       alert('파일과 알고리즘, 버전을 모두 선택해주세요.');
       return;
     }
@@ -392,33 +399,45 @@ export default function FacilityFileUpload({ settings, onSubmit, submitLabel = '
         return;
       }
 
-      // 알고리즘 UUID 가져오기
-      const algorithmOptions = await getAlgorithmOptions(settings.processingMethod);
-      const selectedAlgorithm = algorithmOptions.find(opt => opt.value === settings.algorithm);
-      if (!selectedAlgorithm) {
-        alert(`${entry.info.name} 파일의 알고리즘 정보를 찾을 수 없습니다.`);
-        return;
-      }
+      // skipAlgorithmCheck가 true면 compressionTypeUuid는 나중에 설정 (공통 업로드용)
+      let compressionTypeUuid = '';
+      let algorithm = '';
+      let version = '';
+      let processingMethod = '';
 
-      let compressionTypeUuid = selectedAlgorithm.uuid;
-
-      // 버전 조회 API를 통해 정확한 compressionTypeUuid 확인
-      try {
-        const versionResponse = await getCompressionTypeVersions({
-          compressionTypeUuid: compressionTypeUuid,
-        });
-        
-        if (versionResponse.isSuccess && versionResponse.result) {
-          const selectedVersion = versionResponse.result.find(
-            item => item.version.toString() === settings.version
-          );
-          
-          if (selectedVersion) {
-            compressionTypeUuid = selectedVersion.compressionTypeUuid;
-          }
+      if (!skipAlgorithmCheck) {
+        // 알고리즘 UUID 가져오기
+        const algorithmOptions = await getAlgorithmOptions(settings.processingMethod);
+        const selectedAlgorithm = algorithmOptions.find(opt => opt.value === settings.algorithm);
+        if (!selectedAlgorithm) {
+          alert(`${entry.info.name} 파일의 알고리즘 정보를 찾을 수 없습니다.`);
+          return;
         }
-      } catch (error) {
-        console.warn(`${entry.info.name} 파일의 버전 정보 조회 실패, 알고리즘 UUID 사용:`, error);
+
+        compressionTypeUuid = selectedAlgorithm.uuid;
+
+        // 버전 조회 API를 통해 정확한 compressionTypeUuid 확인
+        try {
+          const versionResponse = await getCompressionTypeVersions({
+            compressionTypeUuid: compressionTypeUuid,
+          });
+          
+          if (versionResponse.isSuccess && versionResponse.result) {
+            const selectedVersion = versionResponse.result.find(
+              item => item.version.toString() === settings.version
+            );
+            
+            if (selectedVersion) {
+              compressionTypeUuid = selectedVersion.compressionTypeUuid;
+            }
+          }
+        } catch (error) {
+          console.warn(`${entry.info.name} 파일의 버전 정보 조회 실패, 알고리즘 UUID 사용:`, error);
+        }
+        
+        algorithm = settings.algorithm;
+        version = settings.version;
+        processingMethod = settings.processingMethod;
       }
       
       fileInfos.push({
@@ -428,9 +447,9 @@ export default function FacilityFileUpload({ settings, onSubmit, submitLabel = '
         bmpVolume: entry.info.size,
         bmpWidth: entry.info.dimensions.width,
         bmpHeight: entry.info.dimensions.height,
-        algorithm: settings.algorithm,
-        version: settings.version,
-        processingMethod: settings.processingMethod,
+        algorithm: algorithm,
+        version: version,
+        processingMethod: processingMethod,
       });
     }
 
@@ -438,9 +457,9 @@ export default function FacilityFileUpload({ settings, onSubmit, submitLabel = '
     if (onSubmit) {
       onSubmit({
         files: uploads.map((entry) => entry.file),
-        processingMethod: settings.processingMethod.toUpperCase(),
-        algorithm: settings.algorithm,
-        version: settings.version,
+        processingMethod: skipAlgorithmCheck ? '' : settings.processingMethod.toUpperCase(),
+        algorithm: skipAlgorithmCheck ? '' : settings.algorithm,
+        version: skipAlgorithmCheck ? '' : settings.version,
         fileInfos: fileInfos,
       });
     }
@@ -449,7 +468,8 @@ export default function FacilityFileUpload({ settings, onSubmit, submitLabel = '
     fileMapRef.current.clear();
   }, [uploads, settings, onSubmit, getAlgorithmOptions]);
 
-  const isSubmitDisabled = !uploads.length || !settings.algorithm || !settings.version || 
+  const isSubmitDisabled = !uploads.length || 
+    (!skipAlgorithmCheck && (!settings.algorithm || !settings.version)) ||
     filesWithUpload.some(f => f.uploadStatus === 'uploading' || f.uploadStatus === 'pending');
 
   const formatTime = useCallback((seconds: number): string => {
@@ -561,9 +581,13 @@ export default function FacilityFileUpload({ settings, onSubmit, submitLabel = '
                         <th className="text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
                         <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">크기</th>
                         <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
-                        <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">알고리즘</th>
-                        <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">버전</th>
-                        <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 whitespace-nowrap">처리방식</th>
+                        {!skipAlgorithmCheck && (
+                          <>
+                            <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">알고리즘</th>
+                            <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">버전</th>
+                            <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 whitespace-nowrap">처리방식</th>
+                          </>
+                        )}
                         <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">업로드 상태</th>
                         <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
                       </tr>
@@ -595,21 +619,25 @@ export default function FacilityFileUpload({ settings, onSubmit, submitLabel = '
                             {file.dimensions.width.toLocaleString()} × {file.dimensions.height.toLocaleString()}
                           </td>
                           <td className="py-3 px-3 text-center">{formatFileSize(file.size)}</td>
-                          <td className="py-3 px-3 text-center">
-                            <span className="text-sm font-medium text-gray-900">
-                              {settings.algorithm || '미선택'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            <span className="text-sm font-medium text-gray-900">
-                              {settings.version || '미선택'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-3 text-center">
-                            <span className="text-sm font-medium text-gray-900">
-                              {settings.processingMethod.toUpperCase()}
-                            </span>
-                          </td>
+                          {!skipAlgorithmCheck && (
+                            <>
+                              <td className="py-3 px-3 text-center">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {settings.algorithm || '미선택'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-center">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {settings.version || '미선택'}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-center">
+                                <span className="text-sm font-medium text-gray-900">
+                                  {settings.processingMethod.toUpperCase()}
+                                </span>
+                              </td>
+                            </>
+                          )}
                           <td className="py-3 px-3 text-center">
                             <div className="space-y-2">
                               {file.uploadStatus === 'uploading' ? (

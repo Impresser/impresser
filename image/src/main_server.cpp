@@ -12,60 +12,13 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <filesystem>
 #include <memory>
-#include <queue>
-#include <mutex>
-#include <condition_variable>
-#include <thread>
-#include <atomic>
-#include <chrono>
-#include <optional>
-#include <cctype>
-#include <cmath>
 #include <cuda_runtime.h>
 
 using namespace conv;
 using json = nlohmann::json;
 
 static std::unique_ptr<ConvertWorker> g_amqpWorker;
-
-namespace {
-    std::mutex g_mtx;
-    std::condition_variable g_cv;
-    std::atomic<bool> g_shutdown{ false };
-
-    bool post_with_backoff(conv::IHttpIO* io,
-        const std::string& url,
-        const std::string& body,
-        const std::vector<std::pair<std::string, std::string>>& headers) {
-        int http = 0; std::string resp;
-        for (int attempt = 0; attempt < 5; ++attempt) {
-            if (io->postJson(url, body, headers, &http, &resp)) return true;
-            const int ms = (1 << attempt) * 500;
-            std::this_thread::sleep_for(std::chrono::milliseconds(ms));
-        }
-        LOGW("callback permanently failed");
-        return false;
-    }
-
-    inline std::string to_upper(std::string s) {
-        for (auto& ch : s) ch = static_cast<char>(std::toupper(static_cast<unsigned char>(ch)));
-        return s;
-    }
-}
-
-static Compression parseComp(const std::string& s) {
-    if (s == "lzw" || s == "LZW") return Compression::LZW;
-    if (s == "deflate" || s == "DEFLATE") return Compression::Deflate;
-    if (s == "packbits" || s == "PACKBITS") return Compression::PackBits;
-    return Compression::None;
-}
-
-static bool fileExists(const std::string& p) {
-    std::error_code ec;
-    return std::filesystem::exists(p, ec);
-}
 
 static int runServer(int port) {
     g_amqpWorker = std::make_unique<ConvertWorker>();
@@ -79,20 +32,18 @@ static int runServer(int port) {
         });
 
     svr.Post("/generate", [](const httplib::Request& req, httplib::Response& res) {
-        LOGI("req.body.size=" << req.body.size());
         try {
             json j = json::parse(req.body);
-            LOGI("parsed json keys=" << j.size());
 
             conv::GenerateJob job;
-            // 새로운 멀티파트 필드(프론트->백->C++ 경로)
+            // 멀티파트 업로드
             if (j.contains("partUploadUrls")) {
                 job.partUploadUrls = j.at("partUploadUrls").get<std::vector<std::string>>();
                 job.uploadId = j.at("uploadId").get<std::string>();
                 job.objectName = j.at("objectName").get<std::string>();
             }
 
-            // 구버전 단일 업로드 호환(옵션)
+            // 단일 업로드
             if (j.contains("outputUrl")) {
                 job.outputUrl = j.at("outputUrl").get<std::string>();
             }
@@ -134,14 +85,24 @@ static int runServer(int port) {
                 job.accessToken = a.value("accessToken", "");
             }
 
+            LOGI("[generate] accepted job uuid=" << job.generationUuid
+                << " bmp=" << job.bmpWidth << "x" << job.bmpHeight
+                << " volume=" << job.bmpVolume
+                << " parts=" << job.partUploadUrls.size()
+                << (job.outputUrl.empty() ? " (multipart)" : " (single)"));
+
             conv::enqueueGenerateJob(std::move(job));
 
-            json ack = { {"ok", true}, {"status", "ACCEPTED"}, {"generationUuid", j.at("generationUuid").get<std::string>()} };
+            json ack = {
+                {"ok", true},
+                {"status", "ACCEPTED"},
+                {"generationUuid", j.at("generationUuid").get<std::string>()}
+            };
             res.status = 202;
             res.set_content(ack.dump(), "application/json");
         }
         catch (const std::exception& ex) {
-            LOGE(" parse/handle error: " << ex.what());
+            LOGE("[generate] parse/handle error: " << ex.what());
             json er = { {"ok", false}, {"error", ex.what()} };
             res.status = 400;
             res.set_content(er.dump(), "application/json");
@@ -162,67 +123,16 @@ static int runServer(int port) {
 int main(int argc, char* argv[]) {
     cudaSetDevice(0);
     cudaFree(0);
-    if (argc >= 2 && std::string(argv[1]) == "--server") {
-        int port = 8080;
-        if (argc >= 3) port = std::stoi(argv[2]);
-        return runServer(port);
+
+    int port = 8080;
+    if (argc >= 2) {
+        try {
+            port = std::stoi(argv[1]);
+        }
+        catch (...) {
+            LOGW("invalid port argument, fallback to 8080");
+        }
     }
 
-    ConvertRequest req{};
-    std::string processingUnit = (argc >= 6) ? argv[5] : "GPU";
-    req.inputPath = argv[1];
-    req.outputPath = argv[2];
-    req.options.compression = parseComp(argv[3]);
-    if (argc >= 5) req.options.bigtiff = (std::string(argv[4]) == "1");
-
-    if (!fileExists(req.inputPath)) {
-        LOGE("Input not found: " << req.inputPath);
-        return 1;
-    }
-
-    g_amqpWorker = std::make_unique<ConvertWorker>();
-    g_amqpWorker->start();
-
-    ImageInfo info{};
-    std::vector<uint8_t> rgb;
-    Stopwatch sw;
-
-    if (!LoadBmp24ToRGB(req.inputPath, info, rgb)) {
-        LOGE("BMP load failed");
-        return 2;
-    }
-
-    double tLoad = sw.elapsed();
-    LOGI("Loaded: " << info.width << "x" << info.height << " in " << tLoad << "s");
-
-    std::unique_ptr<IEncoder> enc;
-    if (processingUnit == "GPU") {
-        enc = EncoderFactory::createNvTiffEncoder();
-    }
-    else if (processingUnit == "CPU") {
-        enc = EncoderFactory::createLibTiffEncoder();
-    }
-    else {
-        LOGE("Invalid processing unit");
-        return 1;
-    }
-
-    LOGI("Encoder: " << enc->name());
-
-    sw.reset();
-    EncodeResult encodeResult = enc->encode(info, rgb, req.outputPath, req.options);
-    double tEnc = sw.elapsed();
-
-    LOGI("Conversion completed successfully: total=" << (tLoad + tEnc)
-        << "s (load=" << tLoad << "s, encode=" << tEnc << "s)");
-
-    if (g_amqpWorker) {
-        g_amqpWorker->stop();
-        g_amqpWorker.reset();
-    }
-
-    g_shutdown.store(true);
-    g_cv.notify_all();
-
-    return 0;
+    return runServer(port);
 }

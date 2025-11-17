@@ -65,12 +65,8 @@ export default function ProductCard({ product, onSelect, isActive = false }: Pro
           <dd className="font-medium text-gray-900">{product.diagonalInch}</dd>
         </div>
         <div className="flex items-center justify-between">
-          <dt className="text-gray-500">가로(mm)</dt>
-          <dd className="font-medium text-gray-900">{product.widthMm}</dd>
-        </div>
-        <div className="flex items-center justify-between">
-          <dt className="text-gray-500">세로(mm)</dt>
-          <dd className="font-medium text-gray-900">{product.heightMm}</dd>
+          <dt className="text-gray-500">크기(mm)</dt>
+          <dd className="font-medium text-gray-900">{product.widthMm} × {product.heightMm}</dd>
         </div>
         <div className="flex items-center justify-between">
           <dt className="text-gray-500">면적(mm²)</dt>

@@ -4,11 +4,12 @@ import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import CommonPagination from '@/components/ui/CommonPagination';
-import { getBmpList, getBmpDetail, getBmpMeList } from '@/service/imageGenerator';
+import { getBmpList, getBmpDetail } from '@/service/imageGenerator';
 import { BmpListItem, BmpDetailResult } from '@/types/imageGenerator';
 import CommonTableFrame from '@/components/ui/CommonTableFrame';
 import PatternPreview from './PatternPreview';
 import { PatternFormState } from '@/store/imageGeneratorStore';
+import { useAuthStore } from '@/store/authStore';
 
 // CSV 내보내기 함수
 const exportToCSV = (data: BmpDetailResult) => {
@@ -123,7 +124,8 @@ const convertDetailToFormState = (detail: BmpDetailResult): PatternFormState => 
 };
 
 export default function PatternTable() {
-  const [bmpList, setBmpList] = useState<BmpListItem[]>([]);
+  const user = useAuthStore((state) => state.user);
+  const [allBmpList, setAllBmpList] = useState<BmpListItem[]>([]);
   const [page, setPage] = useState(0); // API는 0부터 시작
   const [pageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(0);
@@ -134,14 +136,12 @@ export default function PatternTable() {
   const [loadingUuids, setLoadingUuids] = useState<Set<string>>(new Set());
   const [showMyWorkOnly, setShowMyWorkOnly] = useState(false);
 
-  // API에서 목록 조회
+  // API에서 목록 조회 (전체 데이터 가져오기)
   const fetchBmpList = useCallback(async () => {
     try {
       setIsLoading(true);
-      // 내 작업만 보기가 체크되어 있으면 /bmp/me API 호출, 아니면 /bmp API 호출
-      const response = showMyWorkOnly 
-        ? await getBmpMeList({ page, size: pageSize })
-        : await getBmpList({ page, size: pageSize });
+      // 항상 전체 데이터를 가져옴 (큰 사이즈로 요청)
+      const response = await getBmpList({ page: 0, size: 10000 });
       if (response.isSuccess && response.result) {
         // 생성일시 기준 내림차순 정렬 (최신이 위로)
         const sortedList = [...response.result.content].sort((a, b) => {
@@ -149,16 +149,36 @@ export default function PatternTable() {
           const dateB = new Date(b.requestedAt).getTime();
           return dateB - dateA; // 내림차순
         });
-        setBmpList(sortedList);
-        setTotalPages(response.result.pagination.totalPages);
-        setTotalElements(response.result.pagination.totalElements);
+        setAllBmpList(sortedList);
       }
     } catch (error) {
       console.error('목록 조회 실패:', error);
     } finally {
       setIsLoading(false);
     }
-  }, [page, pageSize, showMyWorkOnly]);
+  }, []);
+
+  // employeeNo로 필터링된 목록
+  const filteredBmpList = useMemo(() => {
+    if (!showMyWorkOnly || !user?.employeeNo) {
+      return allBmpList;
+    }
+    return allBmpList.filter(item => item.employeeNo === user.employeeNo);
+  }, [allBmpList, showMyWorkOnly, user?.employeeNo]);
+
+  // 페이지네이션된 목록
+  const bmpList = useMemo(() => {
+    const start = page * pageSize;
+    const end = start + pageSize;
+    return filteredBmpList.slice(start, end);
+  }, [filteredBmpList, page, pageSize]);
+
+  // 페이지네이션 정보 업데이트
+  useEffect(() => {
+    const total = filteredBmpList.length;
+    setTotalElements(total);
+    setTotalPages(Math.ceil(total / pageSize));
+  }, [filteredBmpList.length, pageSize]);
 
   useEffect(() => {
     fetchBmpList();
@@ -280,7 +300,7 @@ export default function PatternTable() {
   };
 
   const getJobNumber = (idx: number) => {
-    return totalElements - (page * pageSize + idx);
+    return filteredBmpList.length - (page * pageSize + idx);
   };
 
   const getStatus = (item: BmpListItem) => {

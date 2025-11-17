@@ -14,9 +14,12 @@ import InkConsumptionSummary from './components/InkConsumptionSummary';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import MotherGlassInfoList from './components/MotherGlassInfoList';
 import BmpImportModal from './components/BmpImportModal';
+import CommonLoader from '@/components/ui/CommonLoader';
 import { products } from './data/productionProducts';
 import { motherGlasses } from './data/motherGlasses';
-import { getInkjetPrinters, type GetInkjetPrintersResponse, type InkjetPrinter } from '@/service/inkjet';
+import { getInkjetPrinters, type GetInkjetPrintersResponse, type InkjetPrinter, subscribeInkjetCompressionSSE, type ConvertHistoryItemResponse } from '@/service/inkjet';
+import { getDashboardConvertDetail, getDashboardConvertHistoryDetail } from '@/service/dashboard';
+import { usePerformanceHistoryStore } from '@/store/performanceHistoryStore';
 import {
   computeOptimalMotherGlassPlan,
   MotherGlassOptimizationResult,
@@ -60,10 +63,139 @@ export default function SimulationPage() {
   } | null>(null);
   const [activeAssignmentDetail, setActiveAssignmentDetail] = useState<BmpDetailResult | null>(null);
   const [isPrintPlanConfirmed, setIsPrintPlanConfirmed] = useState<boolean>(false);
+  const [printTimeSeconds, setPrintTimeSeconds] = useState<number>(20); // 기본 20초
+  const performanceHistoryData = usePerformanceHistoryStore((state) => state.performanceHistoryData);
+  const addCompressionComplete = usePerformanceHistoryStore((state) => state.addCompressionComplete);
+
+  // 성능 비교에서 저장된 압축 시간(CompressionTime) 데이터 사용
+  const compressionTimes = useMemo(() => {
+    const allCompressionTimes: number[] = [];
+    
+    // performanceHistoryData에서 모든 설비의 최근 완료된 작업들의 compressionTime 수집
+    Object.values(performanceHistoryData).forEach((data) => {
+      const completedItems = data.historyItems.filter((item) => item.status === '완료');
+      if (completedItems.length > 0) {
+        // 최근 5개에서 compressionTime 사용, 없으면 2초 기본값
+        const recentTimes = completedItems
+          .slice(0, 5)
+          .map((item) => (typeof (item as any).compressionTime === 'number' ? (item as any).compressionTime as number : 2));
+        allCompressionTimes.push(...recentTimes);
+      }
+    });
+
+    if (allCompressionTimes.length === 0) {
+      return { fast: null, slow: null }; // 데이터가 없으면 null 반환
+    }
+
+    // 정렬하여 가장 빠른 것과 가장 느린 것 추출
+    const sortedTimes = [...allCompressionTimes].sort((a, b) => a - b);
+    
+    // 가장 빠른 것과 가장 느린 것
+    // 2가지 이상 있으면 가장 작은 2개 중 빠른 것, 전체 중 가장 느린 것 사용
+    const fast = sortedTimes[0]; // 가장 빠른 것
+    const slow = sortedTimes[sortedTimes.length - 1]; // 가장 느린 것
+    
+    return { fast, slow };
+  }, [performanceHistoryData]);
+
+  // 빠른 압축 시간 (계산에 사용)
+  const compressionTimeSeconds = compressionTimes.fast;
+
+  // 압축 시간을 가져온 경우 인쇄시간을 압축시간의 9배로 자동 설정
+  useEffect(() => {
+    if (typeof compressionTimeSeconds === 'number' && !Number.isNaN(compressionTimeSeconds)) {
+      const next = Math.max(0, Math.round(compressionTimeSeconds * 9));
+      setPrintTimeSeconds(next);
+    }
+  }, [compressionTimeSeconds]);
 
   const productMap = useMemo(() => {
     return new Map(products.map((product) => [product.id, product]));
   }, []);
+
+  // 시뮬레이션 페이지에서도 SSE 구독하여 성능 데이터 적재
+  useEffect(() => {
+    const controller = subscribeInkjetCompressionSSE({
+      onCompressionComplete: (data: ConvertHistoryItemResponse) => {
+        // 시뮬레이션에서는 매칭없이 공용 키로 적재
+        const facilityId = 'SIMULATION';
+        addCompressionComplete(facilityId, data, {
+          fileName: data.tiffName?.replace(/\.tiff$/i, '.bmp') || data.tiffName || 'unknown.bmp',
+          algorithm: data.compressionType || '-',
+          version: String(data.version ?? '-'),
+        });
+      },
+      onError: () => {},
+    });
+    return () => controller.abort();
+  }, [addCompressionComplete]);
+
+  // 진입 시 대시보드 변환 내역(최근 4건)으로 성능 데이터 시드
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const resp = await getDashboardConvertDetail(undefined, { page: 0, size: 4 });
+        const list = resp?.result?.content ?? [];
+        if (list.length === 0) return;
+
+        const withDetails = await Promise.all(
+          list.map(async (base) => {
+            try {
+              const d = await getDashboardConvertHistoryDetail(base.convertHistoryUuid);
+              return { base, detail: d?.result || null };
+            } catch {
+              return { base, detail: null };
+            }
+          })
+        );
+
+        if (!mounted) return;
+
+        withDetails.forEach(({ base, detail }) => {
+          const tiffNameFromUrl = (() => {
+            if (!base.tiffUrl) return undefined;
+            try {
+              const seg = base.tiffUrl.split('?')[0].split('/');
+              return seg[seg.length - 1] || undefined;
+            } catch {
+              return undefined;
+            }
+          })();
+
+          const fakeSSE: ConvertHistoryItemResponse = {
+            convertHistoryUuid: base.convertHistoryUuid,
+            tiffName: tiffNameFromUrl || 'unknown.tiff',
+            processingUnit: (base.processingUnit || '').toUpperCase(),
+            compressionType: base.compressionType,
+            version: base.version,
+            // 대시보드 tiffVolume은 KB 단위
+            tiffVolume: base.tiffVolume,
+            bmpVolume: base.bmpVolume,
+            userName: base.userName,
+            employeeNo: '',
+            completedAt: (detail as any)?.completedAt || new Date().toISOString(),
+            elapsedTime: (detail as any)?.elapsedTime ?? base.elapsedTime,
+            tiffUrl: base.tiffUrl || '',
+            compressionTime: (detail as any)?.compressionTime,
+            // compressionRatio는 상세 타입에 없어 비움
+            compressionRatio: 0,
+          };
+
+          addCompressionComplete('SIMULATION', fakeSSE, {
+            fileName: (tiffNameFromUrl || 'unknown.tiff').replace(/\.tiff$/i, '.bmp'),
+            algorithm: base.compressionType,
+            version: String(base.version),
+          });
+        });
+      } catch (e) {
+        console.warn('대시보드 변환 내역 시드 실패:', e);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [addCompressionComplete]);
 
   useEffect(() => {
     let isMounted = true;
@@ -236,10 +368,12 @@ export default function SimulationPage() {
         .join('\n');
       const averageUsedPercent = entry.sheetCount > 0 ? entry.areaUsedPercentTotal / entry.sheetCount : 0;
       const averageRemainingPercent = entry.sheetCount > 0 ? entry.areaRemainingPercentTotal / entry.sheetCount : 0;
+      const totalProductCount = Array.from(entry.productCounts.values()).reduce((sum, count) => sum + count, 0);
 
       return {
         motherGlassName: entry.motherGlassName,
         productSummary: productSummary || '-',
+        totalProductCount,
         averageUsedPercent,
         averageRemainingPercent,
         sheetCount: entry.sheetCount,
@@ -386,7 +520,7 @@ export default function SimulationPage() {
     }
     setIsPrintPlanConfirmed(true);
     
-    // 잉크 소모량 섹션으로 스크롤
+    // 잉크 사용량 섹션으로 스크롤
     setTimeout(() => {
       const inkConsumptionSummary = document.getElementById('ink-consumption-summary');
       if (inkConsumptionSummary) {
@@ -415,11 +549,11 @@ export default function SimulationPage() {
       setConfirmedGoals(goals.map((goal) => ({ ...goal })));
       setHasAttemptedSimulation(false);
       
-      // 최종 생산 목표 섹션으로 스크롤
+      // 생산 계획 설계 섹션으로 스크롤
       setTimeout(() => {
-        const confirmedGoalTable = document.getElementById('confirmed-goal-table');
-        if (confirmedGoalTable) {
-          confirmedGoalTable.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const productionPlanSection = document.getElementById('production-plan-section');
+        if (productionPlanSection) {
+          productionPlanSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }, 100);
     },
@@ -431,21 +565,48 @@ export default function SimulationPage() {
       return;
     }
     setIsSimulationRunning(true);
-    setTimeout(() => {
+    // 메인 스레드를 막지 않도록 웹 워커에서 최적화 실행
+    try {
+      const worker = new Worker(new URL('./workers/optimizationWorker.ts', import.meta.url), { type: 'module' });
+      worker.onmessage = (e: MessageEvent<{ ok: boolean; result?: any; error?: string }>) => {
+        const data = e.data;
+        if (data.ok) {
+          setOptimizationResult(data.result);
+          setHasAttemptedSimulation(true);
+          // 설비별 배치 섹션으로 스크롤
+          setTimeout(() => {
+            const batchPlanSection = document.getElementById('batch-plan-section');
+            if (batchPlanSection) {
+              batchPlanSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }, 200);
+        } else {
+          console.error('Optimization worker error:', data.error);
+          setOptimizationResult(null);
+          setHasAttemptedSimulation(true);
+        }
+        setIsSimulationRunning(false);
+        worker.terminate();
+      };
+      worker.onerror = (err) => {
+        console.error('Optimization worker failed:', err);
+        setOptimizationResult(null);
+        setHasAttemptedSimulation(true);
+        setIsSimulationRunning(false);
+        worker.terminate();
+      };
+      worker.postMessage({
+        availableMotherGlasses,
+        goals: confirmedGoals,
+      });
+    } catch (err) {
+      console.error('Worker setup failed:', err);
       try {
         runOptimization(confirmedGoals);
-        
-        // 배치 결과 섹션으로 스크롤
-        setTimeout(() => {
-          const overallSummary = document.getElementById('overall-production-summary');
-          if (overallSummary) {
-            overallSummary.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }, 200);
       } finally {
         setIsSimulationRunning(false);
       }
-    }, 0);
+    }
   }, [confirmedGoals, printersLoading, runOptimization]);
 
   return (
@@ -478,11 +639,11 @@ export default function SimulationPage() {
                 />
               </div>
 
-              <ConfirmedGoalTable goals={confirmedGoals} />
-
-              <div className="pt-2">
+              <div id="production-plan-section" className="pt-2">
                 <h2 className="text-xl font-semibold text-gray-900">생산 계획 설계</h2>
               </div>
+
+              <ConfirmedGoalTable goals={confirmedGoals} />
 
               <MotherGlassInfoList
                 motherGlasses={motherGlasses}
@@ -496,41 +657,18 @@ export default function SimulationPage() {
               />
 
               {optimizationResult ? (
-                <>
-                  <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
-                    총 배치 {optimizationResult.totalPlacedQuantity.toLocaleString()}개 · 미배치 {optimizationResult.totalUnplacedQuantity.toLocaleString()}개 · 사용 원장 {optimizationResult.totalMotherGlassesUsed.toLocaleString()}장 · 전체 면취 효율 {optimizationResult.overallAreaUtilizationPercent.toFixed(1)}%
+                <div id="batch-plan-section" className="space-y-4">
+                  <div className="pt-2">
+                    <h2 className="text-xl font-semibold text-gray-900">설비별 배치</h2>
                   </div>
                   <OverallProductionSummary summary={overallGenerationSummary} />
-                </>
-              ) : null}
-
-              {optimizationResult ? (
-                <div className="space-y-4">
-                  {optimizationResult.layoutResults.map((result, index) => (
-                    <MotherGlassLayoutPreview
-                      key={`${result.motherGlass.id}-${index}`}
-                      layoutResult={result}
-                    />
-                  ))}
-
-                  <div className="space-y-4 pt-4">
-                    <h2 className="text-xl font-semibold text-gray-900">생산 시뮬레이션</h2>
-                    <PrintSimulationPlan
-                      plan={printSimulationPlan}
-                      selectedAssignments={assignmentSelections}
-                      onRequestImport={handleRequestImport}
-                      onClearSelection={handleClearAssignment}
-                      onConfirm={handleConfirmAssignments}
-                      isConfirmDisabled={isConfirmDisabled}
-                      isConfirmed={isPrintPlanConfirmed}
-                    />
-                    {isPrintPlanConfirmed ? (
-                      <InkConsumptionSummary plan={printSimulationPlan} selectedAssignments={assignmentSelections} />
-                    ) : (
-                      <CommonContainerBox className="px-4 py-4 text-sm text-gray-600">
-                        설비별 이미지 매칭을 모두 완료하고 &quot;설비 매칭 확인&quot; 버튼을 누르면 잉크 소모량과 예상 시간이 계산됩니다.
-                      </CommonContainerBox>
-                    )}
+                  <div className="space-y-4">
+                    {optimizationResult.layoutResults.map((result, index) => (
+                      <MotherGlassLayoutPreview
+                        key={`${result.motherGlass.id}-${index}`}
+                        layoutResult={result}
+                      />
+                    ))}
                   </div>
                 </div>
               ) : hasAttemptedSimulation ? (
@@ -544,6 +682,36 @@ export default function SimulationPage() {
                   </div>
                 )
               ) : null}
+
+              <div className="space-y-4 pt-4">
+                <h2 className="text-xl font-semibold text-gray-900">잉크 사용량 및 최종 예상 시간</h2>
+                <PrintSimulationPlan
+                  plan={printSimulationPlan}
+                  selectedAssignments={assignmentSelections}
+                  onRequestImport={handleRequestImport}
+                  onClearSelection={handleClearAssignment}
+                  onConfirm={handleConfirmAssignments}
+                  isConfirmDisabled={isConfirmDisabled}
+                  isConfirmed={isPrintPlanConfirmed}
+                  compressionTimeSeconds={compressionTimeSeconds}
+                  printTimeSeconds={printTimeSeconds}
+                  onPrintTimeChange={setPrintTimeSeconds}
+                />
+                {isPrintPlanConfirmed ? (
+                  <InkConsumptionSummary 
+                    plan={printSimulationPlan} 
+                    selectedAssignments={assignmentSelections}
+                    compressionTimeSeconds={compressionTimeSeconds}
+                    compressionTimeSlow={compressionTimes.slow}
+                    printTimeSeconds={printTimeSeconds}
+                    confirmedGoals={confirmedGoals}
+                  />
+                ) : (
+                  <CommonContainerBox className="px-4 py-4 text-sm text-gray-600">
+                    설비별 이미지 등록을 모두 완료하고 확인 버튼을 누르면 잉크 사용량과 예상 시간이 계산됩니다.
+                  </CommonContainerBox>
+                )}
+              </div>
             </div>
           </main>
         </div>
@@ -564,6 +732,11 @@ export default function SimulationPage() {
           : null
       }
     />
+    {isSimulationRunning && (
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center pointer-events-none">
+        <CommonLoader className="w-[240px] h-[180px]" color="#0059FF" timeScale={3} />
+      </div>
+    )}
     </AuthGuard>
   );
 }

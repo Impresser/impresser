@@ -72,4 +72,5 @@ RUN ldconfig
 COPY --from=build /app/image /app/image
 
 EXPOSE 8080
-ENTRYPOINT ["/app/image", "--server", "8080"]
+ENTRYPOINT ["/app/image"]
+CMD ["8080"]

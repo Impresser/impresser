@@ -8,6 +8,7 @@ import Sidebar from "@/components/layout/sidebar";
 import Navbar from "@/components/layout/navbar";
 import AuthGuard from "@/components/auth/AuthGuard";
 import Compressionlist from "./components/Compressionlist";
+import RecommendationEngine from "./components/RecommendationEngine";
 
 export default function DashboardPage() {
   return (
@@ -26,6 +27,7 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-2">
               {/* 상단: 성능 순위 전체 영역 */}
               <PerformanceRanking />
+              <RecommendationEngine />
               <Compressionlist />
             </div>
           </main>

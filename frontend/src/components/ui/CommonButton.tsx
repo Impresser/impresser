@@ -18,6 +18,7 @@ export default function Button({
     px-7 py-2
     text-sm
     rounded-full
+    text-sm
     font-medium
     backdrop-blur-md
     shadow-[0_4px_5px_rgba(0,0,0,0.)]

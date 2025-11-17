@@ -12,12 +12,22 @@ interface CompressionQueueProps {
   isStarting?: boolean;
 }
 
-const formatFileSize = (bytes: number) => {
-  if (bytes === 0) return '0 Bytes';
-  const k = 1024;
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+// 파일 크기 포맷팅 함수 (KB 단위로 들어옴)
+const formatFileSize = (kb: number) => {
+  if (kb === 0) return '0.00 KB';
+  const k = 1024; // 1024 단위로 계산 (1 MB = 1024 KB, 1 GB = 1024 MB)
+  const sizes = ['KB', 'MB', 'GB'];
+  // KB 단위로 들어오므로
+  // 0 ~ 1023 KB → KB
+  // 1024 ~ 1048575 KB → MB (1024로 나눔)
+  // 1048576 KB 이상 → GB (1024^2로 나눔)
+  if (kb < k) {
+    return (Math.floor(kb * 100) / 100).toFixed(2) + ' ' + sizes[0];
+  } else if (kb < k * k) {
+    return (Math.floor((kb / k) * 100) / 100).toFixed(2) + ' ' + sizes[1];
+  } else {
+    return (Math.floor((kb / (k * k)) * 100) / 100).toFixed(2) + ' ' + sizes[2];
+  }
 };
 
 const formatTime = (seconds: number): string => {
