@@ -211,14 +211,15 @@ export default function PatternGeneratorPage() {
       <Sidebar />
 
       {/* 🔹 Main Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 min-w-0 flex flex-col">
         <Navbar />
 
-        <main className="flex-1 p-6 overflow-y-auto">
-          {/* 메시지 표시 영역 */}
-          {message && (
-            <div
-              className={`
+        <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden">
+          <div className="w-full max-w-7xl mx-auto">
+            {/* 메시지 표시 영역 */}
+            {message && (
+              <div
+                className={`
                 mb-4 p-4 rounded-lg shadow-md flex items-center justify-between
                 transition-all duration-300
                 ${message.type === 'error' 
@@ -226,52 +227,53 @@ export default function PatternGeneratorPage() {
                   : 'bg-green-50 border border-green-200 text-green-800'
                 }
               `}
-            >
-              <span className="flex items-center gap-2">
-                {message.type === 'error' ? (
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                )}
-                {message.text}
-              </span>
-              <button
-                onClick={() => setMessage(null)}
-                className={`
+              >
+                <span className="flex items-center gap-2">
+                  {message.type === 'error' ? (
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                  {message.text}
+                </span>
+                <button
+                  onClick={() => setMessage(null)}
+                  className={`
                   ml-4 p-1 rounded hover:bg-opacity-20 transition-colors
                   ${message.type === 'error' ? 'hover:bg-red-200' : 'hover:bg-green-200'}
                 `}
-              >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-          )}
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            )}
 
-          {/* 상단: 입력 영역 - 전체 폭 사용 */}
-          <div className="mb-4">
-            <PatternGenerator />
+            {/* 상단: 입력 영역 - 전체 폭 사용 */}
+            <div className="mb-4">
+              <PatternGenerator />
+            </div>
+
+            {/* 하단 정보 및 버튼 - 반응형 정렬 */}
+            {hasFormContent() && (
+              <div className="flex flex-row justify-end items-center gap-2">
+                <Button variant="gray" onClick={handleReset} disabled={isLoading}>
+                  초기화
+                </Button>
+                <Button variant="blue" onClick={handleGenerate} disabled={isLoading}>
+                  {isLoading ? '생성 중...' : '생성하기'}
+                </Button>
+              </div>
+            )}
+
+            {/* 하단: 목록 테이블 */}
+            <PatternList />
           </div>
-
-          {/* 하단 정보 및 버튼 - 반응형 정렬 */}
-          {hasFormContent() && (
-            <div className="flex flex-row justify-end items-center gap-2">
-              <Button variant="gray" onClick={handleReset} disabled={isLoading}>
-                초기화
-              </Button>
-              <Button variant="blue" onClick={handleGenerate} disabled={isLoading}>
-                {isLoading ? '생성 중...' : '생성하기'}
-              </Button>
-            </div>
-          )}
-
-          {/* 하단: 목록 테이블 */}
-          <PatternList />
         </main>
       </div>
     </div>
