@@ -259,7 +259,7 @@ export default function RecommendationEngine() {
       <h1 className="text-xl font-bold text-gray-900 mb-3">알고리즘 추천</h1>
 
       <CommonContainerBox>
-        <div className="p-4">
+        <div className="">
           {/* 입력 섹션 */}
           <div className="flex items-center gap-4 flex-nowrap">
             <div className="flex items-center gap-5 flex-nowrap">

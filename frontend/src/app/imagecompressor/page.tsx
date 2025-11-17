@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Sidebar from '@/components/layout/sidebar';
 import Navbar from '@/components/layout/navbar';
 import CommonTable, { QueueItem } from '@/components/ui/CommonTable';
@@ -10,9 +10,10 @@ import { FileInfo } from '@/types/imageCompressor';
 import CompressionQueue from './components/CompressionQueue';
 import CompressionHistory from './components/CompressionHistory';
 import { useAuthStore } from '@/store/authStore';
-import { createConvertJobs, subscribeSSEWithAuth, SSEEventData } from '@/service/imageCompressor';
+import { createConvertJobs, SSEEventData } from '@/service/imageCompressor';
 import { useToast } from '@/components/ui/CommonToast';
 import { useImageCompressorStore } from '@/store/imageCompressorStore';
+import { useSSESubscription } from '@/contexts/SSEContext';
 
 export default function ImageCompressorPage() {
   const userName = useAuthStore((state) => state.user?.userName ?? '사용자');
@@ -313,12 +314,10 @@ export default function ImageCompressorPage() {
   };
 
 
-  // SSE 연결 및 실시간 업데이트
-  useEffect(() => {
-    console.log('[압축] SSE 연결 초기화');
-    
-    const abortController = subscribeSSEWithAuth(
-      (data: SSEEventData) => {
+  // 전역 SSE 구독 및 실시간 업데이트
+  useSSESubscription(
+    'imagecompressor',
+    useCallback((data: SSEEventData) => {
         console.log('[압축] SSE 메시지 수신:', {
           eventType: data.eventType || '없음',
           convertHistoryUuid: data.convertHistoryUuid,
@@ -542,17 +541,11 @@ export default function ImageCompressorPage() {
         } else {
           console.warn('[압축] convertHistoryUuid가 없는 SSE 메시지:', data);
         }
-      },
-      (error) => {
-        console.error('[압축] SSE 연결 오류:', error);
-      }
-    );
-
-    return () => {
-      console.log('[압축] SSE 연결 정리');
-      abortController.abort();
-    };
-  }, [showToast]);
+      }, [showToast, fetchHistories]),
+    useCallback((error: Error) => {
+      console.error('[압축] SSE 연결 오류:', error);
+    }, [])
+  );
 
   // 경과시간 업데이트 및 완료 처리를 위한 useEffect
   useEffect(() => {

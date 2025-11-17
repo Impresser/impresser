@@ -236,7 +236,18 @@ export function subscribeSSEWithAuth(
                   // 빈 데이터나 "ok", "ping" 같은 하트비트 메시지는 무시
                   if (dataContent !== "" && dataContent !== "ok" && dataContent !== "ping") {
                     try {
-                      const data: SSEEventData = JSON.parse(dataContent);
+                      const parsed = JSON.parse(dataContent);
+                      // JSON.parse 결과가 문자열인 경우 객체로 감싸기
+                      let data: SSEEventData;
+                      if (typeof parsed === 'string') {
+                        data = { message: parsed };
+                      } else if (typeof parsed === 'object' && parsed !== null) {
+                        data = parsed as SSEEventData;
+                      } else {
+                        // 숫자나 boolean 등 다른 타입인 경우
+                        data = { message: String(parsed) };
+                      }
+                      
                       // 이벤트 타입이 있으면 추가
                       if (currentEvent.eventType) {
                         data.eventType = currentEvent.eventType;

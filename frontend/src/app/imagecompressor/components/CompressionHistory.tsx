@@ -96,6 +96,25 @@ const formatDateTime = (dateString: string | null | undefined): string => {
   return dateString.replace('T', ' ');
 };
 
+// 다운로드 아이콘
+const DownloadIcon = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 // 숫자 포맷팅 컴포넌트
 function PrettyNumber({ value, unit }: { value: number | null | undefined; unit: string }) {
   if (value === null || value === undefined || isNaN(value)) {
@@ -370,8 +389,11 @@ export default function CompressionHistory({
                                     handleDownload(item);
                                   }
                                 }}
-                                className="text-blue-600 hover:underline text-sm"
+                                className="text-blue-600 hover:text-blue-800 text-sm flex items-center justify-center gap-1 transition-all duration-200 group"
                               >
+                                <span className="group-hover:translate-y-0.5 transition-transform duration-200">
+                                  <DownloadIcon />
+                                </span>
                                 다운로드
                               </a>
                             </td>
