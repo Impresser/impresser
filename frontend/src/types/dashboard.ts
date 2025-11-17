@@ -49,6 +49,7 @@ export interface JobDetailRow {
   maxSpeedMBps: number;
   minSpeedKBps: number;
   convertHistoryUuid?: string; // 작업 상세 조회용 UUID
+  compressionRatio?: number; // 압축률
 }
 
 // 상세 조회 API 응답 타입
@@ -63,6 +64,7 @@ export interface ConvertDetailItem {
   userName: string;
   avgSpeed: number;
   elapsedTime: number;
+  compressionRatio: number;
 }
 
 export interface GetConvertDetailResult {

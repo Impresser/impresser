@@ -283,6 +283,7 @@ export default function EquipmentUsage() {
       maxSpeedMBps: item.avgSpeed ?? 0, // API 응답에 없음
       minSpeedKBps: 0, // API 응답에 없음
       convertHistoryUuid: item.convertHistoryUuid, // 작업 상세 조회용 UUID
+      compressionRatio: item.compressionRatio, // 압축률
     }));
   }, [selectedItem, detailData]);
 
@@ -586,17 +587,13 @@ export default function EquipmentUsage() {
                           <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{formatFileSize(job.bmpVolume)}</td>
                           <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{formatFileSize(job.tiffVolume)}</td>
                           <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-20">
-                            {(() => {
-                              const bmpVol = job.bmpVolume || 0;
-                              const tiffVol = job.tiffVolume || 0;
-                              if (bmpVol === 0) return '-';
-                              const compressionRatio = ((bmpVol - tiffVol) / bmpVol) * 100;
-                              return (
-                                <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] bg-green-50 text-green-700 border-green-200">
-                                  {compressionRatio.toFixed(2)}%
-                                </span>
-                              );
-                            })()}
+                            {job.compressionRatio != null ? (
+                              <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] bg-green-50 text-green-700 border-green-200">
+                                {Math.round(job.compressionRatio)}%
+                              </span>
+                            ) : (
+                              '-'
+                            )}
                           </td>
                           <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{job.owner}</td>
                           <td className="h-10 py-0 px-3 text-right border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[100px]">
@@ -670,17 +667,13 @@ export default function EquipmentUsage() {
                     <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{formatFileSize(selectedJob.bmpVolume)}</td>
                     <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{formatFileSize(selectedJob.tiffVolume)}</td>
                     <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-20">
-                      {(() => {
-                        const bmpVol = selectedJob.bmpVolume || 0;
-                        const tiffVol = selectedJob.tiffVolume || 0;
-                        if (bmpVol === 0) return '-';
-                        const compressionRatio = ((bmpVol - tiffVol) / bmpVol) * 100;
-                        return (
-                          <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] bg-green-50 text-green-700 border-green-200">
-                            {compressionRatio.toFixed(2)}%
-                          </span>
-                        );
-                      })()}
+                      {selectedJob.compressionRatio != null ? (
+                        <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] bg-green-50 text-green-700 border-green-200">
+                          {Math.round(selectedJob.compressionRatio)}%
+                        </span>
+                      ) : (
+                        '-'
+                      )}
                     </td>
                     <td className="h-10 py-0 px-3 text-center border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[90px]">{selectedJob.owner}</td>
                     <td className="h-10 py-0 px-3 text-right border-t border-b border-gray-200 bg-white group-hover:bg-gray-50 w-[100px]">
