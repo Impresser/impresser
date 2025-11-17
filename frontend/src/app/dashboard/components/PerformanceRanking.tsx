@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import CommonContainerBox from "@/components/ui/CommonContainerBox";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, RadialBarChart, RadialBar, PolarAngleAxis, Cell, ReferenceLine, ReferenceArea } from "recharts";
 import CommonPagination from "@/components/ui/CommonPagination";
-import RadioButton from "@/components/ui/RadioButton";
+import CommonRadioButton from "@/components/ui/CommonRadioButton";
 import { usePerformanceRankingStore } from "@/store/performanceRankingStore";
 import { DashboardRankItem, AlgorithmPerf, JobDetailRow, ConvertDetailItem, ConvertHistoryDetailResult } from "@/types/dashboard";
 import { getDashboardConvertDetail, getDashboardConvertHistoryDetail } from "@/service/dashboard";
@@ -373,26 +373,26 @@ export default function EquipmentUsage() {
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-gray-700">처리방식:</span>
             <div className="flex gap-3">
-              <RadioButton
+              <CommonRadioButton
                 name="modeFilter"
                 value="전체"
                 label="전체"
                 checked={modeFilter === "전체"}
-                onChange={(value) => setModeFilter(value as "전체" | "CPU" | "GPU")}
+                onChangeValue={(value) => setModeFilter(value as "전체" | "CPU" | "GPU")}
               />
-              <RadioButton
+              <CommonRadioButton
                 name="modeFilter"
                 value="CPU"
                 label="CPU"
                 checked={modeFilter === "CPU"}
-                onChange={(value) => setModeFilter(value as "전체" | "CPU" | "GPU")}
+                onChangeValue={(value) => setModeFilter(value as "전체" | "CPU" | "GPU")}
               />
-              <RadioButton
+              <CommonRadioButton
                 name="modeFilter"
                 value="GPU"
                 label="GPU"
                 checked={modeFilter === "GPU"}
-                onChange={(value) => setModeFilter(value as "전체" | "CPU" | "GPU")}
+                onChangeValue={(value) => setModeFilter(value as "전체" | "CPU" | "GPU")}
               />
             </div>
           </div>
