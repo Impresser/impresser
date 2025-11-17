@@ -100,7 +100,7 @@ export default function ImageCompressorPage() {
     
     if (validFiles.length !== files.length) {
       console.warn('[압축] 일부 파일이 BMP 형식이 아닙니다:', files.length - validFiles.length, '개');
-      alert('BMP 파일만 업로드 가능합니다.');
+      showToast('BMP 파일만 업로드 가능합니다.', 'warning');
     }
 
     if (validFiles.length === 0) {
@@ -158,7 +158,7 @@ export default function ImageCompressorPage() {
       });
     }).catch((error) => {
       console.error('[압축] 파일 처리 중 오류:', error);
-      alert('일부 파일 처리에 실패했습니다.');
+      showToast('일부 파일 처리에 실패했습니다.', 'error');
     });
   };
 
@@ -185,7 +185,7 @@ export default function ImageCompressorPage() {
 
     if (fileInfos.length === 0) {
       console.warn('[압축] 추가할 파일이 없습니다.');
-      alert('파일을 먼저 선택해주세요.');
+      showToast('파일을 먼저 선택해주세요.', 'warning');
       return;
     }
 
@@ -280,7 +280,7 @@ export default function ImageCompressorPage() {
       newItems.forEach((newItem) => {
         setTimeout(() => {
           console.log(`[압축] 토스트 표시: ${newItem.fileName} 압축 시작`);
-          showToast(`${newItem.fileName} 압축이 시작되었습니다.`);
+          showToast(`${newItem.fileName} 압축이 시작되었습니다.`, 'info');
         }, 0);
       });
 
@@ -295,7 +295,7 @@ export default function ImageCompressorPage() {
       });
     } catch (error) {
       console.error('[압축] 대기열 등록 실패:', error);
-      alert(error instanceof Error ? error.message : '대기열 등록에 실패했습니다.');
+      showToast(error instanceof Error ? error.message : '대기열 등록에 실패했습니다.', 'error');
     }
   };
 
@@ -352,7 +352,7 @@ export default function ImageCompressorPage() {
             data.status === 'PROCESSING';
           
           // 토스트 메시지를 저장할 객체 (참조로 공유)
-          const toastInfo = { message: null as string | null };
+          const toastInfo = { message: null as string | null, type: 'success' as 'success' | 'error' | 'info' | 'warning' };
           
           // 현재 큐에서 항목 찾기 및 업데이트
           setQueue((prev) => {
@@ -415,6 +415,7 @@ export default function ImageCompressorPage() {
                 // CONVERT_BMP_SUCCESS 이벤트이거나 상태가 변경된 경우 토스트 메시지 표시
                 if (data.eventType === 'CONVERT_BMP_SUCCESS' || previousStatus !== '완료') {
                   toastInfo.message = `${foundItem.fileName} 압축이 완료되었습니다.`;
+                  toastInfo.type = 'success';
                   console.log(`[압축] 완료 토스트 메시지 준비: ${toastInfo.message}`, {
                     eventType: data.eventType,
                     previousStatus,
@@ -423,11 +424,13 @@ export default function ImageCompressorPage() {
               } else if (isFailed) {
                 if (previousStatus !== '완료') {
                   toastInfo.message = `${foundItem.fileName} 압축에 실패했습니다.`;
+                  toastInfo.type = 'error';
                   console.log(`[압축] 실패 토스트 메시지 준비: ${toastInfo.message}`);
                 }
               } else if (isProcessing) {
                 if (previousStatus !== '진행') {
                   toastInfo.message = `${foundItem.fileName} 압축이 시작되었습니다.`;
+                  toastInfo.type = 'info';
                   console.log(`[압축] 시작 토스트 메시지 준비: ${toastInfo.message}`);
                 }
               }
@@ -516,7 +519,7 @@ export default function ImageCompressorPage() {
               // setTimeout을 사용하여 상태 업데이트 후 토스트 표시
               setTimeout(() => {
                 console.log(`[압축] 토스트 표시 실행: ${toastInfo.message}`);
-                showToast(toastInfo.message!);
+                showToast(toastInfo.message!, toastInfo.type);
               }, 100);
             } else if (toastInfo.message && data.convertHistoryUuid && shownToastUuidsRef.current.has(data.convertHistoryUuid)) {
               console.log(`[압축] 토스트 메시지 이미 표시됨, 건너뜀: ${toastInfo.message} (UUID: ${data.convertHistoryUuid})`);

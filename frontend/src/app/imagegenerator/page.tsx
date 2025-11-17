@@ -100,7 +100,7 @@ export default function PatternGeneratorPage() {
     // 유효성 검사
     const validation = validateForm();
     if (!validation.isValid) {
-      setMessage({ text: validation.message || '입력 값을 확인해주세요.', type: 'error' });
+      showToast(validation.message || '입력 값을 확인해주세요.', 'error');
       return;
     }
 
@@ -140,7 +140,7 @@ export default function PatternGeneratorPage() {
               // 완료 처리
               markJobDone(jobId);
               // 완료 토스트 알림
-              showToast('패턴 생성이 완료되었습니다.');
+              showToast('패턴 생성이 완료되었습니다.', 'success');
               // SSE 연결 종료
               sseController.abort();
               setSseControllers((prev) => {
@@ -171,15 +171,13 @@ export default function PatternGeneratorPage() {
 
         // 목록 새로고침 (첫 페이지로 이동)
         window.dispatchEvent(new CustomEvent('refreshBmpList', { detail: { resetPage: true } }));
-        showToast('패턴 생성이 시작되었습니다.');
+        showToast('패턴 생성이 시작되었습니다.', 'info');
         console.log('패턴 생성 성공:', generationUuid);
       }
     } catch (error) {
       console.error('패턴 생성 실패:', error);
-      setMessage({ 
-        text: error instanceof Error ? error.message : '패턴 생성에 실패했습니다.', 
-        type: 'error' 
-      });
+      const errorMessage = error instanceof Error ? error.message : '패턴 생성에 실패했습니다.';
+      showToast(errorMessage, 'error');
     } finally {
       setIsLoading(false);
     }

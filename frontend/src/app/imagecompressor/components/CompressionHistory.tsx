@@ -5,6 +5,7 @@ import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import CommonTableFrame from '@/components/ui/CommonTableFrame';
 import { HistoryItem } from '@/components/ui/CommonTable';
 import CommonPagination from '@/components/ui/CommonPagination';
+import CommonCheckBox from '@/components/ui/CommonCheckBox';
 import { useImageCompressorStore } from '@/store/imageCompressorStore';
 import { ConvertHistoryItem, ConvertHistoryDetailItem } from '@/types/imageCompressor';
 import { getConvertHistoryDetail } from '@/service/imageCompressor';
@@ -255,18 +256,14 @@ export default function CompressionHistory({
     <div className="mt-8">
       <div className="flex items-center justify-between mb-3">
         <h1 className="text-lg font-bold text-gray-900">압축내역</h1>
-        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={showMyWorkOnly}
-            onChange={(e) => {
-              setShowMyWorkOnly(e.target.checked);
-              setPage(0); // 체크박스 변경 시 첫 페이지로 이동
-            }}
-            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-          />
-          <span>내 작업만 보기</span>
-        </label>
+        <CommonCheckBox
+          checked={showMyWorkOnly}
+          onChange={(checked) => {
+            setShowMyWorkOnly(checked);
+            setPage(0); // 체크박스 변경 시 첫 페이지로 이동
+          }}
+          label="내 작업만 보기"
+        />
       </div>
 
       <CommonContainerBox>
