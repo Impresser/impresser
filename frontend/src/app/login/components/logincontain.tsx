@@ -4,7 +4,10 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import CommonInput from "@/components/ui/CommonInput01";
 import CommonModal from "@/components/ui/CommonModal";
+import CommonContainerBox from "@/components/ui/CommonContainerBox";
 import LoginFindModalContent from "./loginfindmodal";
+import LoginBackground from "./LoginBackground";
+import LoginBrandSection from "./LoginBrandSection";
 import { login } from "@/service/auth";
 import { useAuthStore } from "@/store/authStore";
 
@@ -87,77 +90,37 @@ export default function LoginContain() {
   };
 
   return (
-    <div className="h-screen w-screen flex">
-      {/* 왼쪽 섹션 - 환영 메시지 */}
-      <div className="hidden lg:flex lg:w-[55%] relative overflow-hidden bg-linear-to-br from-blue-600 via-blue-500 to-blue-400">
-        {/* 추상적인 디자인 요소들 */}
-        <div className="absolute inset-0 opacity-20">
-          {/* 물결 패턴 */}
-          <svg className="absolute top-0 left-0 w-full h-full" viewBox="0 0 400 600" fill="none">
-            <path
-              d="M0,200 Q100,150 200,200 T400,200 L400,600 L0,600 Z"
-              stroke="white"
-              strokeWidth="2"
-              fill="none"
-            />
-            <path
-              d="M0,400 Q150,350 300,400 T400,400"
-              stroke="white"
-              strokeWidth="1.5"
-              fill="none"
-            />
-          </svg>
-          
-          {/* 원형 요소들 */}
-          <div className="absolute top-20 left-10 w-32 h-32 rounded-full border-2 border-white/30"></div>
-          <div className="absolute bottom-32 left-20 w-20 h-20 rounded-full border-2 border-white/40"></div>
-          <div className="absolute top-1/2 left-1/4 w-16 h-16 rounded-full border-2 border-white/25"></div>
-          
-          {/* 십자 모양 */}
-          <div className="absolute top-40 right-20 w-12 h-12">
-            <div className="absolute top-1/2 left-0 w-full h-0.5 bg-white/30 transform -translate-y-1/2"></div>
-            <div className="absolute left-1/2 top-0 w-0.5 h-full bg-white/30 transform -translate-x-1/2"></div>
-          </div>
-          
-          {/* 소용돌이 패턴 */}
-          <svg className="absolute bottom-20 right-10 w-40 h-40" viewBox="0 0 100 100">
-            <path
-              d="M50,50 Q30,30 50,10 Q70,30 50,50"
-              stroke="white"
-              strokeWidth="1.5"
-              fill="none"
-              opacity="0.3"
-            />
-          </svg>
+    <>
+      <style jsx global>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .fade-in {
+          animation: fadeIn 1.5s ease-out 0.5s forwards;
+          opacity: 0;
+        }
+      `}</style>
+
+      <LoginBackground />
+      
+      <div className="h-screen w-screen flex" style={{ position: 'relative', zIndex: 20 }}>
+        {/* 왼쪽 섹션 - 브랜드 섹션 (55% 너비 유지) */}
+        <div className="hidden lg:flex lg:w-[55%] items-center justify-start p-4" style={{ paddingLeft: '10%' }}>
+          <LoginBrandSection />
         </div>
 
-        {/* 텍스트 콘텐츠 */}
-        <div className="relative z-10 flex flex-col justify-center px-12 text-white">
-          <h1 className="text-5xl font-bold mb-4">We make you IMPRESSED!</h1>
-          <p className="text-lg text-white/90">
-            사번으로 Impresser에 로그인하세요
-          </p>
-        </div>
-
-        {/* 장식적인 점 패턴 */}
-        <div className="absolute left-0 top-0 bottom-0 w-2 flex flex-col justify-center gap-2 opacity-30">
-          {Array.from({ length: 20 }).map((_, i) => (
-            <div key={i} className="w-1 h-1 bg-white rounded-full ml-1"></div>
-          ))}
-        </div>
-      </div>
-
-      {/* 오른쪽 섹션 - 로그인 양식 */}
-      <div className="flex-1 flex items-center justify-center bg-white relative">
-        {/* 장식적인 점 패턴 (왼쪽 경계) */}
-        <div className="absolute left-0 top-0 bottom-0 w-2 flex flex-col justify-start gap-2 opacity-20 pt-20">
-          {Array.from({ length: 30 }).map((_, i) => (
-            <div key={i} className="w-1 h-1 bg-blue-500 rounded-full ml-1"></div>
-          ))}
-        </div>
-
-        <div className="w-full max-w-md px-8 py-10">
-          <h2 className="text-3xl font-bold text-gray-800 mb-8">로그인</h2>
+        {/* 오른쪽 섹션 - 로그인 양식 */}
+        <div className="flex-1 flex items-center justify-center relative">
+        <CommonContainerBox className="w-full max-w-md px-8 py-10 fade-in" style={{ opacity: 0 }}>
+          <h2 className="text-2xl font-bold text-gray-800 mb-8">로그인</h2>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* 아이디 입력 */}
@@ -225,13 +188,14 @@ export default function LoginContain() {
               회원가입/비밀번호 찾기
             </a>
           </div>
-        </div>
+        </CommonContainerBox>
 
         <CommonModal isOpen={infoOpen} onClose={() => setInfoOpen(false)}>
           <LoginFindModalContent />
         </CommonModal>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

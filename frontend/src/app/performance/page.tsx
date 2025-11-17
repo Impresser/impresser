@@ -412,8 +412,8 @@ export default function SimulationPage() {
            status: '진행',
           assignedUser: userName,
            startTime: new Date(),
-           elapsedTime: 0,
-           estimatedTime: 0,
+          elapsedTime: 0,
+          estimatedTime: 0,
           progress: 0,
         }));
 
@@ -558,8 +558,8 @@ export default function SimulationPage() {
         };
 
         // 상태 업데이트 전에 현재 상태를 읽어서 매칭 항목 찾기
-        let matchedItem: QueueItem | null = null;
-        let matchedFacilityId: string | null = null;
+          let matchedItem: QueueItem | null = null;
+          let matchedFacilityId: string | null = null;
 
         // 현재 상태에서 매칭 항목 찾기 (동기적으로)
         setQueuedUploadsByFacility((prev) => {
@@ -584,7 +584,7 @@ export default function SimulationPage() {
             return {
               ...prev,
               [matchedFacilityId]: prev[matchedFacilityId].filter(
-                (item) => item.id !== matchedItem!.id
+              (item) => item.id !== matchedItem!.id
               ),
             };
           }
@@ -599,18 +599,18 @@ export default function SimulationPage() {
           const item = matchedItem as QueueItem;
           const facilityId = matchedFacilityId as string;
 
-          // 작업 내역에 추가 (Zustand store 사용)
+            // 작업 내역에 추가 (Zustand store 사용)
           addCompressionCompleteRef.current(facilityId, data, {
             fileName: item.fileName,
             algorithm: item.algorithm,
             version: item.version,
-          });
+            });
 
-          console.log('설비 대기열 항목 완료 처리:', {
+            console.log('설비 대기열 항목 완료 처리:', {
             facilityId: facilityId,
             fileName: item.fileName,
-            convertHistoryUuid: data.convertHistoryUuid,
-          });
+              convertHistoryUuid: data.convertHistoryUuid,
+            });
 
           // 완료 토스트 알림 (중복 방지)
           const toastKey = `${historyUuid}-${data.tiffName}`;
@@ -647,11 +647,11 @@ export default function SimulationPage() {
         } else {
           // 매칭 항목이 없으면 처리 표시 제거 (다시 처리 가능하도록)
           processedHistoryUuidsRef.current.delete(historyUuid);
-          console.warn('압축 완료 이벤트에 매칭되는 대기열 항목을 찾을 수 없습니다:', {
-            tiffName: data.tiffName,
-            bmpVolume: data.bmpVolume,
-          });
-        }
+            console.warn('압축 완료 이벤트에 매칭되는 대기열 항목을 찾을 수 없습니다:', {
+              tiffName: data.tiffName,
+              bmpVolume: data.bmpVolume,
+            });
+          }
       },
       onError: (error: Error) => {
         console.error('설비 대기열 SSE 연결 오류:', error);
@@ -1096,14 +1096,14 @@ export default function SimulationPage() {
                     {isAdmin && (
                       <div className="absolute right-4 bottom-4 z-20">
                         <div className="relative group">
-                          <CommonButton
-                            variant="blue"
+                        <CommonButton
+                          variant="blue"
                             className="px-4 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                            onClick={handleAddFacilityButtonClick}
+                          onClick={handleAddFacilityButtonClick}
                             disabled={allFacilities.length >= 10 || isLocationSelectMode}
-                          >
-                            {isLocationSelectMode ? '취소하기' : '설비등록'}
-                          </CommonButton>
+                        >
+                          {isLocationSelectMode ? '취소하기' : '설비등록'}
+                        </CommonButton>
                           {allFacilities.length >= 10 && !isLocationSelectMode && (
                             <div className="absolute right-0 bottom-full mb-2 w-64 p-3 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-30 shadow-lg">
                               <div className="absolute right-4 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-900"></div>
