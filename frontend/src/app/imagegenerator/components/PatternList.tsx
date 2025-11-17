@@ -386,19 +386,20 @@ export default function PatternTable() {
         {/* 데스크톱: 표 */}
         <div className="hidden md:block">
           <CommonTableFrame
+            tableClassName="table-fixed"
             header={(
               <thead className="bg-gray-50">
                 <tr className="text-gray-700">
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">No.</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">생성일시</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">이미지 크기</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">상태</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">담당자</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">시작시각</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">완료시간</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[140px]">진행률</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
+                  <th className="w-16 text-center font-semibold text-medium tracking-wide py-2 px-3">No.</th>
+                  <th className="w-40 text-center font-semibold text-medium tracking-wide py-2 px-3">생성일시</th>
+                  <th className="w-28 text-center font-semibold text-medium tracking-wide py-2 px-3">이미지 크기</th>
+                  <th className="w-24 text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
+                  <th className="w-20 text-center font-semibold text-medium tracking-wide py-2 px-3">상태</th>
+                  <th className="w-24 text-center font-semibold text-medium tracking-wide py-2 px-3">담당자</th>
+                  <th className="w-24 text-center font-semibold text-medium tracking-wide py-2 px-3">시작시각</th>
+                  <th className="w-24 text-center font-semibold text-medium tracking-wide py-2 px-3">완료시간</th>
+                  <th className="w-33 text-center font-semibold text-medium tracking-wide py-2 px-3">진행률</th>
+                  <th className="w-23 text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
                 </tr>
               </thead>
             )}
@@ -429,11 +430,11 @@ export default function PatternTable() {
                           className={`cursor-pointer odd:bg-white even:bg-gray-50 hover:bg-gray-100 ${isExpanded ? 'bg-blue-50' : ''}`}
                           onClick={() => handleRowClick(item)}
                         >
-                          <td className="py-2 px-3 text-center text-gray-600">{getJobNumber(idx)}</td>
-                          <td className="py-2 px-3 text-center text-gray-800">{formatKST(item.requestedAt)}</td>
-                          <td className="py-2 px-3 text-center text-gray-800">{item.bmpWidth}×{item.bmpHeight}</td>
-                          <td className="py-2 px-3 text-center text-gray-800">{formatFileSize(item.bmpVolume)}</td>
-                          <td className="py-2 px-3 text-center">
+                          <td className="w-16 py-2 px-3 text-center text-gray-600">{getJobNumber(idx)}</td>
+                          <td className="w-40 py-2 px-3 text-center text-gray-800">{formatKST(item.requestedAt)}</td>
+                          <td className="w-28 py-2 px-3 text-center text-gray-800">{item.bmpWidth}×{item.bmpHeight}</td>
+                          <td className="w-24 py-2 px-3 text-center text-gray-800">{formatFileSize(item.bmpVolume)}</td>
+                          <td className="w-20 py-2 px-3 text-center">
                             <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${
                               status === '진행' 
                                 ? 'bg-blue-50 text-blue-700 border-blue-200' 
@@ -442,12 +443,12 @@ export default function PatternTable() {
                               {status}
                             </span>
                           </td>
-                          <td className="py-2 px-3 text-center text-gray-800">{item.userName}</td>
-                          <td className="py-2 px-3 text-center text-gray-800">{formatKST(item.requestedAt).split(' ')[1]}</td>
-                          <td className="py-2 px-3 text-center text-gray-800">
+                          <td className="w-28 py-2 px-3 text-center text-gray-800">{item.userName}</td>
+                          <td className="w-28 py-2 px-3 text-center text-gray-800">{formatKST(item.requestedAt).split(' ')[1]}</td>
+                          <td className="w-28 py-2 px-3 text-center text-gray-800">
                             {item.completedAt ? formatKST(item.completedAt).split(' ')[1] : '-'}
                           </td>
-                          <td className="py-2 px-3 text-center">
+                          <td className="w-36 py-2 px-3 text-center">
                             <div className="relative w-full h-4 rounded-full bg-gray-200 overflow-hidden">
                               <div className={`h-full bg-[#2E7BEF]`} style={{ width: `${progress}%` }} />
                               <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white">
@@ -456,7 +457,7 @@ export default function PatternTable() {
                             </div>
                           </td>
                           <td 
-                            className="py-2 px-3 text-center"
+                            className="w-20 py-2 px-3 text-center"
                             onClick={(e) => e.stopPropagation()}
                           >
                             {status === '진행' ? (
@@ -482,7 +483,7 @@ export default function PatternTable() {
                         {isExpanded && (
                           <tr>
                             <td colSpan={10} className="p-0 bg-gray-50">
-                              <div className="p-6">
+                              <div className="p-6 overflow-x-auto">
                                 {isLoadingDetail ? (
                                   <div className="text-center py-8 text-gray-500">로딩 중...</div>
                                 ) : detailData ? (
