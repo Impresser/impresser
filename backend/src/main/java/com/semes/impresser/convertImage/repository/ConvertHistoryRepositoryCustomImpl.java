@@ -94,7 +94,8 @@ public class ConvertHistoryRepositoryCustomImpl implements ConvertHistoryReposit
                 hist.bmpVolume,
                 user.userName,
                 hist.avgSpeed,
-                elapsedTimeExpr
+                elapsedTimeExpr,
+                hist.compressionRatio
             ))
             .from(hist)
             .join(hist.compressionType, ctype)
