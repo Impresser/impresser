@@ -226,6 +226,27 @@ public class FilePresignedServiceImpl implements FilePresignedService {
     }
 
     @Override
+    public String getDownloadPresignedUrl(String objectName) {
+        try {
+            String originalFileName = S3Util.extractOriginalFileName(objectName);
+
+            PresignedGetObjectRequest request = s3Presigner.presignGetObject(r -> r
+                .signatureDuration(Duration.ofMinutes(30))
+                .getObjectRequest(g -> g
+                    .bucket(s3Config.getBucket())
+                    .key(objectName)
+                    .responseContentDisposition(
+                        "attachment; filename=\"" + originalFileName + "\""
+                    )
+                ));
+            return request.url().toString();
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Override
     public UrlsBatchResponse createPartPresignedUrlsBatch(List<UrlsBatchRequest.Job> jobs) {
         List<UrlsBatchItemResponse> items = new ArrayList<>(jobs.size());
 

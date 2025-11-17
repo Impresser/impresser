@@ -35,9 +35,14 @@ public interface FilePresignedService {
     void abortMultipartUpload(String objectName, String uploadId);
 
     /**
-     * 다운로드용 Presigned URL 생성
+     * 미리보기용 Presigned URL 생성
      */
     String getPresignedUrl(String objectName);
+
+    /**
+     * 다운로드용 Presigned URL 생성
+     */
+    String getDownloadPresignedUrl(String objectName);
 
     CreateTiffUploadResponse createTiffUpload(String fileName);
 

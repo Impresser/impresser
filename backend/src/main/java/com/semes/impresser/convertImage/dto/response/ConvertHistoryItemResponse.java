@@ -2,6 +2,7 @@ package com.semes.impresser.convertImage.dto.response;
 
 import com.semes.impresser.common.util.S3Util;
 import com.semes.impresser.convertImage.entity.ConvertHistory;
+import com.semes.impresser.s3.service.FilePresignedService;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.UUID;
@@ -26,9 +27,12 @@ public record ConvertHistoryItemResponse(
 
     public static ConvertHistoryItemResponse toEntity(
         ConvertHistoryItemResponse src,
-        String tiffName,
-        String tiffUrl
+        FilePresignedService filePresignedService
     ) {
+        String key = src.tiffUrl();
+        String tiffName = S3Util.extractOriginalFileName(key);
+        String url = key == null ? null : filePresignedService.getDownloadPresignedUrl(key);
+
         return ConvertHistoryItemResponse.builder()
             .convertHistoryUuid(src.convertHistoryUuid())
             .tiffName(tiffName)
@@ -42,7 +46,7 @@ public record ConvertHistoryItemResponse(
             .employeeNo(src.employeeNo())
             .completedAt(src.completedAt())
             .elapsedTime(src.elapsedTime())
-            .tiffUrl(tiffUrl)
+            .tiffUrl(url)
             .build();
     }
 }
