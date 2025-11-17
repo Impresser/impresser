@@ -13,7 +13,8 @@ public record ConvertHistoryListResponse(
     Long bmpVolume,
     String userName,
     BigDecimal avgSpeed,
-    Long elapsedTime
+    Long elapsedTime,
+    Long compressionRatio
 ) {
 
 }

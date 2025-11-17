@@ -214,10 +214,13 @@ public class ConvertImageServiceImpl implements ConvertImageService {
         }
 
         UUID userUuid = currentUserUuid.get();
-        if (completeConvertRequest.isSuccess()) {
-            ConvertHistory convertHistory = convertHistoryRepository.findByUuid(convertUuid)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        ConvertHistory convertHistory = convertHistoryRepository.findByUuid(convertUuid)
+            .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
+        String bmpKey = convertHistory.getBmpKey();
+        filePresignedService.deleteByKey(bmpKey);
+
+        if (completeConvertRequest.isSuccess()) {
             convertHistory.update(completeConvertRequest);
 
             ConvertHistoryItemResponse convertHistoryItemResponse = ConvertHistoryItemResponse.fromEntity(

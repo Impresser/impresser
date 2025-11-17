@@ -363,7 +363,7 @@ static void generate_worker_loop() {
                 io->postJson(cb, body.dump(), headers, &code, &resp);
             }
 
-            LOGI("DONE " << job.generationUuid
+            LOGI("[generate] done " << job.generationUuid
                 << " bmp=" << bmpPath
                 << " cols=" << cell.gridCols
                 << " rows=" << cell.gridRows);

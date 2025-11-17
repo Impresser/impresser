@@ -67,14 +67,14 @@ export default function ConfirmedGoalTable({ goals, className = '' }: ConfirmedG
                 <span className="text-right">{goal.product.widthMm}</span>
                 <span className="text-right">{goal.product.heightMm}</span>
                 <span className="text-right">{goal.product.areaMm2}</span>
-                <span className="text-right font-semibold text-gray-900">{goal.quantity.toLocaleString()}</span>
+                <span className="text-right font-semibold text-gray-900">{goal.quantity.toLocaleString()} 개</span>
               </div>
             ))}
           </div>
           <div className="min-w-[900px] grid grid-cols-[1.5fr_3fr_1fr_1fr_1fr_1fr_1fr] gap-3 border-t border-gray-100 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700">
             <span />
             <span className="col-span-5 text-right">총 수량</span>
-            <span className="text-right text-blue-600">{totalQuantity.toLocaleString()}</span>
+            <span className="text-right text-blue-600">{totalQuantity.toLocaleString()} 개</span>
           </div>
         </div>
       )}

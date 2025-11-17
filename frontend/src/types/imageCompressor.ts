@@ -15,6 +15,7 @@ export interface ConvertHistoryItem {
   tiffVolume: number;
   compressionRatio: number;
   userName: string;
+  employeeNo: string;
   completedAt: string; // ISO 8601 형식
   elapsedTime: number; // 초 단위
   tiffUrl: string;

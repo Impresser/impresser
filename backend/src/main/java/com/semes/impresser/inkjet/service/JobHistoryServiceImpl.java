@@ -7,6 +7,7 @@ import com.semes.impresser.inkjet.dto.request.CreateJobHistoryRequest;
 import com.semes.impresser.inkjet.dto.response.CreateJobHistoryResponse;
 import com.semes.impresser.inkjet.entity.InkjetPrinter;
 import com.semes.impresser.inkjet.entity.JobHistory;
+import com.semes.impresser.inkjet.entity.ProcessStatus;
 import com.semes.impresser.inkjet.repository.InkjetRepository;
 import com.semes.impresser.inkjet.repository.JobHistoryRepository;
 import jakarta.transaction.Transactional;
@@ -24,6 +25,7 @@ public class JobHistoryServiceImpl implements JobHistoryService {
     private final InkjetRepository inkjetRepository;
 
     @Override
+    @Transactional
     public UUID createJobHistory(UUID inkjetUuid, CreateJobHistoryRequest createJobHistoryRequest) {
         Optional<UUID> currentUserUuid = SecurityUtil.getCurrentUserUuid();
 
@@ -40,6 +42,8 @@ public class JobHistoryServiceImpl implements JobHistoryService {
 
         JobHistory savedJobHistory = jobHistoryRepository.save(jobHistory);
 
+        inkjetPrinter.updateProcessStatus(ProcessStatus.RUNNING);
+
         return savedJobHistory.getUuid();
     }
 
@@ -54,10 +58,8 @@ public class JobHistoryServiceImpl implements JobHistoryService {
 
         InkjetPrinter inkjetPrinter = inkjetRepository.findByUuid(inkjetUuid).orElseThrow(
             () -> new BusinessException(ErrorCode.NOT_FOUND));
-        System.out.println(1);
         JobHistory jobHistory = jobHistoryRepository.findByUuid(jobHistoryUuid).orElseThrow(
             () -> new BusinessException(ErrorCode.NOT_FOUND));
-        System.out.println(2);
         if (!jobHistory.getPrinter().getUuid().equals(inkjetPrinter.getUuid())) {
             throw new BusinessException(ErrorCode.BAD_REQUEST);
         }
@@ -65,5 +67,7 @@ public class JobHistoryServiceImpl implements JobHistoryService {
         LocalDateTime now = LocalDateTime.now();
 
         jobHistory.updateCompletedAt(now);
+
+        inkjetPrinter.updateProcessStatus(ProcessStatus.WAITING);
     }
 }

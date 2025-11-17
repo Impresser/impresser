@@ -35,7 +35,7 @@ ConvertWorker::ConvertWorker() : running_(false) {
             port_ = std::stoi(port_env);
         }
         catch (...) {
-            LOGW("Invalid RABBITMQ_PORT value, using default 5672");
+            LOGW("[worker] Invalid RABBITMQ_PORT value, using default 5672");
             port_ = 5672;
         }
     }
@@ -123,7 +123,7 @@ bool post_with_backoff(conv::IHttpIO* io,
         const int ms = (1 << attempt) * 500;
         std::this_thread::sleep_for(std::chrono::milliseconds(ms));
     }
-    LOGW("callback permanently failed");
+    LOGW("[worker] callback permanently failed");
     return false;
 }
 
@@ -156,7 +156,7 @@ void ConvertWorker::processMessage(const std::string& body) {
 
         const char* CB = std::getenv("CALLBACK_BASE_URL");
         if (!CB) {
-            LOGW("CALLBACK_BASE_URL not set; worker cannot callback.");
+            LOGW("[worker] CALLBACK_BASE_URL not set; worker cannot callback.");
         }
         const std::string callbackBase = CB ? std::string(CB) : std::string();
 
@@ -230,7 +230,7 @@ void ConvertWorker::processMessage(const std::string& body) {
         }
         catch (const std::exception& ex) {
             errMsg = ex.what();
-            LOGE("Job " << convertUuid << " failed: " << ex.what());
+            LOGE("[worker] Job " << convertUuid << " failed: " << ex.what());
 
             if (!callbackBase.empty()) {
                 const std::string callbackUrl = callbackBase + "/convert/" + convertUuid + "/complete";
@@ -248,9 +248,9 @@ void ConvertWorker::processMessage(const std::string& body) {
         }
     }
     catch (const std::exception& ex) {
-        LOGE("Failed to process message: " << ex.what());
+        LOGE("[worker] Failed to process message: " << ex.what());
     }
-}
+}   
 
 void ConvertWorker::sendCallback(
     const std::string& convertUuid,
@@ -263,7 +263,7 @@ void ConvertWorker::sendCallback(
 
     const char* CB = std::getenv("CALLBACK_BASE_URL");
     if (!CB) {
-        LOGW("CALLBACK_BASE_URL not set; worker cannot callback.");
+        LOGW("[worker] CALLBACK_BASE_URL not set; worker cannot callback.");
         return;
     }
 
@@ -290,5 +290,5 @@ void ConvertWorker::sendCallback(
     }
 
     post_with_backoff(io.get(), callbackUrl, callback.dump(), headers);
-    LOGI("Callback sent for convertUuid: " << convertUuid);
+    LOGI("[worker] Callback sent for convertUuid: " << convertUuid);
 }

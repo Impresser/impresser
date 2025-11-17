@@ -56,6 +56,9 @@ public class RabbitMQConfig {
 
         cachingConnectionFactory.setUsername(rabbitmqUsername);
         cachingConnectionFactory.setPassword(rabbitmqPassword);
+        cachingConnectionFactory.getRabbitConnectionFactory().setAutomaticRecoveryEnabled(true);
+        cachingConnectionFactory.getRabbitConnectionFactory().setTopologyRecoveryEnabled(true);
+
         return cachingConnectionFactory;
     }
 
@@ -99,9 +102,10 @@ public class RabbitMQConfig {
         SimpleRabbitListenerContainerFactory containerFactory = new SimpleRabbitListenerContainerFactory();
         containerFactory.setConnectionFactory(connectionFactory);
         containerFactory.setMessageConverter(jackson2JsonMessageConverter);
-        containerFactory.setConcurrentConsumers(2);
-        containerFactory.setMaxConcurrentConsumers(8);
-        containerFactory.setPrefetchCount(2);
+        containerFactory.setConcurrentConsumers(1);
+        containerFactory.setMaxConcurrentConsumers(1);
+        containerFactory.setPrefetchCount(1);
+        containerFactory.setDefaultRequeueRejected(false);
         return containerFactory;
     }
 
@@ -116,6 +120,7 @@ public class RabbitMQConfig {
         containerFactory.setConcurrentConsumers(1);
         containerFactory.setMaxConcurrentConsumers(1);
         containerFactory.setPrefetchCount(1);
+        containerFactory.setDefaultRequeueRejected(false);
         return containerFactory;
     }
 

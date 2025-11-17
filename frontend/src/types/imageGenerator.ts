@@ -38,6 +38,7 @@ export interface BmpListItem {
   generationUuid: string;
   bmpUrl: string;
   userName: string;
+  employeeNo: string;
   bmpHeight: number;
   bmpWidth: number;
   bmpVolume: number;

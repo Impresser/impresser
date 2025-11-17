@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
+import CommonLoader from "@/components/ui/CommonLoader";
 
 interface AuthGuardProps {
   children: React.ReactNode;
@@ -67,8 +68,8 @@ export default function AuthGuard({ children }: AuthGuardProps) {
   // 마운트 전이거나 체크 중이면 아무것도 렌더링하지 않음
   if (!mounted || isChecking) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-gray-500">로딩 중...</div>
+      <div className="fixed inset-0 z-[1000] flex items-center justify-center">
+        <CommonLoader className="w-[240px] h-[180px]" color="#0059FF" timeScale={3} />
       </div>
     );
   }

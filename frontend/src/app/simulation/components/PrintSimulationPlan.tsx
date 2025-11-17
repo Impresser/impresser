@@ -2,6 +2,8 @@ import React from 'react';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import CommonButton from '@/components/ui/CommonButton';
 import type { BmpDetailResult } from '@/types/imageGenerator';
+import PatternPreview from '@/app/imagegenerator/components/PatternPreview';
+import type { PatternFormState } from '@/store/imageGeneratorStore';
 
 export interface PrintSimulationPlanEntry {
   motherGlassName: string;
@@ -23,6 +25,9 @@ interface PrintSimulationPlanProps {
   onConfirm: () => void;
   isConfirmDisabled: boolean;
   isConfirmed: boolean;
+  compressionTimeSeconds: number | null; // 압축 시간 (초 단위, null이면 데이터 없음)
+  printTimeSeconds: number; // 인쇄 시간 (초 단위)
+  onPrintTimeChange: (seconds: number) => void; // 인쇄 시간 변경 핸들러
 }
 
 function getPrintablePixels(detail: BmpDetailResult | undefined) {
@@ -33,6 +38,46 @@ function getPrintablePixels(detail: BmpDetailResult | undefined) {
   const green = detail.greenCountX * detail.greenCountY * detail.greenSizeX * detail.greenSizeY;
   const blue = detail.blueCountX * detail.blueCountY * detail.blueSizeX * detail.blueSizeY;
   return red + green + blue;
+}
+
+function getPrintablePixelsByColor(detail: BmpDetailResult | undefined) {
+  if (!detail) {
+    return null;
+  }
+  return {
+    red: detail.redCountX * detail.redCountY * detail.redSizeX * detail.redSizeY,
+    green: detail.greenCountX * detail.greenCountY * detail.greenSizeX * detail.greenSizeY,
+    blue: detail.blueCountX * detail.blueCountY * detail.blueSizeX * detail.blueSizeY,
+  };
+}
+
+function convertBmpDetailToPatternForm(detail: BmpDetailResult | undefined): PatternFormState | null {
+  if (!detail) {
+    return null;
+  }
+  return {
+    imageSize: { w: detail.bmpWidth, h: detail.bmpHeight },
+    gapRG: { x: detail.rgGapX, y: detail.rgGapY },
+    gapGB: { x: detail.gbGapX, y: detail.gbGapY },
+    channels: {
+      R: {
+        count: { x: detail.redCountX, y: detail.redCountY },
+        size: { x: detail.redSizeX, y: detail.redSizeY },
+        spacing: { x: detail.redGapX, y: detail.redGapY },
+      },
+      G: {
+        count: { x: detail.greenCountX, y: detail.greenCountY },
+        size: { x: detail.greenSizeX, y: detail.greenSizeY },
+        spacing: { x: detail.greenGapX, y: detail.greenGapY },
+      },
+      B: {
+        count: { x: detail.blueCountX, y: detail.blueCountY },
+        size: { x: detail.blueSizeX, y: detail.blueSizeY },
+        spacing: { x: detail.blueGapX, y: detail.blueGapY },
+      },
+    },
+    rgb: { r: 255, g: 255, b: 255 },
+  };
 }
 
 function formatKst(datetime?: string | null) {
@@ -63,6 +108,9 @@ export default function PrintSimulationPlan({
   onConfirm,
   isConfirmDisabled,
   isConfirmed,
+  compressionTimeSeconds,
+  printTimeSeconds,
+  onPrintTimeChange,
 }: PrintSimulationPlanProps) {
   if (plan.length === 0) {
     return null;
@@ -73,7 +121,7 @@ export default function PrintSimulationPlan({
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-gray-900">설비별 인쇄 계획</h3>
         <p className="mt-1 text-sm text-gray-500">
-          확정된 배치 결과와 현재 설비 가용 현황을 기반으로 설비별 인쇄 장수를 배정했습니다.
+          확정된 배치 결과와 현재 가용 설비를 기반으로 설비별 인쇄 장수를 배정했습니다. 설비가 부족한 경우 추가 설비 투입 또는 배치 계획 수정을 검토해 주세요.
         </p>
       </div>
 
@@ -132,7 +180,7 @@ export default function PrintSimulationPlan({
                         <div
                           key={`${entry.motherGlassName}-${assignment.assignmentId}`}
                           onClick={handleOpenModal}
-                          className={`rounded-lg border px-4 py-3 transition-transform duration-200 ${
+                          className={`rounded-lg border px-4 py-3 transition-transform duration-200 overflow-hidden ${
                             hasSelection
                               ? 'border-blue-200 bg-blue-50 hover:-translate-y-1 hover:shadow-md'
                               : 'border-gray-200 bg-white hover:-translate-y-1 hover:border-blue-200 hover:shadow-md'
@@ -182,9 +230,31 @@ export default function PrintSimulationPlan({
                             </div>
                           </div>
                           {hasSelection ? (
-                            <div className="mt-2 text-xs text-gray-600">
-                              <span>실제 인쇄 픽셀 {getPrintablePixels(detail)?.toLocaleString()}</span>
-                            </div>
+                            <>
+                              <div className="mt-3 h-32 w-full overflow-hidden">
+                                {(() => {
+                                  const patternForm = convertBmpDetailToPatternForm(detail);
+                                  if (!patternForm) return null;
+                                  return <PatternPreview form={patternForm} />;
+                                })()}
+                              </div>
+                              <div className="mt-2 space-y-1 text-xs text-gray-600">
+                                <div>
+                                  <span>실제 인쇄 픽셀 {getPrintablePixels(detail)?.toLocaleString()}</span>
+                                </div>
+                                {(() => {
+                                  const pixelsByColor = getPrintablePixelsByColor(detail);
+                                  if (!pixelsByColor) return null;
+                                  return (
+                                    <div className="flex flex-wrap gap-2 text-[11px]">
+                                      <span className="text-rose-500">Red {pixelsByColor.red.toLocaleString()}</span>
+                                      <span className="text-green-600">Green {pixelsByColor.green.toLocaleString()}</span>
+                                      <span className="text-blue-600">Blue {pixelsByColor.blue.toLocaleString()}</span>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            </>
                           ) : (
                             <div className="mt-2 text-xs text-gray-400">
                               이미지 정보를 가져오면 잉크 사용량 계산에 반영됩니다.
@@ -197,6 +267,66 @@ export default function PrintSimulationPlan({
               </div>
             </>
           )}
+
+          {/* 압축 및 인쇄 시간 설정 섹션 */}
+          <div className="mt-6 space-y-4">
+            <h4 className="text-lg font-semibold text-gray-900">압축 및 인쇄 시간 설정</h4>
+            <div className="rounded-lg border border-gray-200 bg-white p-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* 압축 시간 */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    압축 시간 (장당 초)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={compressionTimeSeconds ?? ''}
+                      disabled
+                      className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 bg-gray-100"
+                      placeholder="성능 비교 데이터 없음"
+                    />
+                    <span className="text-sm text-gray-500">초/장</span>
+                  </div>
+                  {compressionTimeSeconds === null ? (
+                    <p className="text-xs text-gray-500">
+                      성능 비교 페이지에서 압축 작업을 수행하면 자동으로 설정됩니다.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      성능 비교 페이지에서 가장 빠른 압축 시간을 사용합니다.
+                    </p>
+                  )}
+                </div>
+
+                {/* 인쇄 시간 */}
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    인쇄 시간 (장당 초)
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min="1"
+                      value={printTimeSeconds}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value, 10);
+                        if (!isNaN(value) && value > 0) {
+                          onPrintTimeChange(value);
+                        }
+                      }}
+                      className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      placeholder="60"
+                    />
+                    <span className="text-sm text-gray-500">초/장</span>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    기본값: 60초/장 (변경 가능)
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
 
           <div className="relative flex justify-end">
             <div
@@ -254,9 +384,6 @@ export default function PrintSimulationPlan({
         </div>
       )}
 
-      <p className="text-xs text-gray-500">
-        * 설비가 부족한 경우 추가 설비 투입 또는 배치 계획 수정을 검토해주세요.
-      </p>
     </CommonContainerBox>
   );
 }
