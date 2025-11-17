@@ -2,8 +2,6 @@
 
 import React, { useCallback } from "react";
 import PerformanceRanking from "./components/PerformanceRanking";
-import EquipmentUsage from "./components/EquipmentUsage";
-import PanelOutput from "./components/PanelOutput";
 import Sidebar from "@/components/layout/sidebar";
 import Navbar from "@/components/layout/navbar";
 import AuthGuard from "@/components/auth/AuthGuard";
