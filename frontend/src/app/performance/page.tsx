@@ -1034,7 +1034,7 @@ export default function SimulationPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col">
         <Navbar />
-        <main className="flex-1 px-6 py-6 overflow-y-auto">
+        <main className="flex-1 px-6 py-6 overflow-y-auto overflow-x-hidden">
           <div className="w-full max-w-7xl mx-auto">
             <div className="flex items-center justify-between mb-4 gap-6">
               <h1 className="text-xl font-bold text-gray-900 whitespace-nowrap">
@@ -1054,8 +1054,8 @@ export default function SimulationPage() {
               </div>
             ) : (
               <>
-                <div className="relative flex gap-6">
-                  <CommonContainerBox className="flex-1 h-[570px] overflow-hidden p-0 relative">
+                <div className="relative flex gap-6 min-w-0">
+                  <CommonContainerBox className="flex-1 h-[570px] overflow-hidden p-0 relative min-w-0">
                     <div className="absolute left-4 top-4 z-20">
                       <CommonContainerBox className="bg-white/95 shadow !px-4 !py-4">
                         <FacilityStatisticsSummary
@@ -1166,7 +1166,7 @@ export default function SimulationPage() {
                       focusPaddingTop={48}
                     />
                     {selectedFacility && !locationSelectionTarget && (
-                      <div className="absolute inset-x-0 bottom-0 z-20">
+                      <div className="absolute inset-x-0 bottom-0 z-20 w-full overflow-x-hidden">
                         <FacilityDetailPanel
                           facility={selectedFacility}
                           onClose={() => {
