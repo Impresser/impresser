@@ -21,7 +21,7 @@ public record CompleteConvertResponse(
     String employeeNo,
     String completedAt,
     Long elapsedTime,
-    BigDecimal compressionTim,
+    BigDecimal compressionTime,
     String tiffUrl
 ) {
 
