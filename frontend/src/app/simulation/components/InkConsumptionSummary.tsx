@@ -573,7 +573,7 @@ export default function InkConsumptionSummary({
                   </div>
                   {timeReductionPercent !== null && (
                     <div className="flex flex-col mt-3">
-                      <span className="text-xs font-semibold text-gray-500">생산 시간 단축</span>
+                      <span className="text-sm font-semibold text-gray-500">생산 시간 단축</span>
                       <div className="mt-1 rounded-md bg-green-50 border border-green-200 px-3 py-2">
                         <span className="text-base font-semibold text-green-800">
                           {timeReductionPercent.toFixed(1)}%

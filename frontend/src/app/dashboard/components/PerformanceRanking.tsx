@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import CommonContainerBox from "@/components/ui/CommonContainerBox";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, RadialBarChart, RadialBar, PolarAngleAxis, Cell, ReferenceLine, ReferenceArea } from "recharts";
 import CommonPagination from "@/components/ui/CommonPagination";
-import RadioButton from "@/components/ui/RadioButton";
+import CommonRadioButton from "@/components/ui/CommonRadioButton";
 import { usePerformanceRankingStore } from "@/store/performanceRankingStore";
 import { DashboardRankItem, AlgorithmPerf, JobDetailRow, ConvertDetailItem, ConvertHistoryDetailResult } from "@/types/dashboard";
 import { getDashboardConvertDetail, getDashboardConvertHistoryDetail } from "@/service/dashboard";
@@ -232,6 +232,32 @@ export default function EquipmentUsage() {
 
   const selectedItem = selectedIndex !== null ? filteredAlgorithms[selectedIndex] : null;
   
+  // 대시보드 새로고침 이벤트 구독
+  useEffect(() => {
+    const handleRefresh = () => {
+      console.log('[PerformanceRanking] 대시보드 새로고침 이벤트 수신');
+      // 성능 순위 데이터 새로고침
+      fetch(0, 50).catch(() => {});
+      // 선택된 항목이 있으면 상세 정보도 새로고침
+      if (selectedItem && selectedItem.originalItem?.compressionTypeUuid) {
+        const page = jobListPage - 1;
+        getDashboardConvertDetail(selectedItem.originalItem.compressionTypeUuid, { page, size: 5 })
+          .then((res) => {
+            if (res.isSuccess && res.result) {
+              setDetailData(res.result.content || []);
+              setDetailPagination(res.result.pagination || null);
+            }
+          })
+          .catch(() => {});
+      }
+    };
+
+    window.addEventListener('refreshDashboard', handleRefresh);
+    return () => {
+      window.removeEventListener('refreshDashboard', handleRefresh);
+    };
+  }, [fetch, selectedItem, jobListPage]);
+  
   // 선택된 항목에 대한 상세 정보 조회
   useEffect(() => {
     if (selectedItem && selectedItem.originalItem?.compressionTypeUuid) {
@@ -373,26 +399,26 @@ export default function EquipmentUsage() {
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-gray-700">처리방식:</span>
             <div className="flex gap-3">
-              <RadioButton
+              <CommonRadioButton
                 name="modeFilter"
                 value="전체"
                 label="전체"
                 checked={modeFilter === "전체"}
-                onChange={(value) => setModeFilter(value as "전체" | "CPU" | "GPU")}
+                onChangeValue={(value) => setModeFilter(value as "전체" | "CPU" | "GPU")}
               />
-              <RadioButton
+              <CommonRadioButton
                 name="modeFilter"
                 value="CPU"
                 label="CPU"
                 checked={modeFilter === "CPU"}
-                onChange={(value) => setModeFilter(value as "전체" | "CPU" | "GPU")}
+                onChangeValue={(value) => setModeFilter(value as "전체" | "CPU" | "GPU")}
               />
-              <RadioButton
+              <CommonRadioButton
                 name="modeFilter"
                 value="GPU"
                 label="GPU"
                 checked={modeFilter === "GPU"}
-                onChange={(value) => setModeFilter(value as "전체" | "CPU" | "GPU")}
+                onChangeValue={(value) => setModeFilter(value as "전체" | "CPU" | "GPU")}
               />
             </div>
           </div>

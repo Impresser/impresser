@@ -3,6 +3,12 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* CommonRadioButton 색상 변수 */
+  --c-active: #0059ff;
+  --c-active-inner: #ffffff;
+  --c-default: #d2d6e9;
+  --c-default-dark: #c7cbdf;
+  --c-black: #1b1b22;
 }
 
 @theme inline {

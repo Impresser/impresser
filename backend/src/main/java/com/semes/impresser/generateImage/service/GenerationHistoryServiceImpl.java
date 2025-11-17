@@ -15,6 +15,7 @@ import com.semes.impresser.generateImage.dto.response.GenerationHistoryResponse;
 import com.semes.impresser.generateImage.entity.GenerationHistory;
 import com.semes.impresser.generateImage.entity.GenerationStatus;
 import com.semes.impresser.generateImage.repository.GenerationHistoryRepository;
+import com.semes.impresser.s3.service.FilePresignedService;
 import com.semes.impresser.user.entity.User;
 import com.semes.impresser.user.repository.UserRepository;
 import java.time.LocalDateTime;
@@ -43,6 +44,7 @@ public class GenerationHistoryServiceImpl implements GenerationHistoryService {
 
     public static final String GENERATE_BMP_SUCCESS = "GENERATE_BMP_SUCCESS";
     public static final String GENERATE_BMP_FAILED  = "GENERATE_BMP_FAILED";
+    private final FilePresignedService filePresignedService;
 
     @Override
     public CreateBmpImageResponse createBmpImage(CreateBmpImageRequest createBmpImageRequest) {
@@ -55,17 +57,17 @@ public class GenerationHistoryServiceImpl implements GenerationHistoryService {
         UUID userUuid = currentUserUuid.get();
 
         User user = userRepository.findByUuid(userUuid).orElseThrow(
-            () -> new BusinessException(ErrorCode.NOT_FOUND));
+                () -> new BusinessException(ErrorCode.NOT_FOUND));
 
         LocalDateTime requestedAt = LocalDateTime.now();
 
         GenerationHistory generationHistory = createBmpImageRequest.toEntity(requestedAt, user);
 
         GenerationHistory savedGeneratedHistory = generationHistoryRepository.save(
-            generationHistory);
+                generationHistory);
 
         CreateBmpImageResponse createBmpImageResponse = CreateBmpImageResponse.toDto(
-            savedGeneratedHistory);
+                savedGeneratedHistory);
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String accessToken = (String) authentication.getCredentials();
@@ -84,21 +86,25 @@ public class GenerationHistoryServiceImpl implements GenerationHistoryService {
         }
 
         GenerationHistory generationHistory = generationHistoryRepository.findByUuid(generationUuid)
-            .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
         boolean isCompleted = false;
         if (generationHistory.getStatus().equals(GenerationStatus.COMPLETED)) {
             isCompleted = true;
         }
-        GenerationHistoryResponse generationHistoryResponse = GenerationHistoryResponse.toDto(
-            generationHistory, isCompleted);
+
+        String downloadUrl =
+            filePresignedService.getDownloadPresignedUrl(generationHistory.getBmpKey());
+
+        GenerationHistoryResponse generationHistoryResponse =
+            GenerationHistoryResponse.toDto(generationHistory, isCompleted, downloadUrl);
 
         return generationHistoryResponse;
     }
 
     @Override
     public PageResponse<AllGenerationHistoryResponse> getAllGenerationHistories(
-        Integer page, Integer size) {
+            Integer page, Integer size) {
         Optional<UUID> currentUserUuid = SecurityUtil.getCurrentUserUuid();
 
         if (currentUserUuid.isEmpty()) {
@@ -108,61 +114,68 @@ public class GenerationHistoryServiceImpl implements GenerationHistoryService {
         Pageable pageable = PageRequest.of(page, size);
 
         Page<AllGenerationHistoryResponse> allGenerationHistoryResponses = generationHistoryRepository.getAllGenerationHistories(
-            pageable);
+                pageable);
 
         Long totalElements = allGenerationHistoryResponses.getTotalElements();
 
         Integer totalPages = allGenerationHistoryResponses.getTotalPages();
 
-        List<AllGenerationHistoryResponse> allGenerationHistories = allGenerationHistoryResponses.getContent();
+        List<AllGenerationHistoryResponse> converted = allGenerationHistoryResponses.getContent().stream()
+            .map(item -> AllGenerationHistoryResponse.from(item, filePresignedService))
+            .toList();
 
         PaginationResponse paginationResponse = new PaginationResponse(
-            page,
-            size,
-            totalPages,
-            totalElements,
-            page == 0,
-            page == totalPages - 1,
-            page < totalPages - 1);
+                page,
+                size,
+                totalPages,
+                totalElements,
+                page == 0,
+                page == totalPages - 1,
+                page < totalPages - 1);
 
         PageResponse<AllGenerationHistoryResponse> pageResponse = new PageResponse<>(
-            allGenerationHistories, paginationResponse);
+            converted, paginationResponse);
 
         return pageResponse;
     }
 
     @Override
     public PageResponse<AllGenerationHistoryResponse> getMyGenerationHistories(
-        Integer page, Integer size
+            Integer page, Integer size
     ) {
         UUID userUuid = SecurityUtil.getCurrentUserUuid()
-            .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_TOKEN));
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_TOKEN));
 
         Pageable pageable = PageRequest.of(page, size);
 
         Page<AllGenerationHistoryResponse> result =
-            generationHistoryRepository.getMyGenerationHistories(userUuid, pageable);
+                generationHistoryRepository.getMyGenerationHistories(userUuid, pageable);
 
         Long totalElements = result.getTotalElements();
         Integer totalPages = result.getTotalPages();
 
+        List<AllGenerationHistoryResponse> converted = result.getContent().stream()
+            .map(item -> AllGenerationHistoryResponse.from(item, filePresignedService))
+            .toList();
+
         PaginationResponse pagination = new PaginationResponse(
-            page,
-            size,
-            totalPages,
-            totalElements,
-            page == 0,
-            page == totalPages - 1,
-            page < totalPages - 1
+                page,
+                size,
+                totalPages,
+                totalElements,
+                page == 0,
+                page == totalPages - 1,
+                page < totalPages - 1
         );
 
-        return new PageResponse<>(result.getContent(), pagination);
+        return new PageResponse<>(converted, pagination);
     }
 
     @Override
-    public void processGenerationCompletion(UUID generationUuid, CompleteBmpGernerationRequest completeBmpGernerationRequest) {
+    public void processGenerationCompletion(UUID generationUuid,
+                                            CompleteBmpGernerationRequest completeBmpGernerationRequest) {
         GenerationHistory history = generationHistoryRepository.findByUuid(generationUuid)
-            .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
         User user = history.getUser();
         if (user == null) {
@@ -178,19 +191,23 @@ public class GenerationHistoryServiceImpl implements GenerationHistoryService {
 
                 GenerationHistory completedHistory = txService.markCompleted(history.getId(), history.getBmpKey());
 
+                Long bmpVolume = completeBmpGernerationRequest.bmpVolume();
+                completedHistory.updateBmpVolume(bmpVolume);
+                generationHistoryRepository.save(completedHistory);
+
                 CreateBmpImageAsyncResponse createBmpImageAsyncResponse = CreateBmpImageAsyncResponse.success(
-                    completedHistory, completedHistory.getBmpKey());
+                        completedHistory, completedHistory.getBmpKey());
 
                 sseService.sentToClient(userUuid, GENERATE_BMP_SUCCESS, createBmpImageAsyncResponse);
 
             } else {
                 log.warn("[BMP 콜백 실패] C++ 작업 실패. userUuid={}, historyId={}, error={}",
-                    userUuid, history.getId(), completeBmpGernerationRequest.errorMessage());
+                        userUuid, history.getId(), completeBmpGernerationRequest.errorMessage());
 
                 GenerationHistory failedHistory = txService.markFailed(history.getId());
 
                 CreateBmpImageAsyncResponse createBmpImageAsyncResponse = CreateBmpImageAsyncResponse.failure(
-                    failedHistory, completeBmpGernerationRequest.errorMessage());
+                        failedHistory, completeBmpGernerationRequest.errorMessage());
 
                 sseService.sentToClient(userUuid, GENERATE_BMP_FAILED, createBmpImageAsyncResponse);
             }

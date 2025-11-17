@@ -5,7 +5,8 @@ import java.util.UUID;
 public record CompleteBmpGernerationRequest(
     boolean isSuccess,
     String errorMessage,
-    UUID generationUuid
+    UUID generationUuid,
+    Long bmpVolume
 ) {
 
 }

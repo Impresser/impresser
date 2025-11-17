@@ -63,7 +63,7 @@ export default function BmpImportModal({
 
   const headerDescription = useMemo(() => {
     if (!targetInfo) {
-      return '이미지 생성 내역을 선택해 설비에 매칭하세요.';
+      return '생성 내역을 선택해 설비에 매칭하세요.';
     }
     return `${targetInfo.motherGlassName} · ${targetInfo.printerName} (${targetInfo.modelName})`;
   }, [targetInfo]);
@@ -203,10 +203,10 @@ export default function BmpImportModal({
         </div>
 
         <CommonContainerBox className="px-4 py-4">
-          <div className="flex flex-col gap-4 md:flex-row">
-            <div className="md:w-1/2 md:border-r md:border-gray-100 md:pr-4 md:mr-4">
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-base font-semibold text-gray-900">이미지 생성 내역</span>
+          <div className="flex flex-col gap-4 md:flex-row" style={{ minHeight: '400px', maxHeight: 'calc(80vh - 200px)' }}>
+            <div className="md:w-1/2 md:border-r md:border-gray-100 md:pr-4 md:mr-4 flex flex-col">
+              <div className="mb-3 flex items-center justify-between flex-shrink-0">
+                <span className="text-base font-semibold text-gray-900">생성 내역</span>
                 <button
                   type="button"
                   onClick={fetchList}
@@ -216,13 +216,15 @@ export default function BmpImportModal({
                   새로고침
                 </button>
               </div>
-              <div className="max-h-[360px] space-y-2 overflow-y-auto pr-1">
+              <div className="flex-1 min-h-[320px] space-y-2 overflow-y-auto pr-1">
                 {isListLoading ? (
-                  <div className="flex h-32 items-center justify-center text-sm text-gray-500">목록을 불러오는 중입니다…</div>
+                  <div className="flex h-full items-center justify-center text-sm text-gray-500">목록을 불러오는 중입니다…</div>
                 ) : listError ? (
-                  <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{listError}</div>
+                  <div className="flex h-full items-center justify-center">
+                    <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">{listError}</div>
+                  </div>
                 ) : bmpList.length === 0 ? (
-                  <div className="flex h-32 items-center justify-center text-sm text-gray-500">이미지 생성 내역이 없습니다.</div>
+                  <div className="flex h-full items-center justify-center text-sm text-gray-500">생성 내역이 없습니다.</div>
                 ) : (
                   paginatedList.map((item) => {
                     const isSelected = selectedUuid === item.generationUuid;
@@ -248,7 +250,7 @@ export default function BmpImportModal({
               </div>
 
               {bmpList.length > 0 && (
-                <div className="mt-3 flex items-center justify-center gap-3 text-xs text-gray-600">
+                <div className="mt-3 flex items-center justify-center gap-3 text-xs text-gray-600 flex-shrink-0">
                   <button
                     type="button"
                     onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
@@ -272,8 +274,8 @@ export default function BmpImportModal({
               )}
             </div>
 
-            <div className="md:w-1/2">
-              <div className="mb-3 flex items-center justify-between">
+            <div className="md:w-1/2 flex flex-col">
+              <div className="mb-3 flex items-center justify-between flex-shrink-0">
                 <div>
                   <span className="text-base font-semibold text-gray-900">상세 정보</span>
                 </div>
@@ -290,7 +292,7 @@ export default function BmpImportModal({
                   <span className="text-xs text-gray-400">원본 미확인</span>
                 )}
               </div>
-              <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+              <div className="flex-1 min-h-[320px] rounded-lg border border-gray-200 bg-gray-50 p-4 overflow-y-auto">
                 {isDetailLoading ? (
                   <div className="flex h-32 items-center justify-center text-sm text-gray-500">상세 정보를 불러오는 중입니다…</div>
                 ) : detailError ? (

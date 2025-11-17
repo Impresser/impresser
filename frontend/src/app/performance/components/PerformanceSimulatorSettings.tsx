@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import CommonDropdown from '@/components/ui/CommonDropdown';
-import RadioButton from '@/components/ui/RadioButton';
+import CommonRadioButton from '@/components/ui/CommonRadioButton';
 import { getCompressionTypes, getCompressionTypeVersions } from '@/service/imageCompressor';
 import type { CompressionTypeItem, CompressionTypeVersionItem } from '@/types/imageCompressor';
 
@@ -175,20 +175,20 @@ export default function PerformanceSimulatorSettings({
         <div>
           <label className="mb-3 block text-sm font-medium text-gray-700">처리방식</label>
           <div className="flex justify-between">
-            <RadioButton
+            <CommonRadioButton
               name={`processing-${slotIndex}`}
               value="cpu"
               label="CPU"
               checked={settings.processingMethod === 'cpu'}
-              onChange={(value) => onSettingsChange({ processingMethod: value as 'cpu' | 'gpu' })}
+              onChangeValue={(value) => onSettingsChange({ processingMethod: value as 'cpu' | 'gpu' })}
               className="flex-1"
             />
-            <RadioButton
+            <CommonRadioButton
               name={`processing-${slotIndex}`}
               value="gpu"
               label="GPU"
               checked={settings.processingMethod === 'gpu'}
-              onChange={(value) => onSettingsChange({ processingMethod: value as 'cpu' | 'gpu' })}
+              onChangeValue={(value) => onSettingsChange({ processingMethod: value as 'cpu' | 'gpu' })}
               className="flex-1"
             />
           </div>
