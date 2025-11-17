@@ -12,6 +12,7 @@ import com.semes.impresser.common.util.S3Util;
 import com.semes.impresser.common.util.SecurityUtil;
 import com.semes.impresser.convertImage.dto.request.CompleteConvertRequest;
 import com.semes.impresser.convertImage.dto.request.CreateConvertRequest;
+import com.semes.impresser.convertImage.dto.response.CompleteConvertResponse;
 import com.semes.impresser.convertImage.dto.response.CompressionTypeResponse;
 import com.semes.impresser.convertImage.dto.response.CompressionTypeVersionResponse;
 import com.semes.impresser.convertImage.dto.response.ConvertHistoryDetailResponse;
@@ -223,9 +224,9 @@ public class ConvertImageServiceImpl implements ConvertImageService {
         if (completeConvertRequest.isSuccess()) {
             convertHistory.update(completeConvertRequest);
 
-            ConvertHistoryItemResponse convertHistoryItemResponse = ConvertHistoryItemResponse.fromEntity(
+            CompleteConvertResponse completeConvertResponse = CompleteConvertResponse.fromEntity(
                     convertHistory);
-            sseService.sentToClient(userUuid, SSE_EVENT_SUCCESS, convertHistoryItemResponse);
+            sseService.sentToClient(userUuid, SSE_EVENT_SUCCESS, completeConvertResponse);
         } else {
             sseService.sentToClient(userUuid, SSE_EVENT_FAILED, ErrorCode.SSE_GENERATION_FAILED);
         }

@@ -21,7 +21,6 @@ public record ConvertHistoryItemResponse(
     String employeeNo,
     String completedAt,
     Long elapsedTime,
-    BigDecimal compressionTime,
     String tiffUrl
 ) {
 
@@ -43,28 +42,7 @@ public record ConvertHistoryItemResponse(
             .employeeNo(src.employeeNo())
             .completedAt(src.completedAt())
             .elapsedTime(src.elapsedTime())
-            .compressionTime(null)
             .tiffUrl(tiffUrl)
             .build();
-    }
-
-    public static ConvertHistoryItemResponse fromEntity(ConvertHistory convertHistory) {
-        return new ConvertHistoryItemResponse(
-            convertHistory.getUuid(),
-            S3Util.extractOriginalFileName(convertHistory.getTiffKey()),
-            convertHistory.getCompressionType().getProcessingUnit(),
-            convertHistory.getCompressionType().getCompressionType(),
-            convertHistory.getCompressionType().getVersion(),
-            convertHistory.getBmpVolume(),
-            convertHistory.getTiffVolume(),
-            convertHistory.getCompressionRatio(),
-            convertHistory.getUser().getUserName(),
-            convertHistory.getUser().getEmployeeNo(),
-            convertHistory.getCompletedAt().toString(),
-            Duration.between(convertHistory.getRequestedAt(), convertHistory.getCompletedAt())
-                .getSeconds(),
-            convertHistory.getCompressionTime(),
-            S3Util.buildUrlFromKey(convertHistory.getTiffKey())
-        );
     }
 }
