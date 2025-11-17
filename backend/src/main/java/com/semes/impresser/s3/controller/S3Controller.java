@@ -145,4 +145,13 @@ public class S3Controller {
         return ResponseEntity.status(HttpStatus.NO_CONTENT)
             .body(BaseResponse.onSuccess());
     }
+
+    @GetMapping("/download")
+    @Operation(summary = "Presigned GET URL 발급 (테스트용 다운로드)")
+    public ResponseEntity<BaseResponse<String>> getPresignedGetUrl(
+        @RequestParam String objectName
+    ) {
+        String url = filePresignedService.getDownloadPresignedUrl(objectName);
+        return ResponseEntity.ok(BaseResponse.onSuccess(url));
+    }
 }

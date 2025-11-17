@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import CommonDropdown from '@/components/ui/CommonDropdown';
-import RadioButton from '@/components/ui/RadioButton';
+import CommonRadioButton from '@/components/ui/CommonRadioButton';
 import type { Facility } from '../types';
 import { getCompressionTypes, getCompressionTypeVersions } from '@/service/imageCompressor';
 import type { CompressionTypeItem, CompressionTypeVersionItem } from '@/types/imageCompressor';
@@ -189,20 +189,20 @@ export default function AlgorithmOptions({
           <div className="flex flex-col gap-1 min-w-[220px]">
             <span className="text-sm font-medium text-gray-700">처리방식</span>
             <div className="flex items-center gap-4">
-              <RadioButton
+              <CommonRadioButton
                 name={`facility-comparison-processing-${facility.id}`}
                 value="cpu"
                 label="CPU"
                 checked={settings.processingMethod === 'cpu'}
-                onChange={(value) => onSettingsChange({ processingMethod: value as 'cpu' | 'gpu' })}
+                onChangeValue={(value) => onSettingsChange({ processingMethod: value as 'cpu' | 'gpu' })}
                 className="min-w-[96px]"
               />
-              <RadioButton
+              <CommonRadioButton
                 name={`facility-comparison-processing-${facility.id}`}
                 value="gpu"
                 label="GPU"
                 checked={settings.processingMethod === 'gpu'}
-                onChange={(value) => onSettingsChange({ processingMethod: value as 'cpu' | 'gpu' })}
+                onChangeValue={(value) => onSettingsChange({ processingMethod: value as 'cpu' | 'gpu' })}
                 className="min-w-[96px]"
               />
             </div>

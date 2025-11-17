@@ -41,9 +41,17 @@ public record GenerationHistoryResponse(
 
     public static GenerationHistoryResponse toDto(
         GenerationHistory generationHistory, boolean isGenerated) {
+        return toDto(generationHistory, isGenerated, generationHistory.getBmpKey());
+    }
+
+    public static GenerationHistoryResponse toDto(
+        GenerationHistory generationHistory,
+        boolean isGenerated,
+        String bmpUrl
+    ) {
         return GenerationHistoryResponse.builder()
             .generationUuid(generationHistory.getUuid())
-            .bmpUrl(generationHistory.getBmpKey())
+            .bmpUrl(bmpUrl)
             .requestedAt(generationHistory.getRequestedAt())
             .completedAt(generationHistory.getCompletedAt())
             .bmpWidth(generationHistory.getBmpWidth())

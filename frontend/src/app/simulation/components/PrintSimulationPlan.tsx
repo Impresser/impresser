@@ -316,13 +316,20 @@ export default function PrintSimulationPlan({
                         }
                       }}
                       className="flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="60"
+                      placeholder="20"
                     />
                     <span className="text-sm text-gray-500">초/장</span>
                   </div>
-                  <p className="text-xs text-gray-500">
-                    기본값: 60초/장 (변경 가능)
-                  </p>
+                  {compressionTimeSeconds === null ? (
+                    <p className="text-xs text-gray-500">
+                      기본값: 20초/장 (변경 가능). 성능 비교 데이터가 없을 때는 기본값을 사용합니다.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      압축 시간 수신 시 인쇄 시간은 자동으로 압축시간×9로 설정됩니다
+                      {typeof compressionTimeSeconds === 'number' ? ` (현재 ${Math.round(compressionTimeSeconds * 9)}초/장)` : ''}.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

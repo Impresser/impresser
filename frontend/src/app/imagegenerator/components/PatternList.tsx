@@ -59,6 +59,25 @@ const CancelIcon = () => (
   </svg>
 );
 
+// 다운로드 아이콘
+const DownloadIcon = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
 // CSV 아이콘
 const CsvIcon = () => (
   <Image
@@ -136,6 +155,7 @@ export default function PatternTable() {
   const [detailDataMap, setDetailDataMap] = useState<Record<string, BmpDetailResult>>({});
   const [loadingUuids, setLoadingUuids] = useState<Set<string>>(new Set());
   const [showMyWorkOnly, setShowMyWorkOnly] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   // API에서 목록 조회 (전체 데이터 가져오기)
   const fetchBmpList = useCallback(async () => {
@@ -214,6 +234,15 @@ export default function PatternTable() {
       window.removeEventListener('refreshBmpList', handleRefresh as EventListener);
     };
   }, [page, fetchBmpList]);
+
+  // 현재 시간을 1초마다 업데이트 (프로그래스바 업데이트용)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const formatKST = useMemo(() => {
     const toStr = (iso: string) => {
@@ -308,6 +337,37 @@ export default function PatternTable() {
     return item.isGenerated ? '완료' : '진행';
   };
 
+  // 진행률 계산 함수 (5분 기준)
+  const getProgress = (item: BmpListItem): number => {
+    // 완료된 작업은 항상 100%
+    if (item.isGenerated) {
+      return 100;
+    }
+
+    // 진행 중인 작업: requestedAt부터 현재까지 경과 시간 계산
+    let dateString = item.requestedAt.trim();
+    const hasTimezone = dateString.includes('Z') || 
+                        dateString.includes('+') || 
+                        (dateString.match(/[-+]\d{2}:\d{2}$/) !== null);
+    
+    if (!hasTimezone && dateString.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+      dateString = dateString + 'Z';
+    }
+    
+    const requestedTime = new Date(dateString).getTime();
+    const elapsedSeconds = (currentTime.getTime() - requestedTime) / 1000;
+    const fiveMinutes = 5 * 60; // 5분 = 300초
+
+    // 경과 시간이 5분 미만이면 비례 계산, 5분 이상이면 100%
+    if (elapsedSeconds < 0) {
+      return 0;
+    } else if (elapsedSeconds >= fiveMinutes) {
+      return 100;
+    } else {
+      return Math.min(100, Math.round((elapsedSeconds / fiveMinutes) * 100));
+    }
+  };
+
   return (
     <div className="mt-8">
       <div className="flex items-center justify-between mb-3">
@@ -359,7 +419,7 @@ export default function PatternTable() {
                 ) : (
                   bmpList.map((item, idx) => {
                     const status = getStatus(item);
-                    const progress = item.isGenerated ? 100 : 0;
+                    const progress = getProgress(item);
                     const isExpanded = expandedUuid === item.generationUuid;
                     const detailData = detailDataMap[item.generationUuid];
                     const isLoadingDetail = loadingUuids.has(item.generationUuid);
@@ -388,7 +448,7 @@ export default function PatternTable() {
                             {item.completedAt ? formatKST(item.completedAt).split(' ')[1] : '-'}
                           </td>
                           <td className="py-2 px-3 text-center">
-                            <div className="relative w-full h-4 rounded bg-gray-200 overflow-hidden">
+                            <div className="relative w-full h-4 rounded-full bg-gray-200 overflow-hidden">
                               <div className={`h-full bg-[#2E7BEF]`} style={{ width: `${progress}%` }} />
                               <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white">
                                 {`${progress}%`}
@@ -408,9 +468,12 @@ export default function PatternTable() {
                               <a 
                                 href={item.bmpUrl} 
                                 download
-                                className="text-blue-600 hover:underline text-sm"
+                                className="text-blue-600 hover:text-blue-800 text-sm flex items-center justify-center gap-1 transition-all duration-200 group"
                                 onClick={(e) => e.stopPropagation()}
                               >
+                                <span className="group-hover:translate-y-0.5 transition-transform duration-200">
+                                  <DownloadIcon />
+                                </span>
                                 다운로드
                               </a>
                             )}
@@ -540,7 +603,7 @@ export default function PatternTable() {
           ) : (
             bmpList.map((item, i) => {
               const status = getStatus(item);
-              const progress = item.isGenerated ? 100 : 0;
+              const progress = getProgress(item);
               const isExpanded = expandedUuid === item.generationUuid;
               const detailData = detailDataMap[item.generationUuid];
               const isLoadingDetail = loadingUuids.has(item.generationUuid);
@@ -582,14 +645,17 @@ export default function PatternTable() {
                       onClick={(e) => e.stopPropagation()}
                     >
                       {status === '진행' ? (
-                        <a href="#" className="text-gray-600 hover:underline text-sm">취소</a>
+                        <a href="#" className="text-gray-600 hover:underline text-sm flex items-center gap-1">취소</a>
                       ) : (
                         <a 
                           href={item.bmpUrl} 
                           download
-                          className="text-blue-600 hover:underline text-sm"
+                          className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1 transition-all duration-200 group"
                           onClick={(e) => e.stopPropagation()}
                         >
+                          <span className="group-hover:translate-y-0.5 transition-transform duration-200">
+                            <DownloadIcon />
+                          </span>
                           다운로드
                         </a>
                       )}
