@@ -82,30 +82,71 @@ void ConvertWorker::stop() {
 void ConvertWorker::consumeQueue(const std::string& queueName,
     const std::string& exchangeName,
     const std::string& bindingKey) {
-    try {
-        auto channel = AmqpClient::Channel::Create(host_, port_, username_, password_);
+    while (running_) {
+        try {
+            auto channel = AmqpClient::Channel::Create(host_, port_, username_, password_);
 
-        channel->DeclareExchange(exchangeName,
-            AmqpClient::Channel::EXCHANGE_TYPE_DIRECT,
-            true);
+            channel->DeclareExchange(
+                exchangeName,
+                AmqpClient::Channel::EXCHANGE_TYPE_DIRECT,
+                true
+            );
 
-        channel->DeclareQueue(queueName, true, false, false, false);
+            channel->DeclareQueue(queueName, true, false, false, false);
+            channel->BindQueue(queueName, exchangeName, bindingKey);
 
-        channel->BindQueue(queueName, exchangeName, bindingKey);
+            std::string consumerTag =
+                channel->BasicConsume(queueName, "", false, false, false, {});
 
-        std::string consumerTag = channel->BasicConsume(queueName, "", false, false, false, {});
+            std::cerr << "[worker] start consume queue=" << queueName
+                << " exchange=" << exchangeName
+                << " bindingKey=" << bindingKey << std::endl;
 
-        while (running_) {
-            AmqpClient::Envelope::ptr_t envelope;
-            if (!channel->BasicConsumeMessage(consumerTag, envelope, 1)) continue;
+            while (running_) {
+                AmqpClient::Envelope::ptr_t envelope;
 
-            processMessage(envelope->Message()->Body());
-            channel->BasicAck(envelope);
+                bool got = false;
+                try {
+                    got = channel->BasicConsumeMessage(consumerTag, envelope, 1);
+                }
+                catch (const std::exception& ex) {
+                    std::cerr << "[worker] BasicConsumeMessage error on queue "
+                        << queueName << ": " << ex.what() << std::endl;
+                    break;
+                }
+
+                if (!got) {
+                    continue;
+                }
+
+                try {
+                    processMessage(envelope->Message()->Body());
+                    channel->BasicAck(envelope);
+                }
+                catch (const std::exception& ex) {
+                    std::cerr << "[worker] processMessage error on queue "
+                        << queueName << ": " << ex.what() << std::endl;
+                    channel->BasicAck(envelope);
+                }
+            }
+
+            try {
+                channel->BasicCancel(consumerTag);
+            }
+            catch (...) {}
+        }
+        catch (const std::exception& e) {
+            std::cerr << "[worker] Queue " << queueName
+                << " error: " << e.what()
+                << " (will retry)" << std::endl;
+        }
+
+        if (running_) {
+            std::this_thread::sleep_for(std::chrono::seconds(3));
         }
     }
-    catch (const std::exception& e) {
-        std::cerr << "Queue " << queueName << " error: " << e.what() << std::endl;
-    }
+
+    std::cerr << "[worker] consumeQueue stopped for " << queueName << std::endl;
 }
 
 std::string to_upper(std::string s) {
