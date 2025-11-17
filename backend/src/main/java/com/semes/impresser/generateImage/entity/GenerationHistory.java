@@ -121,7 +121,7 @@ public class GenerationHistory extends BaseEntity {
     private User user;
 
     public void updateBmpVolume(Long bmpVolume) {
-        this.bmpVolume = bmpVolume;
+        this.bmpVolume = bmpVolume / 1000;
     }
     public void updateBmpKey(String bmpKey) {
         this.bmpKey = bmpKey;
