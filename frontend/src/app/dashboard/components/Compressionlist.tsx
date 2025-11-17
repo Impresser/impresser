@@ -156,28 +156,42 @@ export default function Compressionlist() {
   const [detailData, setDetailData] = useState<Record<string, ConvertHistoryDetailResult>>({});
   const [loadingDetails, setLoadingDetails] = useState<Set<string>>(new Set());
 
+  // 데이터 로드 함수
+  const fetchData = React.useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await getDashboardConvertDetail(undefined, { page, size });
+      if (response.isSuccess && response.result) {
+        setData(response.result.content || []);
+        setPagination(response.result.pagination || null);
+      } else {
+        setError(response.message || '데이터 조회 실패');
+      }
+    } catch (err: any) {
+      setError(err.message || '데이터 조회 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  }, [page, size]);
+
   // 데이터 로드
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const response = await getDashboardConvertDetail(undefined, { page, size });
-        if (response.isSuccess && response.result) {
-          setData(response.result.content || []);
-          setPagination(response.result.pagination || null);
-        } else {
-          setError(response.message || '데이터 조회 실패');
-        }
-      } catch (err: any) {
-        setError(err.message || '데이터 조회 중 오류가 발생했습니다.');
-      } finally {
-        setLoading(false);
-      }
+    fetchData();
+  }, [fetchData]);
+
+  // 대시보드 새로고침 이벤트 구독
+  useEffect(() => {
+    const handleRefresh = () => {
+      console.log('[Compressionlist] 대시보드 새로고침 이벤트 수신');
+      fetchData();
     };
 
-    fetchData();
-  }, [page, size]);
+    window.addEventListener('refreshDashboard', handleRefresh);
+    return () => {
+      window.removeEventListener('refreshDashboard', handleRefresh);
+    };
+  }, [fetchData]);
 
   // 행 클릭 핸들러 - 상세 정보 펼치기/접기
   const handleRowClick = async (item: ConvertDetailItem) => {

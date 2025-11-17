@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { Noto_Sans_KR } from 'next/font/google';
 import './globals.css';
 import { ToastProvider } from '@/components/ui/CommonToast';
+import { SSEProvider } from '@/contexts/SSEContext';
+import { GlobalSSENotifications } from '@/components/GlobalSSENotifications';
 
 const notoSansKR = Noto_Sans_KR({
   subsets: ['latin'],
@@ -58,7 +60,10 @@ export default function RootLayout({
           </defs>
         </svg>
         <ToastProvider>
-          {children}
+          <SSEProvider>
+            <GlobalSSENotifications />
+            {children}
+          </SSEProvider>
         </ToastProvider>
       </body>
     </html>

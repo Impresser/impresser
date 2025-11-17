@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from '@/components/layout/sidebar';
 import Navbar from '@/components/layout/navbar';
 import PatternGenerator from './components/PatternGenerator';
 import PatternList from './components/PatternList';
 import Button from '@/components/ui/CommonButton';
 import { useImageGeneratorStore } from '@/store/imageGeneratorStore';
-import { createBmpPattern, subscribeSSEWithAuth, SSEEventData } from '@/service/imageGenerator';
+import { createBmpPattern, SSEEventData } from '@/service/imageGenerator';
 import AuthGuard from '@/components/auth/AuthGuard';
 import { useToast } from '@/components/ui/CommonToast';
+import { useSSESubscription } from '@/contexts/SSEContext';
 
 export default function PatternGeneratorPage() {
   const form = useImageGeneratorStore((s) => s.form);
@@ -20,7 +21,6 @@ export default function PatternGeneratorPage() {
   const resetForm = useImageGeneratorStore((s) => s.resetForm);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'error' | 'success' } | null>(null);
-  const [sseControllers, setSseControllers] = useState<Map<string, AbortController>>(new Map());
   const { showToast } = useToast();
 
   // 메시지 자동 숨김
@@ -33,14 +33,86 @@ export default function PatternGeneratorPage() {
     }
   }, [message]);
 
-  // 컴포넌트 언마운트 시 SSE 연결 정리
-  useEffect(() => {
-    return () => {
-      sseControllers.forEach((controller) => {
-        controller.abort();
-      });
-    };
-  }, [sseControllers]);
+  // 전역 SSE 구독 - 모든 패턴 생성 이벤트 처리
+  useSSESubscription(
+    'imagegenerator',
+    useCallback((data: SSEEventData) => {
+      console.log('[패턴 생성] SSE 이벤트 수신:', data);
+      
+      // bmpKey에서 generationUuid 추출 (bmpKey 형식: 'bmp/xxx_generationUuid.')
+      let generationUuid = data.generationUuid;
+      if (!generationUuid && (data as any).bmpKey) {
+        const bmpKey = (data as any).bmpKey as string;
+        const uuidMatch = bmpKey.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+        if (uuidMatch) {
+          generationUuid = uuidMatch[0];
+          console.log('[패턴 생성] bmpKey에서 generationUuid 추출:', generationUuid);
+        }
+      }
+      
+      // generationUuid로 해당 job 찾기
+      const jobs = useImageGeneratorStore.getState().jobs;
+      const targetJob = generationUuid ? jobs.find(job => job.generationUuid === generationUuid) : null;
+      
+      if (!targetJob) {
+        // 해당 job이 없으면 무시 (다른 페이지에서 생성된 job일 수 있음)
+        if (generationUuid) {
+          console.log('[패턴 생성] generationUuid에 해당하는 job을 찾을 수 없음:', generationUuid);
+        }
+        return;
+      }
+      
+      const jobId = targetJob.id;
+      
+      // 진행률 업데이트
+      if (data.progress !== undefined) {
+        console.log('[패턴 생성] 진행률 업데이트:', data.progress);
+        updateJobProgress(jobId, data.progress);
+      }
+      
+      // 완료 상태 확인 (eventType과 status 모두 확인)
+      const isCompleted = 
+        data.eventType === 'GENERATE_BMP_SUCCESS' ||
+        data.eventType === 'COMPLETED' ||
+        data.status === 'COMPLETED' || 
+        data.status === '완료' || 
+        data.status === 'Success' ||
+        data.status === 'SUCCESS' ||
+        data.progress === 100;
+      
+      // 실패 상태 확인
+      const isFailed = 
+        (data.eventType === 'GENERATE_BMP_FAILED' ||
+         data.eventType === 'SSE_GENERATION_FAILED' ||
+         data.status === 'FAILED' ||
+         data.status === '실패') &&
+        // generationUuid가 있고 message가 'SSE_GENERATION_FAILED'인 경우는 
+        // 서버에서 잘못된 이벤트를 보낸 것일 수 있으므로 무시
+        !(data.generationUuid && data.message === 'SSE_GENERATION_FAILED');
+      
+      if (isCompleted) {
+        console.log('[패턴 생성] SSE 완료 이벤트:', data);
+        // 완료 처리
+        markJobDone(jobId);
+        // 완료 토스트 알림
+        showToast('패턴 생성이 완료되었습니다.', 'success');
+        // 목록 새로고침
+        window.dispatchEvent(new Event('refreshBmpList'));
+      } else if (isFailed) {
+        console.log('[패턴 생성] SSE 실패 이벤트:', data);
+        // 실패 처리
+        markJobDone(jobId);
+        showToast('패턴 생성에 실패했습니다.', 'error');
+      } else if (data.generationUuid && data.message === 'SSE_GENERATION_FAILED') {
+        // generationUuid가 있고 message가 'SSE_GENERATION_FAILED'인 경우
+        // 서버에서 잘못된 이벤트를 보낸 것일 수 있으므로 로그만 남기고 무시
+        console.warn('[패턴 생성] SSE_GENERATION_FAILED 메시지 수신했지만 generationUuid가 있어 성공으로 간주:', data);
+      }
+    }, [updateJobProgress, markJobDone, showToast]),
+    useCallback((error: Error) => {
+      console.error('[패턴 생성] SSE 연결 오류:', error);
+    }, [])
+  );
 
   // 폼에 내용이 있는지 확인하는 함수
   const hasFormContent = (): boolean => {
@@ -115,59 +187,8 @@ export default function PatternGeneratorPage() {
         const generationUuid = response.result.generationUuid;
         const jobId = addJob(undefined, generationUuid);
         
-        // SSE 연결 시작
-        console.log('SSE 연결 시작:', generationUuid);
-        const sseController = subscribeSSEWithAuth(
-          (data: SSEEventData) => {
-            console.log('SSE 이벤트 수신:', data);
-            // SSE 이벤트 처리
-            if (data.progress !== undefined) {
-              console.log('진행률 업데이트:', data.progress);
-              // progress 업데이트
-              updateJobProgress(jobId, data.progress);
-            }
-            
-            // 완료 상태 확인 (여러 가능한 상태 값 체크)
-            const isCompleted = 
-              data.status === 'COMPLETED' || 
-              data.status === '완료' || 
-              data.status === 'Success' ||
-              data.status === 'SUCCESS' ||
-              data.progress === 100;
-            
-            if (isCompleted) {
-              console.log('SSE 완료 이벤트:', data);
-              // 완료 처리
-              markJobDone(jobId);
-              // 완료 토스트 알림
-              showToast('패턴 생성이 완료되었습니다.', 'success');
-              // SSE 연결 종료
-              sseController.abort();
-              setSseControllers((prev) => {
-                const next = new Map(prev);
-                next.delete(jobId);
-                return next;
-              });
-              // 목록 새로고침
-              window.dispatchEvent(new Event('refreshBmpList'));
-            }
-          },
-          (error: Error) => {
-            console.error('SSE 연결 오류:', error);
-            setSseControllers((prev) => {
-              const next = new Map(prev);
-              next.delete(jobId);
-              return next;
-            });
-          }
-        );
-
-        // SSE 컨트롤러 저장
-        setSseControllers((prev) => {
-          const next = new Map(prev);
-          next.set(jobId, sseController);
-          return next;
-        });
+        console.log('[패턴 생성] Job 생성 완료:', { jobId, generationUuid });
+        // 전역 SSE가 자동으로 이벤트를 처리하므로 별도 연결 불필요
 
         // 목록 새로고침 (첫 페이지로 이동)
         window.dispatchEvent(new CustomEvent('refreshBmpList', { detail: { resetPage: true } }));
