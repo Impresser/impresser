@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
 import CommonTableFrame from '@/components/ui/CommonTableFrame';
-import RadioButton from '@/components/ui/RadioButton';
+import CommonRadioButton from '@/components/ui/CommonRadioButton';
 import CommonDropdown from '@/components/ui/CommonDropdown';
 import Button from '@/components/ui/CommonButton';
 import { getCompressionTypes, getCompressionTypeVersions } from '@/service/imageCompressor';
@@ -644,21 +644,21 @@ export default function CompressionSettings({
                   </label>
                   <div className="flex gap-4">
                     <div className="flex-1">
-                      <RadioButton
+                      <CommonRadioButton
                         name="processingMethod"
                         value="cpu"
                         label="CPU"
                         checked={processingMethod === 'cpu'}
-                        onChange={onProcessingMethodChange}
+                        onChangeValue={onProcessingMethodChange}
                       />
                     </div>
                     <div className="flex-1">
-                      <RadioButton
+                      <CommonRadioButton
                         name="processingMethod"
                         value="gpu"
                         label="GPU"
                         checked={processingMethod === 'gpu'}
-                        onChange={onProcessingMethodChange}
+                        onChangeValue={onProcessingMethodChange}
                       />
                     </div>
                   </div>
@@ -1448,19 +1448,19 @@ function FileRow({
       </td>
       <td className="py-3 px-3 text-center">
         <div className="flex gap-2 justify-center">
-          <RadioButton
+          <CommonRadioButton
             name={`processingMethod-${file.name}`}
             value="cpu"
             label="CPU"
             checked={fileSetting.processingMethod.toUpperCase() === 'CPU'}
-            onChange={(value) => onSettingChange('processingMethod', value.toUpperCase())}
+            onChangeValue={(value) => onSettingChange('processingMethod', value.toUpperCase())}
           />
-          <RadioButton
+          <CommonRadioButton
             name={`processingMethod-${file.name}`}
             value="gpu"
             label="GPU"
             checked={fileSetting.processingMethod.toUpperCase() === 'GPU'}
-            onChange={(value) => onSettingChange('processingMethod', value.toUpperCase())}
+            onChangeValue={(value) => onSettingChange('processingMethod', value.toUpperCase())}
           />
         </div>
       </td>
