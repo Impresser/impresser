@@ -310,6 +310,8 @@ static void generate_worker_loop() {
             }
             cudaFreeHost(h_pixels);
 
+            uint64_t bmpVolume = std::filesystem::file_size(bmpPath);
+
             if (!job.partUploadUrls.empty()) {
                 std::vector<std::pair<int, std::string>> parts;
                 if (!io->uploadFileWithMultipartUrls(bmpPath.string(), job.partUploadUrls, parts)) {
@@ -354,7 +356,8 @@ static void generate_worker_loop() {
                 json body = {
                     {"isSuccess", true},
                     {"errorMessage", nullptr},
-                    {"generationUuid", job.generationUuid}
+                    {"generationUuid", job.generationUuid},
+                    {"bmpVolume", bmpVolume}
                 };
 
                 const std::string cb = callbackBase + "/bmp/" + job.generationUuid + "/complete";

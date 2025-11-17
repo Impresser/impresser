@@ -120,6 +120,9 @@ public class GenerationHistory extends BaseEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    public void updateBmpVolume(Long bmpVolume) {
+        this.bmpVolume = bmpVolume;
+    }
     public void updateBmpKey(String bmpKey) {
         this.bmpKey = bmpKey;
     }
