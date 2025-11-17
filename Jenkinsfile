@@ -165,7 +165,7 @@ pipeline {
                     }
                     env.DEPLOYED_BACKEND = "true"
                     env.DEPLOY_ENV = "PROD"
-                    sh ". ${env.WORKSPACE}/prod.slot && docker rm -f \"${OLD_CONT}\" || true"
+                    sh ". ${env.WORKSPACE}/prod.slot && docker rm -f \"\$OLD_CONT\" || true"
                   } catch (e) {
                     sh "NGINX_CONT=${NGINX_CONT} bash infra/scripts/switch_backend.sh"
                     error "Prod smoke test failed. Rolled back successfully."
