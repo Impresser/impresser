@@ -155,6 +155,10 @@ export default function SimulationPage() {
   const [performanceComparisonSlots, setPerformanceComparisonSlots] = useState<(Facility | null)[]>([null, null]);
   const performanceComparisonSectionRef = useRef<HTMLDivElement>(null);
   const resultComparisonSectionRef = useRef<HTMLDivElement>(null);
+  const sseSubscribedRef = useRef(false);
+  const processedHistoryUuidsRef = useRef<Set<string>>(new Set());
+  const toastShownRef = useRef<Set<string>>(new Set()); // 토스트 알림 중복 방지
+  const sseControllerRef = useRef<AbortController | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isLoadingProduction, setIsLoadingProduction] = useState(false);
@@ -167,6 +171,19 @@ export default function SimulationPage() {
   });
   const [isPerformanceComparisonMode, setIsPerformanceComparisonMode] = useState(false);
   const { showToast } = useToast();
+  
+  // ref를 최신 값으로 참조하기 위한 ref들
+  const addCompressionCompleteRef = useRef(addCompressionComplete);
+  const showToastRef = useRef(showToast);
+  const performanceComparisonSlotsRef = useRef(performanceComparisonSlots);
+
+  // ref를 최신 값으로 업데이트
+  useEffect(() => {
+    addCompressionCompleteRef.current = addCompressionComplete;
+    showToastRef.current = showToast;
+    performanceComparisonSlotsRef.current = performanceComparisonSlots;
+  }, [addCompressionComplete, showToast, performanceComparisonSlots]);
+  
   const isLocationSelectMode = locationSelectionTarget !== null;
   const mapData: TileType[][] = Array.from({ length: 14 }, () =>
     Array.from({ length: 25 }, () => 'g' as TileType)
@@ -177,8 +194,16 @@ export default function SimulationPage() {
     () => ({ processingMethod: 'cpu', algorithm: '', version: '' }),
     []
   );
+  const getDefaultSlotSettings = useCallback((index: number): SlotSettings => {
+    if (index === 1) {
+      // 슬롯 2: 알고리즘과 버전은 그대로 유지, 처리방식만 GPU로 변경
+      return { processingMethod: 'gpu', algorithm: '', version: '' };
+    }
+    // 슬롯 1: 현재 그대로 유지
+    return { ...DEFAULT_SLOT_SETTINGS };
+  }, [DEFAULT_SLOT_SETTINGS]);
   const [performanceSlotSettings, setPerformanceSlotSettings] = useState<SlotSettings[]>(
-    () => performanceComparisonSlots.map(() => ({ ...DEFAULT_SLOT_SETTINGS }))
+    () => performanceComparisonSlots.map((_, index) => getDefaultSlotSettings(index))
   );
 
   const closeFacilityAddModal = useCallback((options?: { preserveSelection?: boolean }) => {
@@ -321,10 +346,10 @@ export default function SimulationPage() {
     });
     setPerformanceSlotSettings((prev) => {
       const next = [...prev];
-      next[index] = { ...DEFAULT_SLOT_SETTINGS };
+      next[index] = getDefaultSlotSettings(index);
       return next;
     });
-  }, [DEFAULT_SLOT_SETTINGS]);
+  }, [getDefaultSlotSettings]);
 
 
   const handleQueueUpload = useCallback(
@@ -478,19 +503,52 @@ export default function SimulationPage() {
       const next = Array.from({ length }, (_, index) => {
         const existing = prev[index];
         if (!performanceComparisonSlots[index]) {
-          return { ...DEFAULT_SLOT_SETTINGS };
+          // 슬롯이 비어있으면 기본 설정으로 초기화
+          return getDefaultSlotSettings(index);
         }
-        return existing ? existing : { ...DEFAULT_SLOT_SETTINGS };
+        // 슬롯에 설비가 있고 기존 설정이 있으면 유지, 없으면 기본 설정 사용
+        return existing ? existing : getDefaultSlotSettings(index);
       });
       return next;
     });
-  }, [performanceComparisonSlots, DEFAULT_SLOT_SETTINGS]);
+  }, [performanceComparisonSlots, getDefaultSlotSettings]);
 
   // 설비 대기열 압축 완료 SSE 구독
   useEffect(() => {
+    // 이미 구독된 경우 기존 연결 종료 후 재구독 (React Strict Mode에서 두 번 실행되는 것 방지)
+    if (sseSubscribedRef.current) {
+      console.log('SSE 이미 구독 중 - 재구독 방지');
+      return;
+    }
+    
+    // 기존 SSE 연결이 있으면 종료
+    if (sseControllerRef.current) {
+      console.log('기존 SSE 연결 종료');
+      sseControllerRef.current.abort();
+      sseControllerRef.current = null;
+    }
+    
+    console.log('SSE 구독 시작');
+    sseSubscribedRef.current = true;
+
     const sseController = subscribeInkjetCompressionSSE({
       onCompressionComplete: (data: ConvertHistoryItemResponse) => {
-        console.log('설비 대기열 압축 완료 이벤트 수신:', data);
+        const historyUuid = data.convertHistoryUuid;
+        console.log('[SSE] 설비 대기열 압축 완료 이벤트 수신:', {
+          historyUuid,
+          tiffName: data.tiffName,
+          timestamp: new Date().toISOString(),
+        });
+
+        // 이미 처리된 항목인지 확인 (중복 실행 방지) - 최우선 체크
+        if (processedHistoryUuidsRef.current.has(historyUuid)) {
+          console.log('[SSE] 이미 처리된 압축 완료 이벤트 (중복 무시):', historyUuid);
+          return;
+        }
+        
+        // 처리 시작 표시 (즉시 추가하여 중복 실행 방지)
+        processedHistoryUuidsRef.current.add(historyUuid);
+        console.log('[SSE] 처리 시작 표시:', historyUuid);
 
         // 파일명 매칭: BMP 파일명 → TIFF 파일명 변환
         const matchFileName = (bmpFileName: string, tiffName: string): boolean => {
@@ -499,14 +557,14 @@ export default function SimulationPage() {
           return tiffName === expectedTiffName;
         };
 
-        // 모든 설비의 대기열에서 매칭되는 항목 찾기
-         setQueuedUploadsByFacility((prev) => {
-          const updated = { ...prev };
-          let matchedItem: QueueItem | null = null;
-          let matchedFacilityId: string | null = null;
+        // 상태 업데이트 전에 현재 상태를 읽어서 매칭 항목 찾기
+        let matchedItem: QueueItem | null = null;
+        let matchedFacilityId: string | null = null;
 
-          // 각 설비의 대기열을 순회하며 매칭되는 항목 찾기
-          for (const [facilityId, queueItems] of Object.entries(updated)) {
+        // 현재 상태에서 매칭 항목 찾기 (동기적으로)
+        setQueuedUploadsByFacility((prev) => {
+          // 매칭 항목 찾기
+          for (const [facilityId, queueItems] of Object.entries(prev)) {
             const matched = queueItems.find((item) => {
               // 파일명 매칭
               const fileNameMatch = matchFileName(item.fileName, data.tiffName);
@@ -515,68 +573,104 @@ export default function SimulationPage() {
               return fileNameMatch && volumeMatch;
             });
 
-            if (matched) {
-              matchedItem = matched;
+            if (matched && !matchedItem) {
+              matchedItem = { ...matched }; // 복사본 저장
               matchedFacilityId = facilityId;
-              break;
             }
           }
 
-           if (matchedItem && matchedFacilityId) {
-            // 대기열에서 완료된 항목 제거
-            updated[matchedFacilityId] = updated[matchedFacilityId].filter(
-              (item) => item.id !== matchedItem!.id
-            );
-
-            // 작업 내역에 추가 (Zustand store 사용)
-            addCompressionComplete(matchedFacilityId, data, {
-              fileName: matchedItem.fileName,
-              algorithm: matchedItem.algorithm,
-              version: matchedItem.version,
-            });
-
-            console.log('설비 대기열 항목 완료 처리:', {
-              facilityId: matchedFacilityId,
-              fileName: matchedItem.fileName,
-              convertHistoryUuid: data.convertHistoryUuid,
-            });
-
-             // 완료 토스트 알림 (비동기로 예약)
-             try {
-               const facilityName =
-                 performanceComparisonSlots.find((f) => f && f.id === matchedFacilityId)?.name ||
-                 matchedFacilityId ||
-                 '설비';
-               const timeText =
-                 typeof (data as any).compressionTime === 'number'
-                   ? `${(data as any).compressionTime.toFixed(2)}초`
-                   : `${data.elapsedTime}초`;
-             setTimeout(() => showToast(`${facilityName} 압축 완료: ${data.tiffName} (${timeText})`), 0);
-             // 결과 비교 섹션으로 자동 스크롤
-             setTimeout(() => {
-               resultComparisonSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-             }, 100);
-             } catch {}
-          } else {
-            console.warn('압축 완료 이벤트에 매칭되는 대기열 항목을 찾을 수 없습니다:', {
-              tiffName: data.tiffName,
-              bmpVolume: data.bmpVolume,
-            });
+          // 매칭된 항목이 있으면 대기열에서 제거한 새 상태 반환
+          if (matchedItem && matchedFacilityId) {
+            return {
+              ...prev,
+              [matchedFacilityId]: prev[matchedFacilityId].filter(
+                (item) => item.id !== matchedItem!.id
+              ),
+            };
           }
 
-          return updated;
+          // 매칭되지 않으면 기존 상태 반환
+          return prev;
         });
+
+        // 상태 업데이트 후 사이드 이펙트 실행 (한 번만 실행)
+        if (matchedItem !== null && matchedFacilityId !== null) {
+          // 타입 단언
+          const item = matchedItem as QueueItem;
+          const facilityId = matchedFacilityId as string;
+
+          // 작업 내역에 추가 (Zustand store 사용)
+          addCompressionCompleteRef.current(facilityId, data, {
+            fileName: item.fileName,
+            algorithm: item.algorithm,
+            version: item.version,
+          });
+
+          console.log('설비 대기열 항목 완료 처리:', {
+            facilityId: facilityId,
+            fileName: item.fileName,
+            convertHistoryUuid: data.convertHistoryUuid,
+          });
+
+          // 완료 토스트 알림 (중복 방지)
+          const toastKey = `${historyUuid}-${data.tiffName}`;
+          if (!toastShownRef.current.has(toastKey)) {
+            toastShownRef.current.add(toastKey);
+            console.log('[SSE] 토스트 알림 표시:', toastKey);
+            
+            try {
+              const facilityName =
+                performanceComparisonSlotsRef.current.find((f) => f && f.id === facilityId)?.name ||
+                facilityId ||
+                '설비';
+              const timeText =
+                typeof (data as any).compressionTime === 'number'
+                  ? `${(data as any).compressionTime.toFixed(2)}초`
+                  : `${data.elapsedTime}초`;
+              showToastRef.current(`${facilityName} 압축 완료: ${data.tiffName} (${timeText})`);
+              // 결과 비교 섹션으로 자동 스크롤
+              setTimeout(() => {
+                resultComparisonSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }, 100);
+              
+              // 10초 후 토스트 키 제거 (메모리 관리)
+              setTimeout(() => {
+                toastShownRef.current.delete(toastKey);
+              }, 10000);
+            } catch (err) {
+              console.error('[SSE] 토스트 알림 오류:', err);
+              toastShownRef.current.delete(toastKey);
+            }
+          } else {
+            console.log('[SSE] 토스트 알림 중복 방지:', toastKey);
+          }
+        } else {
+          // 매칭 항목이 없으면 처리 표시 제거 (다시 처리 가능하도록)
+          processedHistoryUuidsRef.current.delete(historyUuid);
+          console.warn('압축 완료 이벤트에 매칭되는 대기열 항목을 찾을 수 없습니다:', {
+            tiffName: data.tiffName,
+            bmpVolume: data.bmpVolume,
+          });
+        }
       },
       onError: (error: Error) => {
         console.error('설비 대기열 SSE 연결 오류:', error);
       },
     });
 
+    // SSE 컨트롤러 저장
+    sseControllerRef.current = sseController;
+
     // 컴포넌트 언마운트 시 SSE 연결 종료
     return () => {
-      sseController.abort();
+      console.log('SSE 구독 정리');
+      sseSubscribedRef.current = false;
+      if (sseControllerRef.current) {
+        sseControllerRef.current.abort();
+        sseControllerRef.current = null;
+      }
     };
-  }, []);
+  }, []); // dependency array를 빈 배열로 유지하여 한 번만 구독
 
   // 슬롯별 작업 내역 조회
   useEffect(() => {
@@ -1001,13 +1095,25 @@ export default function SimulationPage() {
                     </div>
                     {isAdmin && (
                       <div className="absolute right-4 bottom-4 z-20">
-                        <CommonButton
-                          variant="blue"
-                          className="px-4 py-2 text-sm"
-                          onClick={handleAddFacilityButtonClick}
-                        >
-                          {isLocationSelectMode ? '취소하기' : '설비등록'}
-                        </CommonButton>
+                        <div className="relative group">
+                          <CommonButton
+                            variant="blue"
+                            className="px-4 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                            onClick={handleAddFacilityButtonClick}
+                            disabled={allFacilities.length >= 10 || isLocationSelectMode}
+                          >
+                            {isLocationSelectMode ? '취소하기' : '설비등록'}
+                          </CommonButton>
+                          {allFacilities.length >= 10 && !isLocationSelectMode && (
+                            <div className="absolute right-0 bottom-full mb-2 w-64 p-3 bg-gray-900 text-white text-sm rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-30 shadow-lg">
+                              <div className="absolute right-4 top-full w-0 h-0 border-l-8 border-r-8 border-t-8 border-transparent border-t-gray-900"></div>
+                              <div>
+                                현재 공장에서는<br />
+                                최대 10개까지 등록 가능합니다.
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                     <TileMap

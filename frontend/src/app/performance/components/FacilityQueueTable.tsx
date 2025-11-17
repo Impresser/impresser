@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import CommonTableFrame from '@/components/ui/CommonTableFrame';
 import type { QueueItem } from '@/components/ui/CommonTable';
 
@@ -47,6 +47,24 @@ const formatDateTime = (date: Date | null): string => {
 };
 
 export default function FacilityQueueTable({ items }: FacilityQueueTableProps) {
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // 경과시간을 실시간으로 업데이트하기 위해 1초마다 현재 시간 갱신
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // startTime으로부터 경과시간 계산 (초 단위)
+  const getElapsedTime = (item: QueueItem): number => {
+    if (!item.startTime) return 0;
+    const elapsed = Math.floor((currentTime.getTime() - item.startTime.getTime()) / 1000);
+    return Math.max(0, elapsed);
+  };
+
   return (
     <CommonTableFrame
       header={
@@ -109,7 +127,7 @@ export default function FacilityQueueTable({ items }: FacilityQueueTableProps) {
                 </td>
                 <td className="py-3 px-3 text-center">{item.assignedUser || '-'}</td>
                 <td className="py-3 px-3 text-center">{formatDateTime(item.startTime)}</td>
-                <td className="py-3 px-3 text-center">{formatTime(item.elapsedTime)}</td>
+                <td className="py-3 px-3 text-center">{formatTime(getElapsedTime(item))}</td>
                 <td className="py-3 px-3 text-center">{formatTime(item.estimatedTime)}</td>
                 <td className="py-3 px-3">
                   {item.status === '진행' ? (
