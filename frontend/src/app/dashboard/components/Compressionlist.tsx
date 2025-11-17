@@ -158,21 +158,21 @@ export default function Compressionlist() {
 
   // 데이터 로드 함수
   const fetchData = React.useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await getDashboardConvertDetail(undefined, { page, size });
-      if (response.isSuccess && response.result) {
-        setData(response.result.content || []);
-        setPagination(response.result.pagination || null);
-      } else {
-        setError(response.message || '데이터 조회 실패');
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await getDashboardConvertDetail(undefined, { page, size });
+        if (response.isSuccess && response.result) {
+          setData(response.result.content || []);
+          setPagination(response.result.pagination || null);
+        } else {
+          setError(response.message || '데이터 조회 실패');
+        }
+      } catch (err: any) {
+        setError(err.message || '데이터 조회 중 오류가 발생했습니다.');
+      } finally {
+        setLoading(false);
       }
-    } catch (err: any) {
-      setError(err.message || '데이터 조회 중 오류가 발생했습니다.');
-    } finally {
-      setLoading(false);
-    }
   }, [page, size]);
 
   // 데이터 로드
