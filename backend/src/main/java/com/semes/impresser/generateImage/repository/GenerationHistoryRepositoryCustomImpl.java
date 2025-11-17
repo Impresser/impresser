@@ -58,7 +58,7 @@ public class GenerationHistoryRepositoryCustomImpl implements GenerationHistoryR
         List<AllGenerationHistoryResponse> converted = generationHistories.stream()
             .map(item -> new AllGenerationHistoryResponse(
                 item.generationUuid(),
-                S3Util.buildUrlFromKey(item.bmpUrl()),
+                item.bmpUrl(),
                 item.userName(),
                 item.employeeNo(),
                 item.bmpHeight(),
@@ -113,7 +113,7 @@ public class GenerationHistoryRepositoryCustomImpl implements GenerationHistoryR
         List<AllGenerationHistoryResponse> converted = generationHistories.stream()
             .map(item -> new AllGenerationHistoryResponse(
                 item.generationUuid(),
-                S3Util.buildUrlFromKey(item.bmpUrl()),
+                item.bmpUrl(),
                 item.userName(),
                 item.employeeNo(),
                 item.bmpHeight(),
