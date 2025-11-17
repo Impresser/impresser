@@ -15,6 +15,7 @@ import com.semes.impresser.generateImage.dto.response.GenerationHistoryResponse;
 import com.semes.impresser.generateImage.entity.GenerationHistory;
 import com.semes.impresser.generateImage.entity.GenerationStatus;
 import com.semes.impresser.generateImage.repository.GenerationHistoryRepository;
+import com.semes.impresser.s3.service.FilePresignedService;
 import com.semes.impresser.user.entity.User;
 import com.semes.impresser.user.repository.UserRepository;
 import java.time.LocalDateTime;
@@ -42,7 +43,8 @@ public class GenerationHistoryServiceImpl implements GenerationHistoryService {
     private final SseService sseService;
 
     public static final String GENERATE_BMP_SUCCESS = "GENERATE_BMP_SUCCESS";
-    public static final String GENERATE_BMP_FAILED = "GENERATE_BMP_FAILED";
+    public static final String GENERATE_BMP_FAILED  = "GENERATE_BMP_FAILED";
+    private final FilePresignedService filePresignedService;
 
     @Override
     public CreateBmpImageResponse createBmpImage(CreateBmpImageRequest createBmpImageRequest) {
@@ -90,8 +92,12 @@ public class GenerationHistoryServiceImpl implements GenerationHistoryService {
         if (generationHistory.getStatus().equals(GenerationStatus.COMPLETED)) {
             isCompleted = true;
         }
-        GenerationHistoryResponse generationHistoryResponse = GenerationHistoryResponse.toDto(
-                generationHistory, isCompleted);
+
+        String downloadUrl =
+            filePresignedService.getDownloadPresignedUrl(generationHistory.getBmpKey());
+
+        GenerationHistoryResponse generationHistoryResponse =
+            GenerationHistoryResponse.toDto(generationHistory, isCompleted, downloadUrl);
 
         return generationHistoryResponse;
     }
@@ -114,7 +120,9 @@ public class GenerationHistoryServiceImpl implements GenerationHistoryService {
 
         Integer totalPages = allGenerationHistoryResponses.getTotalPages();
 
-        List<AllGenerationHistoryResponse> allGenerationHistories = allGenerationHistoryResponses.getContent();
+        List<AllGenerationHistoryResponse> converted = allGenerationHistoryResponses.getContent().stream()
+            .map(item -> AllGenerationHistoryResponse.from(item, filePresignedService))
+            .toList();
 
         PaginationResponse paginationResponse = new PaginationResponse(
                 page,
@@ -126,7 +134,7 @@ public class GenerationHistoryServiceImpl implements GenerationHistoryService {
                 page < totalPages - 1);
 
         PageResponse<AllGenerationHistoryResponse> pageResponse = new PageResponse<>(
-                allGenerationHistories, paginationResponse);
+            converted, paginationResponse);
 
         return pageResponse;
     }
@@ -146,6 +154,10 @@ public class GenerationHistoryServiceImpl implements GenerationHistoryService {
         Long totalElements = result.getTotalElements();
         Integer totalPages = result.getTotalPages();
 
+        List<AllGenerationHistoryResponse> converted = result.getContent().stream()
+            .map(item -> AllGenerationHistoryResponse.from(item, filePresignedService))
+            .toList();
+
         PaginationResponse pagination = new PaginationResponse(
                 page,
                 size,
@@ -156,7 +168,7 @@ public class GenerationHistoryServiceImpl implements GenerationHistoryService {
                 page < totalPages - 1
         );
 
-        return new PageResponse<>(result.getContent(), pagination);
+        return new PageResponse<>(converted, pagination);
     }
 
     @Override

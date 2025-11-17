@@ -102,13 +102,8 @@ public class ConvertImageServiceImpl implements ConvertImageService {
                 pageable);
 
         List<ConvertHistoryItemResponse> items = result.getContent().stream()
-                .map(it -> {
-                    String key = it.tiffUrl();
-                    String tiffName = S3Util.extractOriginalFileName(key);
-                    String url = key == null ? null : filePresignedService.getPresignedUrl(key);
-                    return ConvertHistoryItemResponse.toEntity(it, tiffName, url);
-                })
-                .toList();
+            .map(it -> ConvertHistoryItemResponse.toEntity(it, filePresignedService))
+            .toList();
 
         PaginationResponse pagination = new PaginationResponse(
                 result.getNumber(),
@@ -134,12 +129,7 @@ public class ConvertImageServiceImpl implements ConvertImageService {
             convertHistoryRepository.getMyCompletedHistories(userUuid, pageable);
 
         List<ConvertHistoryItemResponse> items = result.getContent().stream()
-            .map(it -> {
-                String key = it.tiffUrl();
-                String tiffName = S3Util.extractOriginalFileName(key);
-                String url = key == null ? null : filePresignedService.getPresignedUrl(key);
-                return ConvertHistoryItemResponse.toEntity(it, tiffName, url);
-            })
+            .map(it -> ConvertHistoryItemResponse.toEntity(it, filePresignedService))
             .toList();
 
         PaginationResponse pagination = new PaginationResponse(
