@@ -12,6 +12,7 @@ import OverallProductionSummary from './components/OverallProductionSummary';
 import PrintSimulationPlan, { type PrintSimulationPlanEntry } from './components/PrintSimulationPlan';
 import InkConsumptionSummary from './components/InkConsumptionSummary';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
+import CommonButton from '@/components/ui/CommonButton';
 import MotherGlassInfoList from './components/MotherGlassInfoList';
 import BmpImportModal from './components/BmpImportModal';
 import CommonLoader from '@/components/ui/CommonLoader';
@@ -64,6 +65,7 @@ export default function SimulationPage() {
   const [activeAssignmentDetail, setActiveAssignmentDetail] = useState<BmpDetailResult | null>(null);
   const [isPrintPlanConfirmed, setIsPrintPlanConfirmed] = useState<boolean>(false);
   const [printTimeSeconds, setPrintTimeSeconds] = useState<number>(20); // 기본 20초
+  const [currentGenerationIndex, setCurrentGenerationIndex] = useState<number>(0); // 현재 표시할 세대 인덱스
   const performanceHistoryData = usePerformanceHistoryStore((state) => state.performanceHistoryData);
   const addCompressionComplete = usePerformanceHistoryStore((state) => state.addCompressionComplete);
 
@@ -699,6 +701,13 @@ export default function SimulationPage() {
     [],
   );
 
+  // 최적화 결과가 변경되면 현재 세대 인덱스를 초기화
+  useEffect(() => {
+    if (optimizationResult) {
+      setCurrentGenerationIndex(0);
+    }
+  }, [optimizationResult]);
+
   const handleRunSimulation = useCallback(() => {
     if (printersLoading || confirmedGoals.length === 0) {
       return;
@@ -848,14 +857,27 @@ export default function SimulationPage() {
                     <div className="pt-2">
                       <h2 className="text-xl font-semibold text-gray-900">원장 배치도</h2>
                     </div>
-                    <div className="space-y-4">
-                      {optimizationResult.layoutResults.map((result, index) => (
+                    {optimizationResult.layoutResults.length > 0 && (
+                      <div className="space-y-4">
                         <MotherGlassLayoutPreview
-                          key={`${result.motherGlass.id}-${index}`}
-                          layoutResult={result}
+                          key={`${optimizationResult.layoutResults[currentGenerationIndex].motherGlass.id}-${currentGenerationIndex}`}
+                          layoutResult={optimizationResult.layoutResults[currentGenerationIndex]}
+                          currentIndex={currentGenerationIndex}
+                          totalCount={optimizationResult.layoutResults.length}
+                          onNext={() => {
+                            const totalGenerations = optimizationResult.layoutResults.length;
+                            if (currentGenerationIndex === totalGenerations - 1) {
+                              // 마지막 세대면 첫 번째로
+                              setCurrentGenerationIndex(0);
+                            } else {
+                              // 다음 세대로
+                              setCurrentGenerationIndex((prev) => prev + 1);
+                            }
+                          }}
+                          showNavigation={true}
                         />
-                      ))}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : hasAttemptedSimulation ? (
