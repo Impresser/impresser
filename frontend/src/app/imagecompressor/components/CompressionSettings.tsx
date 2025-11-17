@@ -544,14 +544,14 @@ export default function CompressionSettings({
               header={
                 <thead className="bg-gray-50">
                   <tr className="text-gray-700">
-                    <th className="w-50 text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
-                    <th className="w-28 text-center font-semibold text-medium tracking-wide py-2 px-3">알고리즘</th>
-                    <th className="w-28 text-center font-semibold text-medium tracking-wide py-2 px-3">버전</th>
-                    <th className="w-32 text-center font-semibold text-medium tracking-wide py-2 px-3 whitespace-nowrap">처리방식</th>
-                    <th className="w-28 text-center font-semibold text-medium tracking-wide py-2 px-3">크기</th>
-                    <th className="w-24 text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
-                    <th className="w-70 text-center font-semibold text-medium tracking-wide py-2 px-3">업로드 상태</th>
-                    <th className="w-24 text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
+                    <th className="w-[24%] text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
+                    <th className="w-[12%] text-center font-semibold text-medium tracking-wide py-2 px-3">알고리즘</th>
+                    <th className="w-[10%] text-center font-semibold text-medium tracking-wide py-2 px-3">버전</th>
+                    <th className="w-[12%] text-center font-semibold text-medium tracking-wide py-2 px-3 whitespace-nowrap">처리방식</th>
+                    <th className="w-[10%] text-center font-semibold text-medium tracking-wide py-2 px-3">크기</th>
+                    <th className="w-[8%] text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
+                    <th className="w-[16%] text-center font-semibold text-medium tracking-wide py-2 px-3">업로드 상태</th>
+                    <th className="w-[8%] text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
                   </tr>
                 </thead>
               }
@@ -724,11 +724,11 @@ export default function CompressionSettings({
                     header={
                       <thead className="bg-gray-50">
                         <tr className="text-gray-700">
-                          <th className="w-45 text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
-                          <th className="w-32 text-center font-semibold text-medium tracking-wide py-2 px-3">크기</th>
-                          <th className="w-28 text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
-                          <th className="w-79 text-center font-semibold text-medium tracking-wide py-2 px-3">업로드 상태</th>
-                          <th className="w-24 text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
+                          <th className="w-[38%] text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
+                          <th className="w-[18%] text-center font-semibold text-medium tracking-wide py-2 px-3">크기</th>
+                          <th className="w-[12%] text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
+                          <th className="w-[24%] text-center font-semibold text-medium tracking-wide py-2 px-3">업로드 상태</th>
+                          <th className="w-[8%] text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
                         </tr>
                       </thead>
                     }
@@ -803,17 +803,17 @@ export default function CompressionSettings({
                                 dragOverIndex === index ? 'bg-blue-50 border-blue-300' : ''
                               }`}
                             >
-                              <td className="w-64 py-3 px-3">
+                              <td className="w-[38%] py-3 px-3">
                                 <div className="truncate" title={file.name}>
                                   {file.name}
                                 </div>
                               </td>
-                              <td className="w-32 py-3 px-3 text-center">
+                              <td className="w-[18%] py-3 px-3 text-center">
                                 {file.dimensions.width.toLocaleString()} ×{' '}
                                 {file.dimensions.height.toLocaleString()}
                               </td>
-                              <td className="w-28 py-3 px-3 text-center">{formatFileSize(file.size)}</td>
-                              <td className="w-60 py-3 px-3 text-center">
+                              <td className="w-[12%] py-3 px-3 text-center">{formatFileSize(file.size)}</td>
+                              <td className="w-[24%] py-3 px-3 text-center">
                                 <div className="space-y-2">
                                   {file.uploadStatus === 'uploading' ? (
                                     <div className="flex items-center justify-between gap-2">
@@ -955,7 +955,7 @@ export default function CompressionSettings({
                                   )}
                                 </div>
                               </td>
-                              <td className="w-24 py-3 px-3 text-center">
+                              <td className="w-[8%] py-3 px-3 text-center">
                                 <button
                                   onClick={async (e) => {
                                     e.stopPropagation();
@@ -1419,12 +1419,12 @@ function FileRow({
         dragOverIndex === index ? 'bg-blue-50 border-blue-300' : ''
       }`}
     >
-      <td className="w-64 py-3 px-3">
+      <td className="w-[24%] py-3 px-3">
         <div className="truncate" title={file.name}>
           {file.name}
         </div>
       </td>
-      <td className="w-40 py-3 px-3 overflow-visible">
+      <td className="w-[12%] py-3 px-3 overflow-visible">
         <CommonDropdown
           options={algorithmOptions.map(opt => ({ value: opt.value, label: opt.label }))}
           value={fileSetting.algorithm}
@@ -1439,7 +1439,7 @@ function FileRow({
           disabled={loadingAlgorithms || algorithmOptions.length === 0}
         />
       </td>
-      <td className="w-28 py-3 px-3 text-center overflow-visible">
+      <td className="w-[10%] py-3 px-3 text-center overflow-visible">
         <div className="flex justify-center">
           <CommonDropdown
             options={versionOptions}
@@ -1452,7 +1452,7 @@ function FileRow({
           />
         </div>
       </td>
-      <td className="w-32 py-3 px-3 text-center">
+      <td className="w-[12%] py-3 px-3 text-center">
         <div className="flex gap-2 justify-center">
           <CommonRadioButton
             name={`processingMethod-${file.name}`}
@@ -1470,11 +1470,11 @@ function FileRow({
           />
         </div>
       </td>
-      <td className="w-28 py-3 px-3 text-center">
+      <td className="w-[10%] py-3 px-3 text-center">
         {file.dimensions.width.toLocaleString()} × {file.dimensions.height.toLocaleString()}
       </td>
-      <td className="w-24 py-3 px-3 text-center">{formatFileSize(file.size)}</td>
-      <td className="w-60 py-3 px-3 text-center">
+      <td className="w-[8%] py-3 px-3 text-center">{formatFileSize(file.size)}</td>
+      <td className="w-[16%] py-3 px-3 text-center">
         <div className="space-y-2">
           {file.uploadStatus === 'uploading' ? (
             <div className="flex justify-between gap-2">
@@ -1507,7 +1507,7 @@ function FileRow({
           )}
         </div>
       </td>
-      <td className="w-24 py-3 px-3 text-center">
+      <td className="w-[8%] py-3 px-3 text-center">
         <button
           onClick={async (e) => {
             e.stopPropagation();
