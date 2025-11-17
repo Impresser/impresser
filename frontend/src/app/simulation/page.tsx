@@ -320,6 +320,23 @@ export default function SimulationPage() {
     [selectedGoals],
   );
 
+  // createSheetSignature 함수를 복사
+  const createSheetSignature = useCallback((sheet: { placements: Array<{ productId: string; rotated: boolean; x: number; y: number; widthMm: number; heightMm: number }> }) => {
+    const signatureParts = sheet.placements
+      .map((placement) =>
+        [
+          placement.productId,
+          placement.rotated ? '1' : '0',
+          placement.x,
+          placement.y,
+          placement.widthMm,
+          placement.heightMm,
+        ].join('-'),
+      )
+      .sort();
+    return signatureParts.join('|');
+  }, []);
+
   const overallGenerationSummary = useMemo(() => {
     if (!optimizationResult) {
       return [];
@@ -380,6 +397,128 @@ export default function SimulationPage() {
       };
     });
   }, [optimizationResult]);
+
+  // 모든 세대의 배치 유형을 수집
+  const allGenerationLayoutTypes = useMemo(() => {
+    if (!optimizationResult) {
+      return [];
+    }
+
+    interface LayoutTypeGroup {
+      signature: string;
+      motherGlassName: string;
+      sheetIndices: number[];
+      areaUsedPercent: number;
+      areaRemainingPercent: number;
+      productSummary: string;
+      typeIndex: number; // 세대별 유형 번호
+    }
+
+    const allLayoutTypes: LayoutTypeGroup[] = [];
+
+    optimizationResult.layoutResults.forEach((result) => {
+      const groups = new Map<string, LayoutTypeGroup>();
+
+      result.sheets.forEach((sheet) => {
+        const signature = createSheetSignature(sheet);
+        const areaUsedPercent = result.motherGlass.areaMm2 > 0
+          ? (sheet.areaUsedMm2 * 100) / result.motherGlass.areaMm2
+          : 0;
+        const areaRemainingPercent = Math.max(0, 100 - areaUsedPercent);
+
+        const productCounts = sheet.placements.reduce<Record<string, number>>((acc, placement) => {
+          const key = `${placement.productName} (${placement.modelName})`;
+          acc[key] = (acc[key] ?? 0) + 1;
+          return acc;
+        }, {});
+
+        const productSummary = Object.entries(productCounts)
+          .map(([key, count]) => `${key} × ${count}`)
+          .join('\n');
+
+        const fullSignature = `${result.motherGlass.generationName}-${signature}`;
+        if (!groups.has(fullSignature)) {
+          groups.set(fullSignature, {
+            signature: fullSignature,
+            motherGlassName: result.motherGlass.generationName,
+            sheetIndices: [sheet.sheetIndex],
+            areaUsedPercent,
+            areaRemainingPercent,
+            productSummary: productSummary || '-',
+            typeIndex: 0, // 나중에 설정
+          });
+        } else {
+          const existing = groups.get(fullSignature)!;
+          existing.sheetIndices.push(sheet.sheetIndex);
+          existing.areaUsedPercent = Math.max(existing.areaUsedPercent, areaUsedPercent);
+          existing.areaRemainingPercent = Math.max(existing.areaRemainingPercent, areaRemainingPercent);
+          if (existing.productSummary === '-' && productSummary) {
+            existing.productSummary = productSummary;
+          }
+        }
+      });
+
+      // 세대별로 정렬 후 typeIndex 부여
+      const sortedGroups = Array.from(groups.values()).sort((a, b) => {
+        if (b.areaUsedPercent !== a.areaUsedPercent) {
+          return b.areaUsedPercent - a.areaUsedPercent;
+        }
+        return (a.sheetIndices[0] ?? 0) - (b.sheetIndices[0] ?? 0);
+      });
+
+      sortedGroups.forEach((group, index) => {
+        group.typeIndex = index + 1;
+      });
+
+      allLayoutTypes.push(...sortedGroups);
+    });
+
+    // 세대 번호 추출 함수
+    const extractGenerationNumber = (generationName: string): number => {
+      const match = generationName.match(/(\d+)세대/);
+      return match ? parseInt(match[1], 10) : 0;
+    };
+
+    // 모든 세대를 합쳐서 정렬 (세대 번호 큰 순서, 유형 번호 순)
+    return allLayoutTypes.sort((a, b) => {
+      if (a.motherGlassName !== b.motherGlassName) {
+        const aGenNum = extractGenerationNumber(a.motherGlassName);
+        const bGenNum = extractGenerationNumber(b.motherGlassName);
+        return bGenNum - aGenNum; // 큰 순서대로
+      }
+      return a.typeIndex - b.typeIndex;
+    });
+  }, [optimizationResult, createSheetSignature]);
+
+  // 전체 통계 계산
+  const totalAllPlacedProducts = useMemo(() => {
+    if (!optimizationResult) {
+      return 0;
+    }
+    return optimizationResult.layoutResults.reduce((sum, result) => {
+      return sum + result.summaries.reduce((s, summary) => s + summary.placedQuantity, 0);
+    }, 0);
+  }, [optimizationResult]);
+
+  const totalAllMotherGlassesUsed = useMemo(() => {
+    if (!optimizationResult) {
+      return 0;
+    }
+    return optimizationResult.layoutResults.reduce((sum, result) => sum + result.sheets.length, 0);
+  }, [optimizationResult]);
+
+  const totalAverageAreaUtilization = useMemo(() => {
+    if (!optimizationResult || totalAllMotherGlassesUsed === 0) {
+      return 0;
+    }
+    const totalAreaUsed = optimizationResult.layoutResults.reduce((sum, result) => {
+      return sum + result.summaries.reduce((s, summary) => s + summary.totalAreaUsedMm2, 0);
+    }, 0);
+    const totalArea = optimizationResult.layoutResults.reduce((sum, result) => {
+      return sum + result.sheets.length * result.motherGlass.areaMm2;
+    }, 0);
+    return totalArea > 0 ? (totalAreaUsed * 100) / totalArea : 0;
+  }, [optimizationResult, totalAllMotherGlassesUsed]);
 
   const printSimulationPlan = useMemo(() => {
     return overallGenerationSummary.map((entry) => {
@@ -662,13 +801,61 @@ export default function SimulationPage() {
                     <h2 className="text-xl font-semibold text-gray-900">설비별 배치</h2>
                   </div>
                   <OverallProductionSummary summary={overallGenerationSummary} />
-                  <div className="space-y-4">
-                    {optimizationResult.layoutResults.map((result, index) => (
-                      <MotherGlassLayoutPreview
-                        key={`${result.motherGlass.id}-${index}`}
-                        layoutResult={result}
-                      />
-                    ))}
+                  
+                  {/* 세대별 배치 유형 테이블 */}
+                  {allGenerationLayoutTypes.length > 0 && (
+                    <CommonContainerBox className="px-4 py-4">
+                      <div className="mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900">세대별 배치 유형</h3>
+                        <p className="mt-1 text-sm text-gray-500">
+                          각 세대별로 사용된 배치 유형과 상세 정보를 확인할 수 있습니다.
+                        </p>
+                      </div>
+                      <div className="overflow-x-auto rounded-xl border border-gray-200">
+                        <div className="min-w-[800px] grid grid-cols-[0.5fr_0.5fr_3fr_1fr_1fr] gap-2 border-b border-gray-100 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-600 text-center">
+                          <span>원장 종류</span>
+                          <span>배치 유형</span>
+                          <span>포함 제품</span>
+                          <span>사용 면적</span>
+                          <span>사용 장수</span>
+                        </div>
+                        <div className="divide-y divide-gray-100 text-sm text-gray-700">
+                          {allGenerationLayoutTypes.map((layoutType, index) => (
+                            <div key={`layout-type-${layoutType.motherGlassName}-${layoutType.signature}`} className="min-w-[800px] grid grid-cols-[0.5fr_0.5fr_3fr_1fr_1fr] gap-2 px-4 py-2">
+                              <span className="text-center text-sm font-medium text-gray-900">{layoutType.motherGlassName}</span>
+                              <span className="text-center text-gray-900">유형 #{layoutType.typeIndex}</span>
+                              <span className="text-right text-gray-600 whitespace-pre-line">{layoutType.productSummary}</span>
+                              <span className="text-right text-blue-600">{layoutType.areaUsedPercent.toFixed(1)}% 사용<br />
+                                <span className="text-[12px] text-gray-400">잔여 {layoutType.areaRemainingPercent.toFixed(1)}%</span>
+                              </span>
+                              <span className="text-right text-gray-900">{layoutType.sheetIndices.length.toLocaleString()} 장</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="min-w-[800px] grid grid-cols-[0.5fr_0.5fr_3fr_1fr_1fr] gap-2 border-t border-gray-100 bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700">
+                          <span className="text-center">총계</span>
+                          <span className="text-center">-</span>
+                          <span className="text-right text-gray-500">총 배치 {totalAllPlacedProducts.toLocaleString()} 개</span>
+                          <span className="text-right text-blue-600">평균 효율 {totalAverageAreaUtilization.toFixed(1)}%</span>
+                          <span className="text-right">{totalAllMotherGlassesUsed.toLocaleString()} 장</span>
+                        </div>
+                      </div>
+                    </CommonContainerBox>
+                  )}
+                  
+                  {/* 원장 배치도 섹션 */}
+                  <div id="mother-glass-layout-section" className="space-y-4 pt-4">
+                    <div className="pt-2">
+                      <h2 className="text-xl font-semibold text-gray-900">원장 배치도</h2>
+                    </div>
+                    <div className="space-y-4">
+                      {optimizationResult.layoutResults.map((result, index) => (
+                        <MotherGlassLayoutPreview
+                          key={`${result.motherGlass.id}-${index}`}
+                          layoutResult={result}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
               ) : hasAttemptedSimulation ? (
