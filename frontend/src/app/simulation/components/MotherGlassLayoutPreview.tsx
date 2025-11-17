@@ -2,11 +2,16 @@
 
 import React, { useMemo } from 'react';
 import CommonContainerBox from '@/components/ui/CommonContainerBox';
+import CommonButton from '@/components/ui/CommonButton';
 import type { LayoutComputationResult } from '../utils/layoutCalculations';
 import LayoutSlider from './LayoutSlider';
 
 interface MotherGlassLayoutPreviewProps {
   layoutResult: LayoutComputationResult;
+  currentIndex?: number;
+  totalCount?: number;
+  onNext?: () => void;
+  showNavigation?: boolean;
 }
 
 interface SheetSummaryGroup {
@@ -36,7 +41,13 @@ function createSheetSignature(sheet: LayoutComputationResult['sheets'][number]):
   return signatureParts.join('|');
 }
 
-export default function MotherGlassLayoutPreview({ layoutResult }: MotherGlassLayoutPreviewProps) {
+export default function MotherGlassLayoutPreview({ 
+  layoutResult,
+  currentIndex = 0,
+  totalCount = 1,
+  onNext,
+  showNavigation = false,
+}: MotherGlassLayoutPreviewProps) {
   const { motherGlass, sheets, summaries } = layoutResult;
 
   const groupedSheets = useMemo(() => {
@@ -131,18 +142,15 @@ export default function MotherGlassLayoutPreview({ layoutResult }: MotherGlassLa
             원장 크기: {motherGlass.widthMm.toLocaleString()}mm × {motherGlass.heightMm.toLocaleString()}mm
           </div>
         </div>
-        <p className="mt-2 text-right text-sm text-gray-500">
-          * 배치는 제품 회전 가능 여부를 자동 판단하여 구성되며, 실제 생산에서는 추가 최적화가 필요할 수 있습니다.
-        </p>
       </div>
 
       {!hasPlacements ? (
-        <div className="rounded-lg bg-yellow-50 px-4 py-3 text-sm text-yellow-700">
-          현재 선택한 제품 조합은 원장에 배치되지 않았습니다. 제품 수량이나 원장을 다시 확인해주세요.
+        <div className="rounded-lg bg-yellow-50 px-4 py-3 text-sm text-yellow-700 min-h-[500px] flex items-center justify-center">
+          <p>현재 선택한 제품 조합은 원장에 배치되지 않았습니다. 제품 수량이나 원장을 다시 확인해주세요.</p>
         </div>
       ) : (
         <div className="space-y-6">
-          <div>
+          <div className="min-h-[436px]">
             <LayoutSlider>
               {uniqueSheetsForVisualization.map((sheet, index) => {
                 const groupedSheet = groupedSheets[index];
@@ -262,6 +270,21 @@ export default function MotherGlassLayoutPreview({ layoutResult }: MotherGlassLa
           </div>
         </div>
       )}
+      
+      <div className="flex items-center justify-between gap-4 mt-4 pt-4">
+        <p className="text-left text-sm text-gray-500">
+          * 배치는 제품 회전 가능 여부를 자동 판단하여 구성되며, 실제 생산에서는 추가 최적화가 필요할 수 있습니다.
+        </p>
+        {showNavigation && onNext && (
+          <CommonButton
+            variant="blue"
+            className="px-6 py-2 text-sm"
+            onClick={onNext}
+          >
+            {currentIndex === totalCount - 1 ? '이전' : '다음'}
+          </CommonButton>
+        )}
+      </div>
     </CommonContainerBox>
   );
 }
