@@ -544,13 +544,13 @@ export default function CompressionSettings({
               header={
                 <thead className="bg-gray-50">
                   <tr className="text-gray-700">
-                    <th className="w-[24%] text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
-                    <th className="w-[12%] text-center font-semibold text-medium tracking-wide py-2 px-3">알고리즘</th>
+                    <th className="w-[18%] text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
+                    <th className="w-[10%] text-center font-semibold text-medium tracking-wide py-2 px-3">알고리즘</th>
                     <th className="w-[10%] text-center font-semibold text-medium tracking-wide py-2 px-3">버전</th>
                     <th className="w-[12%] text-center font-semibold text-medium tracking-wide py-2 px-3 whitespace-nowrap">처리방식</th>
                     <th className="w-[10%] text-center font-semibold text-medium tracking-wide py-2 px-3">크기</th>
                     <th className="w-[8%] text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
-                    <th className="w-[16%] text-center font-semibold text-medium tracking-wide py-2 px-3">업로드 상태</th>
+                    <th className="w-[25%] text-center font-semibold text-medium tracking-wide py-2 px-3">업로드 상태</th>
                     <th className="w-[8%] text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
                   </tr>
                 </thead>
@@ -724,10 +724,10 @@ export default function CompressionSettings({
                     header={
                       <thead className="bg-gray-50">
                         <tr className="text-gray-700">
-                          <th className="w-[38%] text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
+                          <th className="w-[22%] text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
                           <th className="w-[18%] text-center font-semibold text-medium tracking-wide py-2 px-3">크기</th>
                           <th className="w-[12%] text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
-                          <th className="w-[24%] text-center font-semibold text-medium tracking-wide py-2 px-3">업로드 상태</th>
+                          <th className="w-[40%] text-center font-semibold text-medium tracking-wide py-2 px-3">업로드 상태</th>
                           <th className="w-[8%] text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
                         </tr>
                       </thead>
