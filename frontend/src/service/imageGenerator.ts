@@ -381,10 +381,32 @@ export async function getBmpList(
   });
 
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.message || `목록 조회 실패: ${response.status} ${response.statusText}`
-    );
+    let errorMessage = `목록 조회 실패: ${response.status} ${response.statusText}`;
+    try {
+      const errorData = await response.json();
+      errorMessage = errorData.message || errorData.error || errorMessage;
+      console.error('[getBmpList] 서버 에러 응답:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData,
+        url,
+      });
+    } catch (parseError) {
+      // JSON 파싱 실패 시 텍스트로 읽기 시도
+      try {
+        const text = await response.text();
+        console.error('[getBmpList] 서버 에러 응답 (텍스트):', {
+          status: response.status,
+          statusText: response.statusText,
+          text,
+          url,
+        });
+        errorMessage = text || errorMessage;
+      } catch (textError) {
+        console.error('[getBmpList] 에러 응답 읽기 실패:', textError);
+      }
+    }
+    throw new Error(errorMessage);
   }
 
   const data: ApiResponse<GetBmpListResult> = await response.json();
