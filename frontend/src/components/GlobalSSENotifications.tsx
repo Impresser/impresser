@@ -96,6 +96,8 @@ export function GlobalSSENotifications() {
           }
           
           console.log('[전역 알림] 패턴 생성 시작 감지:', generationUuid ?? data);
+          // 토스트 알림 표시
+          showToast('패턴 생성이 시작되었습니다.', 'success');
           // 목록 새로고침 이벤트 발생 (새 작업이 위로 오도록 첫 페이지로 이동)
           window.dispatchEvent(new CustomEvent('refreshBmpList', { detail: { resetPage: true } }));
           
