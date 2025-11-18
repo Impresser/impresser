@@ -96,6 +96,9 @@ export function GlobalSSENotifications() {
           console.log('[전역 알림] 패턴 생성 완료 알림 표시:', uuid);
           showToast('패턴 생성이 완료되었습니다.', 'success');
           
+          // 목록 새로고침 이벤트 발생
+          window.dispatchEvent(new Event('refreshBmpList'));
+          
           // 1분 후 UUID 제거
           setTimeout(() => {
             shownToastUuidsRef.current.delete(`pattern-success-${uuid}`);
