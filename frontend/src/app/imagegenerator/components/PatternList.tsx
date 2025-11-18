@@ -337,7 +337,7 @@ export default function PatternTable() {
     return item.isGenerated ? '완료' : '진행';
   };
 
-  // 진행률 계산 함수 (5분 기준)
+  // 진행률 계산 함수 (30초 기준)
   const getProgress = (item: BmpListItem): number => {
     // 완료된 작업은 항상 100%
     if (item.isGenerated) {
@@ -356,15 +356,15 @@ export default function PatternTable() {
     
     const requestedTime = new Date(dateString).getTime();
     const elapsedSeconds = (currentTime.getTime() - requestedTime) / 1000;
-    const fiveMinutes = 5 * 60; // 5분 = 300초
+    const thirtySeconds = 30; // 30초 기준
 
-    // 경과 시간이 5분 미만이면 비례 계산, 5분 이상이면 100%
+    // 경과 시간이 30초 미만이면 비례 계산, 30초 이상이면 100%
     if (elapsedSeconds < 0) {
       return 0;
-    } else if (elapsedSeconds >= fiveMinutes) {
+    } else if (elapsedSeconds >= thirtySeconds) {
       return 100;
     } else {
-      return Math.min(100, Math.round((elapsedSeconds / fiveMinutes) * 100));
+      return Math.min(100, Math.round((elapsedSeconds / thirtySeconds) * 100));
     }
   };
 
