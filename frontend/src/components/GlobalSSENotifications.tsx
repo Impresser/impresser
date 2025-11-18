@@ -38,6 +38,14 @@ export function GlobalSSENotifications() {
          data.status === 'SUCCESS' ||
          data.progress === 100);
 
+      // 패턴 생성 시작 이벤트 확인
+      const isPatternStarted = 
+        generationUuid &&
+        (data.eventType === 'GENERATE_BMP_START' ||
+         data.status === '진행' ||
+         data.status === 'PROCESSING' ||
+         (data.progress !== undefined && data.progress > 0 && data.progress < 100));
+
       // 패턴 생성 완료 이벤트 확인 (eventType과 status 모두 확인)
       const isPatternCompleted = 
         (generationUuid || data.eventType === 'GENERATE_BMP_SUCCESS') &&
@@ -83,6 +91,24 @@ export function GlobalSSENotifications() {
           setTimeout(() => {
             shownToastUuidsRef.current.delete(uuid);
           }, 60000);
+        }
+      }
+
+      // 패턴 생성 시작 알림 및 목록 새로고침
+      if (isPatternStarted && generationUuid) {
+        const uuid = generationUuid;
+        // 중복 방지를 위해 시작 이벤트는 한 번만 처리
+        if (!shownToastUuidsRef.current.has(`pattern-started-${uuid}`)) {
+          shownToastUuidsRef.current.add(`pattern-started-${uuid}`);
+          
+          console.log('[전역 알림] 패턴 생성 시작 감지:', uuid);
+          // 목록 새로고침 이벤트 발생
+          window.dispatchEvent(new Event('refreshBmpList'));
+          
+          // 10초 후 UUID 제거 (같은 작업이 다시 시작될 수 있으므로)
+          setTimeout(() => {
+            shownToastUuidsRef.current.delete(`pattern-started-${uuid}`);
+          }, 10000);
         }
       }
 
