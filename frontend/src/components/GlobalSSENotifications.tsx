@@ -40,11 +40,17 @@ export function GlobalSSENotifications() {
 
       // 패턴 생성 시작 이벤트 확인
       const isPatternStarted = 
-        generationUuid &&
-        (data.eventType === 'GENERATE_BMP_START' ||
-         data.status === '진행' ||
-         data.status === 'PROCESSING' ||
-         (data.progress !== undefined && data.progress > 0 && data.progress < 100));
+        (generationUuid || data.eventType === 'GENERATE_BMP_START' || data.eventType === 'PROGRESS' || data.eventType === 'GENERATE_BMP_PROGRESS') &&
+        (
+          data.eventType === 'GENERATE_BMP_START' ||
+          data.eventType === 'PROGRESS' ||
+          data.eventType === 'GENERATE_BMP_PROGRESS' ||
+          data.status === '진행' ||
+          data.status === '진행중' ||
+          data.status === 'PROCESSING' ||
+          data.status === 'IN_PROGRESS' ||
+          (data.progress !== undefined && data.progress >= 0 && data.progress < 100)
+        );
 
       // 패턴 생성 완료 이벤트 확인 (eventType과 status 모두 확인)
       const isPatternCompleted = 
@@ -73,42 +79,32 @@ export function GlobalSSENotifications() {
          data.status === '실패') &&
         !(generationUuid && data.message === 'SSE_GENERATION_FAILED');
 
-      // 압축 완료 알림
+      // 압축 완료 알림은 각 페이지(예: 압축 페이지)에서 별도 처리하므로
+      // 전역 토스트를 표시하지 않음 (중복 방지)
       if (isCompressionCompleted && data.convertHistoryUuid) {
-        const uuid = data.convertHistoryUuid;
-        // 중복 알림 방지
-        if (!shownToastUuidsRef.current.has(uuid)) {
-          shownToastUuidsRef.current.add(uuid);
-          
-          // 파일명 추출 (tiffName이 있으면 사용, 없으면 기본 메시지)
-          const fileName = (data as any).tiffName 
-            ? (data as any).tiffName.replace('.tiff', '').replace('.TIFF', '')
-            : '파일';
-          
-          showToast(`${fileName} 압축이 완료되었습니다.`, 'success');
-          
-          // 1분 후 UUID 제거 (같은 작업이 다시 완료될 수 있으므로)
-          setTimeout(() => {
-            shownToastUuidsRef.current.delete(uuid);
-          }, 60000);
-        }
+        console.log('[전역 알림] 압축 완료 이벤트 감지 - 페이지에서 자체 처리하도록 건너뜀:', data.convertHistoryUuid);
       }
 
       // 패턴 생성 시작 알림 및 목록 새로고침
-      if (isPatternStarted && generationUuid) {
-        const uuid = generationUuid;
-        // 중복 방지를 위해 시작 이벤트는 한 번만 처리
-        if (!shownToastUuidsRef.current.has(`pattern-started-${uuid}`)) {
-          shownToastUuidsRef.current.add(`pattern-started-${uuid}`);
+      if (isPatternStarted) {
+        const uuid = generationUuid ?? (data as any).generationUuid ?? 'unknown';
+        // 중복 방지를 위해 시작 이벤트는 한 번만 처리 (UUID가 없으면 중복 제거 불가)
+        const key = uuid === 'unknown' ? `pattern-started-${Date.now()}` : `pattern-started-${uuid}`;
+        if (!shownToastUuidsRef.current.has(key)) {
+          if (uuid !== 'unknown') {
+            shownToastUuidsRef.current.add(key);
+          }
           
-          console.log('[전역 알림] 패턴 생성 시작 감지:', uuid);
-          // 목록 새로고침 이벤트 발생
-          window.dispatchEvent(new Event('refreshBmpList'));
+          console.log('[전역 알림] 패턴 생성 시작 감지:', generationUuid ?? data);
+          // 목록 새로고침 이벤트 발생 (새 작업이 위로 오도록 첫 페이지로 이동)
+          window.dispatchEvent(new CustomEvent('refreshBmpList', { detail: { resetPage: true } }));
           
-          // 10초 후 UUID 제거 (같은 작업이 다시 시작될 수 있으므로)
-          setTimeout(() => {
-            shownToastUuidsRef.current.delete(`pattern-started-${uuid}`);
-          }, 10000);
+          if (uuid !== 'unknown') {
+            // 10초 후 UUID 제거 (같은 작업이 다시 시작될 수 있으므로)
+            setTimeout(() => {
+              shownToastUuidsRef.current.delete(key);
+            }, 10000);
+          }
         }
       }
 

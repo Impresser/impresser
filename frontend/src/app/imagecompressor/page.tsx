@@ -231,7 +231,7 @@ export default function ImageCompressorPage() {
           assignedUser: userName,
           startTime: null,
           elapsedTime: 0,
-          estimatedTime: 10,
+          estimatedTime: 20,
           progress: 0,
           bmpUrl: fileInfo.imageUrl,
           compressionTypeUuid: fileInfo.compressionTypeUuid,
