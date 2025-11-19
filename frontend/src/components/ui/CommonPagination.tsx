@@ -10,8 +10,15 @@ type CommonPaginationProps = {
 };
 
 export default function CommonPagination({ currentPage, totalPages, onChange, className }: CommonPaginationProps) {
+  const pagesPerGroup = 10;
+  const currentGroup = Math.floor((currentPage - 1) / pagesPerGroup);
+  const startPage = currentGroup * pagesPerGroup + 1;
+  const endPage = Math.min(startPage + pagesPerGroup - 1, totalPages);
+  
   const canPrev = currentPage > 1;
   const canNext = currentPage < totalPages;
+  const canPrevGroup = currentGroup > 0;
+  const canNextGroup = endPage < totalPages;
 
   const goPrev = () => {
     if (canPrev) onChange(currentPage - 1);
@@ -19,11 +26,37 @@ export default function CommonPagination({ currentPage, totalPages, onChange, cl
   const goNext = () => {
     if (canNext) onChange(currentPage + 1);
   };
+  const goPrevGroup = () => {
+    if (canPrevGroup) {
+      const prevGroupStartPage = (currentGroup - 1) * pagesPerGroup + 1;
+      onChange(prevGroupStartPage);
+    }
+  };
+  const goNextGroup = () => {
+    if (canNextGroup) {
+      const nextGroupStartPage = (currentGroup + 1) * pagesPerGroup + 1;
+      onChange(nextGroupStartPage);
+    }
+  };
 
   if (totalPages <= 1) return null;
 
+  const pageNumbers = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
+
   return (
     <div className={`mt-4 flex items-center justify-center gap-2 ${className ?? ""}`}>
+      <button
+        type="button"
+        onClick={goPrevGroup}
+        aria-label="이전 그룹"
+        className={`h-9 w-9 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition cursor-pointer ${!canPrevGroup ? 'opacity-40 pointer-events-none' : ''}`}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+          <path d="M11 18l-6-6 6-6" />
+          <path d="M18 18l-6-6 6-6" />
+        </svg>
+      </button>
+
       <button
         type="button"
         onClick={goPrev}
@@ -35,7 +68,7 @@ export default function CommonPagination({ currentPage, totalPages, onChange, cl
         </svg>
       </button>
 
-      {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
+      {pageNumbers.map((pageNumber) => (
         <button
           key={pageNumber}
           type="button"
@@ -60,6 +93,18 @@ export default function CommonPagination({ currentPage, totalPages, onChange, cl
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
           <path d="M9 6l6 6-6 6" />
+        </svg>
+      </button>
+
+      <button
+        type="button"
+        onClick={goNextGroup}
+        aria-label="다음 그룹"
+        className={`h-9 w-9 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition cursor-pointer ${!canNextGroup ? 'opacity-40 pointer-events-none' : ''}`}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+          <path d="M13 6l6 6-6 6" />
+          <path d="M6 6l6 6-6 6" />
         </svg>
       </button>
     </div>
