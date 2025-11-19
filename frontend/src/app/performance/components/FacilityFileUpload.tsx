@@ -578,18 +578,18 @@ export default function FacilityFileUpload({ settings, onSubmit, submitLabel = '
                   header={
                     <thead className="bg-gray-50">
                       <tr className="text-gray-700">
-                        <th className="text-left font-semibold text-medium tracking-wide py-2 px-3">파일명</th>
-                        <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">크기</th>
-                        <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
+                        <th className="text-left font-semibold text-medium tracking-wide py-2 px-3 w-[200px]">파일명</th>
+                        <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[140px] whitespace-nowrap">크기</th>
+                        <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[100px] whitespace-nowrap">용량</th>
                         {!skipAlgorithmCheck && (
                           <>
-                            <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">알고리즘</th>
-                            <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">버전</th>
-                            <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 whitespace-nowrap">처리방식</th>
+                            <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[120px] whitespace-nowrap">알고리즘</th>
+                            <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[80px] whitespace-nowrap">버전</th>
+                            <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[100px] whitespace-nowrap">처리방식</th>
                           </>
                         )}
-                        <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">업로드 상태</th>
-                        <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
+                        <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 min-w-[250px] whitespace-nowrap">업로드 상태</th>
+                        <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[100px] whitespace-nowrap">작업</th>
                       </tr>
                     </thead>
                   }
@@ -612,47 +612,49 @@ export default function FacilityFileUpload({ settings, onSubmit, submitLabel = '
                             dragOverIndex === index ? 'bg-blue-50 border-blue-300' : ''
                           }`}
                         >
-                          <td className="max-w-xs truncate py-3 px-3" title={file.name}>
-                            {file.name}
+                          <td className="py-3 px-3 w-[200px]">
+                            <div className="max-w-full truncate" title={file.name}>
+                              {file.name}
+                            </div>
                           </td>
-                          <td className="py-3 px-3 text-center">
+                          <td className="py-3 px-3 text-center w-[140px] whitespace-nowrap">
                             {file.dimensions.width.toLocaleString()} × {file.dimensions.height.toLocaleString()}
                           </td>
-                          <td className="py-3 px-3 text-center">{formatFileSize(file.size)}</td>
+                          <td className="py-3 px-3 text-center w-[100px] whitespace-nowrap">{formatFileSize(file.size)}</td>
                           {!skipAlgorithmCheck && (
                             <>
-                              <td className="py-3 px-3 text-center">
+                              <td className="py-3 px-3 text-center w-[120px] whitespace-nowrap">
                                 <span className="text-sm font-medium text-gray-900">
                                   {settings.algorithm || '미선택'}
                                 </span>
                               </td>
-                              <td className="py-3 px-3 text-center">
+                              <td className="py-3 px-3 text-center w-[80px] whitespace-nowrap">
                                 <span className="text-sm font-medium text-gray-900">
                                   {settings.version || '미선택'}
                                 </span>
                               </td>
-                              <td className="py-3 px-3 text-center">
+                              <td className="py-3 px-3 text-center w-[100px] whitespace-nowrap">
                                 <span className="text-sm font-medium text-gray-900">
                                   {settings.processingMethod.toUpperCase()}
                                 </span>
                               </td>
                             </>
                           )}
-                          <td className="py-3 px-3 text-center">
-                            <div className="space-y-2">
+                          <td className="py-3 px-3 text-center min-w-[250px]">
+                            <div className="space-y-2 w-full">
                               {file.uploadStatus === 'uploading' ? (
-                                <div className="flex items-center justify-between gap-2">
-                                  <div className={`text-xs font-medium ${getStatusColor(file.uploadStatus)}`}>
+                                <div className="flex items-center justify-between gap-2 whitespace-nowrap">
+                                  <div className={`text-xs font-medium ${getStatusColor(file.uploadStatus)} truncate flex-1 min-w-0`}>
                                     {getStatusText(file)}
                                   </div>
                                   {file.startTime && (
-                                    <div className="text-xs text-gray-500">
+                                    <div className="text-xs text-gray-500 flex-shrink-0">
                                       경과: {formatTime(getElapsedTime(file))}
                                     </div>
                                   )}
                                 </div>
                               ) : (
-                                <div className={`${file.uploadStatus === 'completed' ? 'text-medium' : 'text-xs'} font-medium ${file.uploadStatus === 'completed' ? '' : getStatusColor(file.uploadStatus)}`}
+                                <div className={`${file.uploadStatus === 'completed' ? 'text-medium' : 'text-xs'} font-medium ${file.uploadStatus === 'completed' ? '' : getStatusColor(file.uploadStatus)} whitespace-nowrap`}
                                   style={file.uploadStatus === 'completed' ? { color: '#0059ff' } : undefined}
                                 >
                                   {getStatusText(file)}
@@ -660,7 +662,7 @@ export default function FacilityFileUpload({ settings, onSubmit, submitLabel = '
                               )}
                               {file.uploadStatus === 'uploading' && (
                                 <div className="space-y-1.5">
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div className="w-full bg-gray-200 rounded-full h-2 flex-shrink-0 min-w-0">
                                     <div
                                       className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                                       style={{ width: `${file.uploadProgress || 0}%` }}
@@ -679,8 +681,8 @@ export default function FacilityFileUpload({ settings, onSubmit, submitLabel = '
                                         
                                         return (
                                           <>
-                                            <div className="flex items-center justify-between text-[11px] text-gray-600">
-                                              <span>
+                                            <div className="flex items-center justify-between text-[11px] text-gray-600 whitespace-nowrap gap-2">
+                                              <span className="truncate flex-1 min-w-0">
                                                 완료: {completedParts}/{file.partCount}개
                                                 {inProgressParts > 0 && ` • 진행 중: ${inProgressParts}개`}
                                               </span>
@@ -697,7 +699,7 @@ export default function FacilityFileUpload({ settings, onSubmit, submitLabel = '
                                                     return newSet;
                                                   });
                                                 }}
-                                                className="text-[10px] text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-0.5"
+                                                className="text-[10px] text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-0.5 flex-shrink-0"
                                               >
                                                 {isExpanded ? (
                                                   <>
@@ -725,15 +727,15 @@ export default function FacilityFileUpload({ settings, onSubmit, submitLabel = '
                                                         {inProgressPartNumbers.map((partNum) => {
                                                           const partProg = file.partProgress?.[partNum] || 0;
                                                           return (
-                                                            <div key={partNum} className="flex items-center gap-2">
-                                                              <span className="text-[10px] text-gray-600 w-8">#{partNum}</span>
-                                                              <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                                                            <div key={partNum} className="flex items-center gap-2 whitespace-nowrap">
+                                                              <span className="text-[10px] text-gray-600 w-8 flex-shrink-0">#{partNum}</span>
+                                                              <div className="flex-1 bg-gray-200 rounded-full h-1.5 min-w-0">
                                                                 <div
                                                                   className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
                                                                   style={{ width: `${partProg}%` }}
                                                                 />
                                                               </div>
-                                                              <span className="text-[10px] text-gray-500 w-8">{partProg}%</span>
+                                                              <span className="text-[10px] text-gray-500 w-8 flex-shrink-0">{partProg}%</span>
                                                             </div>
                                                           );
                                                         })}
