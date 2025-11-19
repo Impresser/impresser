@@ -4,6 +4,7 @@ import com.semes.impresser.common.exception.BusinessException;
 import com.semes.impresser.common.exception.ErrorCode;
 import com.semes.impresser.common.response.PageResponse;
 import com.semes.impresser.common.response.PaginationResponse;
+import com.semes.impresser.common.util.S3Util;
 import com.semes.impresser.common.util.SecurityUtil;
 import com.semes.impresser.convertImage.entity.ConvertHistory;
 import com.semes.impresser.convertImage.repository.ConvertHistoryRepository;
@@ -87,7 +88,21 @@ public class DashboardServiceImpl implements DashboardService {
         Page<ConvertHistoryListResponse> result =
             convertHistoryRepository.getConvertHistories(compressionTypeUuid, pageable);
 
-        List<ConvertHistoryListResponse> content = result.getContent();
+        List<ConvertHistoryListResponse> content = result.getContent().stream()
+            .map(dto -> new ConvertHistoryListResponse(
+                dto.convertHistoryUuid(),
+                S3Util.extractOriginalFileName(dto.tiffUrl()),
+                dto.compressionType(),
+                dto.processingUnit(),
+                dto.version(),
+                dto.tiffVolume(),
+                dto.bmpVolume(),
+                dto.userName(),
+                dto.avgSpeed(),
+                dto.elapsedTime(),
+                dto.compressionRatio()
+            ))
+            .toList();
 
         PaginationResponse pagination = new PaginationResponse(
             page,
