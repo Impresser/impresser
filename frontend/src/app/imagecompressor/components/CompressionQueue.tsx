@@ -94,7 +94,6 @@ export default function CompressionQueue({
                 <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">담당자</th>
                 <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">시작시각</th>
                 <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">경과시간</th>
-                <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">예상시간</th>
                 <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">진행률</th>
               </tr>
             </thead>
@@ -155,9 +154,6 @@ export default function CompressionQueue({
                     </td>
                     <td className="py-3 px-3 text-center">
                       {item.status === '진행' ? formatTime(item.elapsedTime) : '-'}
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      {item.estimatedTime > 0 ? formatTime(item.estimatedTime) : '-'}
                     </td>
                     <td className="py-3 px-3">
                       {item.status === '진행' ? (

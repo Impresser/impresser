@@ -123,7 +123,7 @@ export default function FacilityDetailPanel({
   const formattedInstallDate = formatDate(facility.installDate);
 
   return (
-    <div className={className}>
+    <div className={`${className} w-full max-w-full overflow-x-hidden`}>
       <FacilityInfoSection
         facility={facility}
         isAdmin={isAdmin}

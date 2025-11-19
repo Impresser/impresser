@@ -161,19 +161,78 @@ export default function PatternTable() {
   const fetchBmpList = useCallback(async () => {
     try {
       setIsLoading(true);
-      // 항상 전체 데이터를 가져옴 (큰 사이즈로 요청)
-      const response = await getBmpList({ page: 0, size: 10000 });
-      if (response.isSuccess && response.result) {
-        // 생성일시 기준 내림차순 정렬 (최신이 위로)
-        const sortedList = [...response.result.content].sort((a, b) => {
-          const dateA = new Date(a.requestedAt).getTime();
-          const dateB = new Date(b.requestedAt).getTime();
-          return dateB - dateA; // 내림차순
-        });
-        setAllBmpList(sortedList);
+      // 서버가 처리할 수 있는 크기로 요청 (100으로 시작, 실패 시 더 작게)
+      let allItems: BmpListItem[] = [];
+      const seenUuids = new Set<string>(); // 중복 제거를 위한 Set
+      let currentPage = 0;
+      let pageSize = 100; // 서버가 처리할 수 있는 크기 (다른 곳에서 200 사용, 안전하게 100으로 시작)
+      let hasMore = true;
+      let retryWithSmallerSize = false;
+
+      while (hasMore) {
+        try {
+          const response = await getBmpList({ page: currentPage, size: pageSize });
+          if (response.isSuccess && response.result) {
+            const items = response.result.content || [];
+            // 중복 제거: 이미 본 UUID는 제외
+            const uniqueItems = items.filter(item => {
+              if (seenUuids.has(item.generationUuid)) {
+                console.warn(`중복된 UUID 발견, 제외: ${item.generationUuid}`);
+                return false;
+              }
+              seenUuids.add(item.generationUuid);
+              return true;
+            });
+            allItems = [...allItems, ...uniqueItems];
+            
+            // 전체 개수 확인
+            const pagination = response.result.pagination;
+            const totalElements = pagination?.totalElements || 0;
+            const totalPages = pagination?.totalPages || 0;
+            
+            // 더 가져올 데이터가 있는지 확인
+            if (pagination?.last || currentPage >= totalPages - 1 || items.length < pageSize) {
+              hasMore = false;
+            } else {
+              currentPage++;
+            }
+          } else {
+            console.error('목록 조회 실패: 응답이 성공하지 않음', response);
+            hasMore = false;
+          }
+        } catch (pageError) {
+          // 첫 페이지 요청 실패 시 크기를 줄여서 재시도
+          if (currentPage === 0 && pageSize > 10 && !retryWithSmallerSize) {
+            console.warn(`페이지 크기 ${pageSize}로 실패, 더 작은 크기로 재시도...`);
+            pageSize = Math.max(10, Math.floor(pageSize / 2)); // 절반으로 줄이되 최소 10
+            retryWithSmallerSize = true;
+            // 재시도 (currentPage는 0으로 유지)
+            continue;
+          }
+          
+          // 페이지 요청 실패 시, 이미 가져온 데이터라도 사용
+          console.warn(`페이지 ${currentPage} 조회 실패:`, pageError);
+          hasMore = false;
+        }
       }
+
+      // 생성일시 기준 내림차순 정렬 (최신이 위로)
+      const sortedList = allItems.sort((a, b) => {
+        const dateA = new Date(a.requestedAt).getTime();
+        const dateB = new Date(b.requestedAt).getTime();
+        return dateB - dateA; // 내림차순
+      });
+      
+      setAllBmpList(sortedList);
     } catch (error) {
       console.error('목록 조회 실패:', error);
+      // 에러 상세 정보 로깅
+      if (error instanceof Error) {
+        console.error('에러 메시지:', error.message);
+        console.error('에러 스택:', error.stack);
+      }
+      // 에러 발생 시 빈 배열로 설정하여 UI가 깨지지 않도록 함
+      setAllBmpList([]);
     } finally {
       setIsLoading(false);
     }
@@ -214,26 +273,45 @@ export default function PatternTable() {
 
   // 외부에서 새로고침할 수 있도록 이벤트 리스너 등록
   useEffect(() => {
-    const handleRefresh = (event?: CustomEvent) => {
+    let isRefreshing = false; // 중복 요청 방지 플래그
+    
+    const handleRefresh = async (event: Event) => {
+      // 이미 새로고침 중이면 무시
+      if (isRefreshing) {
+        console.log('[목록 새로고침] 이미 새로고침 중이므로 건너뜀');
+        return;
+      }
+      
+      // CustomEvent인 경우 detail 확인
+      const customEvent = event as CustomEvent<{ resetPage?: boolean }>;
       // 새로 생성된 경우 첫 페이지로 이동하고 목록 새로고침
-      if (event?.detail?.resetPage) {
+      if (customEvent.detail?.resetPage) {
+        // 첫 페이지로 이동 (이미 0이면 변경 없음)
         if (page !== 0) {
           setPage(0);
-        } else {
-          // 이미 첫 페이지에 있으면 바로 새로고침
-          fetchBmpList();
         }
-      } else {
-        fetchBmpList();
+      }
+      
+      // 목록 새로고침
+      try {
+        isRefreshing = true;
+        await fetchBmpList();
+      } catch (error) {
+        console.error('[목록 새로고침] 오류:', error);
+      } finally {
+        // 짧은 딜레이 후 플래그 해제 (너무 빠른 연속 요청 방지)
+        setTimeout(() => {
+          isRefreshing = false;
+        }, 1000);
       }
     };
     
-    window.addEventListener('refreshBmpList', handleRefresh as EventListener);
+    window.addEventListener('refreshBmpList', handleRefresh);
     
     return () => {
-      window.removeEventListener('refreshBmpList', handleRefresh as EventListener);
+      window.removeEventListener('refreshBmpList', handleRefresh);
     };
-  }, [page, fetchBmpList]);
+  }, [fetchBmpList, page]);
 
   // 현재 시간을 1초마다 업데이트 (프로그래스바 업데이트용)
   useEffect(() => {
@@ -337,7 +415,7 @@ export default function PatternTable() {
     return item.isGenerated ? '완료' : '진행';
   };
 
-  // 진행률 계산 함수 (5분 기준)
+  // 진행률 계산 함수 (30초 기준)
   const getProgress = (item: BmpListItem): number => {
     // 완료된 작업은 항상 100%
     if (item.isGenerated) {
@@ -356,15 +434,15 @@ export default function PatternTable() {
     
     const requestedTime = new Date(dateString).getTime();
     const elapsedSeconds = (currentTime.getTime() - requestedTime) / 1000;
-    const fiveMinutes = 5 * 60; // 5분 = 300초
+    const thirtySeconds = 30; // 30초 기준
 
-    // 경과 시간이 5분 미만이면 비례 계산, 5분 이상이면 100%
+    // 경과 시간이 30초 미만이면 비례 계산, 30초 이상이면 100%
     if (elapsedSeconds < 0) {
       return 0;
-    } else if (elapsedSeconds >= fiveMinutes) {
+    } else if (elapsedSeconds >= thirtySeconds) {
       return 100;
     } else {
-      return Math.min(100, Math.round((elapsedSeconds / fiveMinutes) * 100));
+      return Math.min(100, Math.round((elapsedSeconds / thirtySeconds) * 100));
     }
   };
 
@@ -386,19 +464,20 @@ export default function PatternTable() {
         {/* 데스크톱: 표 */}
         <div className="hidden md:block">
           <CommonTableFrame
+            tableClassName="table-fixed"
             header={(
               <thead className="bg-gray-50">
                 <tr className="text-gray-700">
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">No.</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">생성일시</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">이미지 크기</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">상태</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">담당자</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">시작시각</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">완료시간</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3 w-[140px]">진행률</th>
-                  <th className="text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
+                  <th className="w-16 text-center font-semibold text-medium tracking-wide py-2 px-3">No.</th>
+                  <th className="w-40 text-center font-semibold text-medium tracking-wide py-2 px-3">생성일시</th>
+                  <th className="w-28 text-center font-semibold text-medium tracking-wide py-2 px-3">이미지 크기</th>
+                  <th className="w-24 text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
+                  <th className="w-20 text-center font-semibold text-medium tracking-wide py-2 px-3">상태</th>
+                  <th className="w-24 text-center font-semibold text-medium tracking-wide py-2 px-3">담당자</th>
+                  <th className="w-24 text-center font-semibold text-medium tracking-wide py-2 px-3">시작시각</th>
+                  <th className="w-24 text-center font-semibold text-medium tracking-wide py-2 px-3">완료시간</th>
+                  <th className="w-33 text-center font-semibold text-medium tracking-wide py-2 px-3">진행률</th>
+                  <th className="w-23 text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
                 </tr>
               </thead>
             )}
@@ -429,11 +508,11 @@ export default function PatternTable() {
                           className={`cursor-pointer odd:bg-white even:bg-gray-50 hover:bg-gray-100 ${isExpanded ? 'bg-blue-50' : ''}`}
                           onClick={() => handleRowClick(item)}
                         >
-                          <td className="py-2 px-3 text-center text-gray-600">{getJobNumber(idx)}</td>
-                          <td className="py-2 px-3 text-center text-gray-800">{formatKST(item.requestedAt)}</td>
-                          <td className="py-2 px-3 text-center text-gray-800">{item.bmpWidth}×{item.bmpHeight}</td>
-                          <td className="py-2 px-3 text-center text-gray-800">{formatFileSize(item.bmpVolume)}</td>
-                          <td className="py-2 px-3 text-center">
+                          <td className="w-16 py-2 px-3 text-center text-gray-600">{getJobNumber(idx)}</td>
+                          <td className="w-40 py-2 px-3 text-center text-gray-800">{formatKST(item.requestedAt)}</td>
+                          <td className="w-28 py-2 px-3 text-center text-gray-800">{item.bmpWidth}×{item.bmpHeight}</td>
+                          <td className="w-24 py-2 px-3 text-center text-gray-800">{formatFileSize(item.bmpVolume)}</td>
+                          <td className="w-20 py-2 px-3 text-center">
                             <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] ${
                               status === '진행' 
                                 ? 'bg-blue-50 text-blue-700 border-blue-200' 
@@ -442,12 +521,12 @@ export default function PatternTable() {
                               {status}
                             </span>
                           </td>
-                          <td className="py-2 px-3 text-center text-gray-800">{item.userName}</td>
-                          <td className="py-2 px-3 text-center text-gray-800">{formatKST(item.requestedAt).split(' ')[1]}</td>
-                          <td className="py-2 px-3 text-center text-gray-800">
+                          <td className="w-28 py-2 px-3 text-center text-gray-800">{item.userName}</td>
+                          <td className="w-28 py-2 px-3 text-center text-gray-800">{formatKST(item.requestedAt).split(' ')[1]}</td>
+                          <td className="w-28 py-2 px-3 text-center text-gray-800">
                             {item.completedAt ? formatKST(item.completedAt).split(' ')[1] : '-'}
                           </td>
-                          <td className="py-2 px-3 text-center">
+                          <td className="w-36 py-2 px-3 text-center">
                             <div className="relative w-full h-4 rounded-full bg-gray-200 overflow-hidden">
                               <div className={`h-full bg-[#2E7BEF]`} style={{ width: `${progress}%` }} />
                               <span className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white">
@@ -456,7 +535,7 @@ export default function PatternTable() {
                             </div>
                           </td>
                           <td 
-                            className="py-2 px-3 text-center"
+                            className="w-20 py-2 px-3 text-center"
                             onClick={(e) => e.stopPropagation()}
                           >
                             {status === '진행' ? (
@@ -482,7 +561,7 @@ export default function PatternTable() {
                         {isExpanded && (
                           <tr>
                             <td colSpan={10} className="p-0 bg-gray-50">
-                              <div className="p-6">
+                              <div className="p-6 overflow-x-auto">
                                 {isLoadingDetail ? (
                                   <div className="text-center py-8 text-gray-500">로딩 중...</div>
                                 ) : detailData ? (

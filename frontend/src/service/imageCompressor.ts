@@ -347,7 +347,8 @@ export function subscribeSSEWithAuth(
                       if (currentEvent.eventType) {
                         data.eventType = currentEvent.eventType;
                       }
-                      console.log('SSE 메시지 파싱 성공:', data, `이벤트 타입: ${currentEvent.eventType || '기본'}`);
+                      // 로그 제거: GlobalSSENotifications에서 처리하므로 중복 로그 방지
+                      // console.log('SSE 메시지 파싱 성공:', data, `이벤트 타입: ${currentEvent.eventType || '기본'}`);
                       onMessage(data);
                     } catch (error) {
                       console.error("SSE 메시지 파싱 오류:", error, "원본:", dataContent);

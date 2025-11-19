@@ -721,13 +721,13 @@ export default function SimulationPage() {
         if (data.ok) {
           setOptimizationResult(data.result);
           setHasAttemptedSimulation(true);
-          // 설비별 배치 섹션으로 스크롤
-          setTimeout(() => {
-            const batchPlanSection = document.getElementById('batch-plan-section');
-            if (batchPlanSection) {
-              batchPlanSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-          }, 200);
+        // 설비별 배치 섹션으로 스크롤
+        setTimeout(() => {
+          const batchPlanSection = document.getElementById('batch-plan-section');
+          if (batchPlanSection) {
+            batchPlanSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }, 200);
         } else {
           console.error('Optimization worker error:', data.error);
           setOptimizationResult(null);
@@ -858,8 +858,8 @@ export default function SimulationPage() {
                       <h2 className="text-xl font-semibold text-gray-900">원장 배치도</h2>
                     </div>
                     {optimizationResult.layoutResults.length > 0 && (
-                      <div className="space-y-4">
-                        <MotherGlassLayoutPreview
+                  <div className="space-y-4">
+                      <MotherGlassLayoutPreview
                           key={`${optimizationResult.layoutResults[currentGenerationIndex].motherGlass.id}-${currentGenerationIndex}`}
                           layoutResult={optimizationResult.layoutResults[currentGenerationIndex]}
                           currentIndex={currentGenerationIndex}

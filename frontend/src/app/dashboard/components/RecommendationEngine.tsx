@@ -312,23 +312,23 @@ export default function RecommendationEngine() {
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="flex items-start gap-2">
-                  <span className="font-semibold text-blue-600 min-w-20">용량 유사도 (30%)</span>
+                  <span className="font-semibold text-blue-600 w-35 shrink-0">용량 유사도 (30%)</span>
                   <span className="text-gray-600">입력한 파일 용량과 비슷한 압축 전 용량을 가진 내역을 우선 추천합니다.</span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="font-semibold text-green-600 min-w-20">압축률 (25%)</span>
+                  <span className="font-semibold text-blue-600 w-35 shrink-0">압축률 (25%)</span>
                   <span className="text-gray-600">압축률이 높을수록 더 많은 용량을 절약할 수 있습니다.</span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="font-semibold text-purple-600 min-w-20">압축 속도 (20%)</span>
+                  <span className="font-semibold text-blue-600 w-35 shrink-0">압축 속도 (20%)</span>
                   <span className="text-gray-600">평균 압축 속도가 빠를수록 처리 시간이 단축됩니다.</span>
                 </div>
                 <div className="flex items-start gap-2">
-                  <span className="font-semibold text-orange-600 min-w-20">총 소요시간 (15%)</span>
+                  <span className="font-semibold text-blue-600 w-35 shrink-0">총 소요시간 (15%)</span>
                   <span className="text-gray-600">요청부터 완료까지의 총 소요시간이 짧을수록 좋습니다.</span>
                 </div>
                 <div className="flex items-start gap-2 md:col-span-2">
-                  <span className="font-semibold text-red-600 min-w-20">압축 소요시간 (10%)</span>
+                  <span className="font-semibold text-blue-600 w-35 shrink-0">압축 소요시간 (10%)</span>
                   <span className="text-gray-600">실제 압축 작업에 소요된 시간이 짧을수록 효율적입니다.</span>
                 </div>
               </div>

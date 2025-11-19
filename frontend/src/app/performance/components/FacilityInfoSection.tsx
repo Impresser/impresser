@@ -106,13 +106,13 @@ export default function FacilityInfoSection({
   };
 
   return (
-    <CommonContainerBox className="flex max-h-[220px] flex-col">
-      <div className="flex-1 overflow-y-auto pr-2">
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3">
-            <div className="flex items-start justify-between gap-3">
-              <h2 className="text-lg font-bold text-gray-900 break-words">{facility.name}</h2>
-              <div className="flex flex-wrap items-center justify-end gap-2">
+    <CommonContainerBox className="flex max-h-[220px] flex-col min-w-0 w-full max-w-full overflow-x-hidden">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden pr-2 min-w-0 w-full">
+        <div className="flex flex-col gap-4 min-w-0 w-full">
+          <div className="flex flex-col gap-3 min-w-0 w-full">
+            <div className="flex items-start justify-between gap-3 min-w-0 w-full">
+              <h2 className="text-lg font-bold text-gray-900 break-words min-w-0 flex-1 overflow-hidden">{facility.name}</h2>
+              <div className="flex flex-wrap items-center justify-end gap-2 flex-shrink-0 max-w-full">
                 <CommonButton
                   type="button"
                   variant={isTaskSectionVisible ? 'gray' : 'blue'}
@@ -225,7 +225,7 @@ export default function FacilityInfoSection({
 
           {!isLoading && (
             <div className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 w-full min-w-0">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-500">모델명</label>
                   <p className="text-sm text-gray-900">{renderValue(facility.modelName)}</p>
@@ -252,7 +252,7 @@ export default function FacilityInfoSection({
                 </div>
               </div>
 
-              <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <div className="grid items-start gap-3 sm:grid-cols-2 lg:grid-cols-5 w-full min-w-0">
                 <div>
                   <label className="mb-1 block text-xs font-medium text-gray-500">CPU</label>
                   <p className="text-sm text-gray-900">{renderValue(facility.cpu)}</p>

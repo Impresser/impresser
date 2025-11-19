@@ -109,7 +109,7 @@ export const usePerformanceHistoryStore = create<PerformanceHistoryStore>((set) 
       completedTime: new Date(data.completedAt),
       duration: data.elapsedTime,
       tiffUrl: data.tiffUrl,
-      compressionTime: data.compressionTime,
+      compressionTime: (data as any).compressionTim ?? data.compressionTime,
       compressionRatio: data.compressionRatio,
     };
 
