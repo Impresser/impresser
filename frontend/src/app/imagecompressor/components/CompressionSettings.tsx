@@ -728,7 +728,7 @@ export default function CompressionSettings({
                           <th className="w-[18%] text-center font-semibold text-medium tracking-wide py-2 px-3">크기</th>
                           <th className="w-[12%] text-center font-semibold text-medium tracking-wide py-2 px-3">용량</th>
                           <th className="w-[40%] text-center font-semibold text-medium tracking-wide py-2 px-3">업로드 상태</th>
-                          <th className="w-[8%] text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
+                          <th className="w-[10%] text-center font-semibold text-medium tracking-wide py-2 px-3">작업</th>
                         </tr>
                       </thead>
                     }
