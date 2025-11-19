@@ -82,6 +82,9 @@ void ConvertWorker::stop() {
 void ConvertWorker::consumeQueue(const std::string& queueName,
     const std::string& exchangeName,
     const std::string& bindingKey) {
+
+    const int kConsumeTimeoutMs = 1000;
+
     while (running_) {
         try {
             auto channel = AmqpClient::Channel::Create(host_, port_, username_, password_);
@@ -107,7 +110,7 @@ void ConvertWorker::consumeQueue(const std::string& queueName,
 
                 bool got = false;
                 try {
-                    got = channel->BasicConsumeMessage(consumerTag, envelope, 1);
+                    got = channel->BasicConsumeMessage(consumerTag, envelope, kConsumeTimeoutMs);
                 }
                 catch (const std::exception& ex) {
                     std::cerr << "[worker] BasicConsumeMessage error on queue "
