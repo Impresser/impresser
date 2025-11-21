@@ -59,35 +59,55 @@ GPU 기반으로 고속·고효율 이미지 압축을 수행하는 Impresser �
 
 ## 🛠 기술 스택
 
-### Backend
+<div align="center">
+
+### Backend  
 ![Java](https://img.shields.io/badge/Java-007396?style=for-the-badge&logo=Java&logoColor=white)
 ![SpringBoot](https://img.shields.io/badge/SpringBoot-6DB33F?style=for-the-badge&logo=SpringBoot&logoColor=white)
 ![Spring Security](https://img.shields.io/badge/Spring%20Security-6DB33F?style=for-the-badge&logo=SpringSecurity&logoColor=white)
-![Spring Batch](https://img.shields.io/badge/Spring%20Batch-6DB33F?style=for-the-badge&logo=Spring&logoColor=white)
 ![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=MySQL&logoColor=white)
 ![Redis](https://img.shields.io/badge/Redis-FF4438?style=for-the-badge&logo=Redis&logoColor=white)
 ![Swagger](https://img.shields.io/badge/Swagger-85EA2D?style=for-the-badge&logo=Swagger&logoColor=white)
+![rabbitMQ](https://img.shields.io/badge/rabbitmq-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
+![SSE](https://img.shields.io/badge/SSE-4479A1?style=for-the-badge&logo=&logoColor=white)
+![minio](https://img.shields.io/badge/minio-C72E49?style=for-the-badge&logo=minio&logoColor=white)
+
+---
+### Image
+  ![nvtiff](https://img.shields.io/badge/NVtiff-76B900?style=for-the-badge&logo=nvidia&logoColor=white)
+  ![libtiff](https://img.shields.io/badge/libtiff-76B900?style=for-the-badge&logo=libtiff&logoColor=white)
+  ![libcurl](https://img.shields.io/badge/libcurl-black?style=for-the-badge&logo=libcurl&logoColor=white)
+  ![CUDA](https://img.shields.io/badge/CUDA-76B900?style=for-the-badge&logo=nvidia&logoColor=white)
+  ![RUNPOD](https://img.shields.io/badge/RUNPOD-5D29F0?style=for-the-badge&logo=RUNPOD&logoColor=white)
+  ![nlohmann/json](https://img.shields.io/badge/nlohmann/json-black?style=for-the-badge&logo=nlohmann/json&logoColor=white)
 
 
-
-### Frontend
+---
+### Frontend  
 ![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=TypeScript&logoColor=white)
 ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-06B6D4?style=for-the-badge&logo=TailwindCSS&logoColor=white)
 ![Zustand](https://img.shields.io/badge/Zustand-000000?style=for-the-badge&logo=Zustand&logoColor=white)
 
+---
 
-### DevOps / Infra
+### DevOps / Infra  
 ![Jenkins](https://img.shields.io/badge/Jenkins-D24939?style=for-the-badge&logo=Jenkins&logoColor=white)
 ![GitLab](https://img.shields.io/badge/GitLab-FC6D26?style=for-the-badge&logo=GitLab&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=Docker&logoColor=white)
+![Docker hub](https://img.shields.io/badge/Docker_hub-2496ED?style=for-the-badge&logo=Docker&logoColor=white)
 ![Nginx](https://img.shields.io/badge/Nginx-009639?style=for-the-badge&logo=Nginx&logoColor=white)
 
-### Tools
+---
+### Tools  
 ![IntelliJ IDEA](https://img.shields.io/badge/IntelliJ%20IDEA-000000?style=for-the-badge&logo=IntelliJIDEA&logoColor=white)
 ![Visual Studio Code](https://img.shields.io/badge/Visual%20Studio%20Code-3EAAF2?style=for-the-badge&logo=VisualStudioCode&logoColor=white)
+![Visual Studio](https://img.shields.io/badge/Visual%20Studio-D29BFD?style=for-the-badge&logo=VisualStudio&logoColor=black)
 ![Figma](https://img.shields.io/badge/Figma-F24E1E?style=for-the-badge&logo=Figma&logoColor=white)
 ![Notion](https://img.shields.io/badge/Notion-F3F3F3?style=for-the-badge&logo=Notion&logoColor=black)
+
+</div>
+
 
 <br>
 
