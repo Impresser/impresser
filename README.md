@@ -49,7 +49,7 @@ GPU를 활용하여 **고속·고효율 이미지 압축**을 수행하는 Impre
             <img src="./readme/image/김나경.jpg" width="140px" height="160px" alt="김나경"/>
           </a><br>
           <b><sub>김나경 (Leader)</sub></b><br>
-          <sub><a href="https://github.com/iqveou6">@김나경</a></sub><br><br>
+          <sub><a href="https://github.com/iqveou6">@iqveou6</a></sub><br><br>
           <img src="https://img.shields.io/badge/Backend-0771A1?style=flat&logo=springboot&logoColor=white"/>
           <br><br>
           <div align="left">
@@ -67,7 +67,7 @@ GPU를 활용하여 **고속·고효율 이미지 압축**을 수행하는 Impre
             <img src="./readme/image/김환수.jpg" width="140px" height="160px" alt="김환수"/>
           </a><br>
           <b><sub>김환수</sub></b><br>
-          <sub><a href="https://github.com/KimHS17">@김환수</a></sub><br><br>
+          <sub><a href="https://github.com/KimHS17">@KimHS17</a></sub><br><br>
           <img src="https://img.shields.io/badge/Backend-0771A1?style=flat&logo=springboot&logoColor=white"/>
           <img src="https://img.shields.io/badge/Infra-FF9900?style=flat&logo=amazonaws&logoColor=white"/>
           <br><br>
@@ -86,7 +86,7 @@ GPU를 활용하여 **고속·고효율 이미지 압축**을 수행하는 Impre
             <img src="./readme/image/이희산.webp" width="140px" height="160px" alt="이희산"/>
           </a><br>
           <b><sub>이희산</sub></b><br>
-          <sub><a href="https://github.com/Lee-heesan">@이희산</a></sub><br><br>
+          <sub><a href="https://github.com/Lee-heesan">@Lee-heesan</a></sub><br><br>
           <img src="https://img.shields.io/badge/Backend-0771A1?style=flat&logo=springboot&logoColor=white"/>
           <br><br>
           <div align="left">
@@ -113,7 +113,7 @@ GPU를 활용하여 **고속·고효율 이미지 압축**을 수행하는 Impre
             <img src="./readme/image/박지현.png" width="140px" height="160px" alt="박지현"/>
           </a><br>
           <b><sub>박지현</sub></b><br>
-          <sub><a href="https://github.com/gorjheous">@박지현</a></sub><br><br>
+          <sub><a href="https://github.com/gorjheous">@gorjheous</a></sub><br><br>
           <img src="https://img.shields.io/badge/Frontend-61DAFB?style=flat&logo=react&logoColor=white"/>
           <img src="https://img.shields.io/badge/Design-FCA311?style=flat&logo=figma&logoColor=white"/>
           <br><br>
@@ -132,7 +132,7 @@ GPU를 활용하여 **고속·고효율 이미지 압축**을 수행하는 Impre
             <img src="./readme/image/윤혜진.jpg" width="140px" height="160px" alt="윤혜진"/>
           </a><br>
           <b><sub>윤혜진</sub></b><br>
-          <sub><a href="https://github.com/g2pwls">@윤혜진</a></sub><br><br>
+          <sub><a href="https://github.com/g2pwls">@g2pwls</a></sub><br><br>
           <img src="https://img.shields.io/badge/Frontend-61DAFB?style=flat&logo=react&logoColor=white"/>
           <img src="https://img.shields.io/badge/Design-FCA311?style=flat&logo=figma&logoColor=white"/>
           <br><br>
