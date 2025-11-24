@@ -40,7 +40,6 @@ GPU를 활용하여 **고속·고효율 이미지 압축**을 수행하는 Impre
 
 ## 👨‍👩‍👧‍👦 팀원 소개
 
-### Backend
 <div align="center">
   <table style="border-collapse: collapse;">
     <tbody>
@@ -105,7 +104,6 @@ GPU를 활용하여 **고속·고효율 이미지 압축**을 수행하는 Impre
   </table>
 </div>
 
-### Frontend
 <div align="center">
   <table style="border-collapse: collapse;">
     <tbody>
